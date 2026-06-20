@@ -133,11 +133,13 @@ function resolvedLevel(item: { visibilityOverride: MembershipLevel | null }, fal
 export function ContentDetailView({
   dictionary,
   id,
+  initialDetail,
   kind,
   locale
 }: {
   dictionary: Dictionary;
   id: string;
+  initialDetail?: RemoteDetail | null;
   kind: DetailKind;
   locale: Locale;
 }) {
@@ -185,7 +187,12 @@ export function ContentDetailView({
     };
   }, [id, kind]);
 
-  const detail = remoteDetail?.kind === kind ? remoteDetail : localDetail;
+  const detail =
+    remoteDetail?.kind === kind
+      ? remoteDetail
+      : initialDetail?.kind === kind
+        ? initialDetail
+        : localDetail;
 
   if (!detail) {
     return <EmptyDetailState dictionary={dictionary} kind={kind} locale={locale} loading={!remoteSettled} />;

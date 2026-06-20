@@ -1,6 +1,7 @@
 import { ContentDetailView } from "@/components/ContentDetailView";
 import { getDictionary } from "@/i18n/dictionaries";
 import { normalizeLocale } from "@/i18n/routing";
+import { fetchServerAlbumDetail } from "@/services/content-detail-server";
 
 export default async function AlbumDetailPage({
   params
@@ -9,6 +10,15 @@ export default async function AlbumDetailPage({
 }) {
   const { id, locale: localeParam } = await params;
   const locale = normalizeLocale(localeParam);
+  const initialDetail = await fetchServerAlbumDetail(id);
 
-  return <ContentDetailView dictionary={getDictionary(locale)} id={id} kind="album" locale={locale} />;
+  return (
+    <ContentDetailView
+      dictionary={getDictionary(locale)}
+      id={id}
+      initialDetail={initialDetail}
+      kind="album"
+      locale={locale}
+    />
+  );
 }

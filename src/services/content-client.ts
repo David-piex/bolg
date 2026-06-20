@@ -212,32 +212,14 @@ export async function fetchRemoteContentDataset(accessToken?: string): Promise<C
   };
 }
 
-export async function fetchRemotePostsPage(input: { page?: number; size?: number } = {}): Promise<RemoteContentPage<PostRecord>> {
-  return contentPageFromJava(await listPosts(input), postFromJava);
-}
-
-export async function fetchRemoteAlbumsPage(input: { page?: number; size?: number } = {}): Promise<RemoteContentPage<AlbumRecord>> {
-  return contentPageFromJava(await listAlbums(input), albumFromJava);
-}
-
-export async function fetchRemoteVideosPage(
-  input: { page?: number; size?: number } = {}
-): Promise<RemoteContentPage<{ collection: VideoCollectionRecord; video: VideoRecord }>> {
-  return contentPageFromJava(await listVideos(input), (video) => ({
-    collection: videoCollectionFromJava(video),
-    video: videoFromJava(video)
-  }));
-}
-
-export async function fetchRemotePostDetail(id: string): Promise<RemoteDetail> {
+export function detailFromJavaPost(post: JavaPost): RemoteDetail {
   return {
     kind: "post",
-    post: postFromJava(await getPost(id))
+    post: postFromJava(post)
   };
 }
 
-export async function fetchRemoteAlbumDetail(id: string): Promise<RemoteDetail> {
-  const album = await getAlbum(id);
+export function detailFromJavaAlbum(album: JavaAlbum): RemoteDetail {
   return {
     album: albumFromJava(album),
     kind: "album",
@@ -256,13 +238,41 @@ export async function fetchRemoteAlbumDetail(id: string): Promise<RemoteDetail> 
   };
 }
 
-export async function fetchRemoteVideoDetail(id: string): Promise<RemoteDetail> {
-  const video = await getVideo(javaVideoIdFromCollectionId(id));
+export function detailFromJavaVideo(video: JavaVideo): RemoteDetail {
   return {
     collection: videoCollectionFromJava(video),
     kind: "video",
     videos: [videoFromJava(video)]
   };
+}
+
+export async function fetchRemotePostsPage(input: { page?: number; size?: number } = {}): Promise<RemoteContentPage<PostRecord>> {
+  return contentPageFromJava(await listPosts(input), postFromJava);
+}
+
+export async function fetchRemoteAlbumsPage(input: { page?: number; size?: number } = {}): Promise<RemoteContentPage<AlbumRecord>> {
+  return contentPageFromJava(await listAlbums(input), albumFromJava);
+}
+
+export async function fetchRemoteVideosPage(
+  input: { page?: number; size?: number } = {}
+): Promise<RemoteContentPage<{ collection: VideoCollectionRecord; video: VideoRecord }>> {
+  return contentPageFromJava(await listVideos(input), (video) => ({
+    collection: videoCollectionFromJava(video),
+    video: videoFromJava(video)
+  }));
+}
+
+export async function fetchRemotePostDetail(id: string): Promise<RemoteDetail> {
+  return detailFromJavaPost(await getPost(id));
+}
+
+export async function fetchRemoteAlbumDetail(id: string): Promise<RemoteDetail> {
+  return detailFromJavaAlbum(await getAlbum(id));
+}
+
+export async function fetchRemoteVideoDetail(id: string): Promise<RemoteDetail> {
+  return detailFromJavaVideo(await getVideo(javaVideoIdFromCollectionId(id)));
 }
 
 export async function publishRemoteContent(
