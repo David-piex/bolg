@@ -125,8 +125,8 @@ if docker volume inspect deploy_postgres-data >/dev/null 2>&1; then
     sleep 2
   done
 
-  docker compose exec -T postgres sh -ceu 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v db_user="$POSTGRES_USER" -v db_pass="$POSTGRES_PASSWORD" <<'"'"'SQL'"'"'
-ALTER USER :"db_user" WITH PASSWORD :'db_pass';
+  docker compose exec -T postgres sh -ceu 'sql_literal() { printf "'\''%s'\''" "$(printf '\''%s'\'' "$1" | sed "s/'\''/'\'''\''/g")"; }; sql_identifier() { printf '\''"%s"'\'' "$(printf '\''%s'\'' "$1" | sed '\''s/"/""/g'\'')"; }; psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v db_user="$(sql_identifier "$POSTGRES_USER")" -v db_pass="$(sql_literal "$POSTGRES_PASSWORD")" <<'"'"'SQL'"'"'
+ALTER USER :db_user WITH PASSWORD :db_pass;
 SQL'
 
   if [ "$backend_env_was_created" = "1" ]; then
@@ -135,13 +135,13 @@ SQL'
     # backend.env remains a usable recovery credential.
     # shellcheck disable=SC1091
     . "$ENV_DIR/backend.env"
-    docker compose exec -T postgres sh -ceu 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v admin_user="$1" -v admin_email="$2" -v admin_name="$3" -v admin_password="$4" <<'"'"'SQL'"'"'
+    docker compose exec -T postgres sh -ceu 'sql_literal() { printf "'\''%s'\''" "$(printf '\''%s'\'' "$1" | sed "s/'\''/'\'''\''/g")"; }; psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v admin_user="$(sql_literal "$1")" -v admin_email="$(sql_literal "$2")" -v admin_name="$(sql_literal "$3")" -v admin_password="$(sql_literal "$4")" <<'"'"'SQL'"'"'
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 UPDATE users
-SET username = :'admin_user',
-    email = :'admin_email',
-    display_name = :'admin_name',
-    password_hash = crypt(:'admin_password', gen_salt('bf')),
+SET username = :admin_user,
+    email = :admin_email,
+    display_name = :admin_name,
+    password_hash = crypt(:admin_password, gen_salt('bf')),
     member_level = 'DIAMOND',
     status = 'ACTIVE',
     updated_at = now()
