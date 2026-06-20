@@ -10,14 +10,20 @@ import {
 } from "react";
 import {
   deleteRemoteContent,
+  fetchRemoteAlbumsPage,
   fetchRemoteContentDataset,
+  fetchRemotePostsPage,
+  fetchRemoteVideosPage,
   publishRemoteContent,
-  updateRemoteContent
+  updateRemoteContent,
+  type RemoteContentPage
 } from "@/services/content-client";
 import {
   createRemoteInvite,
   deleteRemoteInvite,
   fetchRemoteAdminDataset,
+  fetchRemoteAdminUsers,
+  type AdminUserPage,
   updateRemoteUser
 } from "@/services/admin-client";
 import { consumeInviteCode, type InviteCode, type InviteTargetLevel } from "@/domain/invites";
@@ -69,8 +75,11 @@ type ContentState = {
   videos: VideoRecord[];
 };
 
+const defaultAdminUserPageSize = 10;
+
 type AppStateValue = {
   users: UserProfile[];
+  adminUserPage: AdminUserPage;
   invites: InviteCode[];
   posts: PostRecord[];
   albums: AlbumRecord[];
@@ -87,6 +96,12 @@ type AppStateValue = {
   loginWithPassword: (input: { email: string; password: string }) => Promise<RemoteAuthResult>;
   loginAs: (userId: string | null) => void;
   logout: () => Promise<void>;
+  loadAlbumsPage: (input: { page?: number; size?: number }) => Promise<RemoteContentPage<AlbumRecord>>;
+  loadAdminUsersPage: (input: { page?: number; q?: string; size?: number }) => Promise<void>;
+  loadPostsPage: (input: { page?: number; size?: number }) => Promise<RemoteContentPage<PostRecord>>;
+  loadVideosPage: (input: { page?: number; size?: number }) => Promise<
+    RemoteContentPage<{ collection: VideoCollectionRecord; video: VideoRecord }>
+  >;
   updateUserLevel: (userId: string, level: Exclude<MembershipLevel, "public">) => void;
   toggleUserDisabled: (userId: string) => void;
   generateInvite: (level: Exclude<MembershipLevel, "public">) => Promise<string>;
@@ -113,6 +128,7 @@ type AppStateValue = {
     videoTitle: string;
     playbackUrl?: string;
     mediaAssetId?: string;
+    coverMediaId?: string;
     thumbnailUrl?: string;
   }) => Promise<void>;
   updatePost: (input: {
@@ -136,6 +152,7 @@ type AppStateValue = {
     description: string;
     defaultVisibility: MembershipLevel;
     coverImage?: string;
+    coverMediaId?: string;
   }) => Promise<void>;
   deleteContent: (input: { kind: "post" | "album" | "video"; id: string }) => Promise<void>;
 };
@@ -303,6 +320,27 @@ function mergeRemoteUsers(currentUsers: UserProfile[], remoteUsers: UserProfile[
   return [...remoteUsers, ...currentUsers.filter((user) => !remoteUserIds.has(user.id))];
 }
 
+function mergeById<T extends { id: string }>(currentItems: T[], incomingItems: T[]): T[] {
+  const incomingIds = new Set(incomingItems.map((item) => item.id));
+  return [...incomingItems, ...currentItems.filter((item) => !incomingIds.has(item.id))];
+}
+
+function makeLocalAdminUserPage(users: UserProfile[], page = 0, size = defaultAdminUserPageSize): AdminUserPage {
+  const safeSize = Math.max(1, size);
+  const total = users.length;
+  const totalPages = Math.max(1, Math.ceil(total / safeSize));
+  const safePage = Math.min(Math.max(page, 0), totalPages - 1);
+  const start = safePage * safeSize;
+
+  return {
+    page: safePage,
+    size: safeSize,
+    total,
+    totalPages,
+    users: users.slice(start, start + safeSize)
+  };
+}
+
 function sessionFromLogin(session: ClientLoginSession): AuthSession {
   return {
     accessToken: session.accessToken,
@@ -323,6 +361,7 @@ function userCanManage(user: UserProfile | null): boolean {
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<PersistedState>(createInitialState);
   const [remoteContent, setRemoteContent] = useState<ContentState>(emptyContentState);
+  const [remoteAdminUserPage, setRemoteAdminUserPage] = useState<AdminUserPage | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [authReady, setAuthReady] = useState(false);
 
@@ -439,6 +478,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           invites: dataset.invites ?? current.invites,
           users: dataset.users ? mergeRemoteUsers(current.users, dataset.users) : current.users
         }));
+        setRemoteAdminUserPage(dataset.userPage);
       })
       .catch(() => {
         // Keep local admin demo data when the admin API is unavailable.
@@ -451,6 +491,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AppStateValue>(() => {
     const currentUser = state.users.find((user) => user.id === state.currentUserId) ?? null;
+    const adminUserPage = remoteAdminUserPage ?? makeLocalAdminUserPage(state.users);
     const content = hasRemoteContent(remoteContent)
       ? remoteContent
       : {
@@ -463,6 +504,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
     return {
       users: state.users,
+      adminUserPage,
       invites: state.invites,
       posts: content.posts,
       albums: content.albums,
@@ -556,13 +598,128 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         if (state.authSession?.accessToken) {
           await logoutClient();
         }
+        setRemoteAdminUserPage(null);
         setState((current) => ({ ...current, authSession: null, currentUserId: null }));
+      },
+      async loadPostsPage(input) {
+        try {
+          const page = await fetchRemotePostsPage(input);
+          setRemoteContent((current) => ({
+            ...current,
+            posts: mergeById(current.posts, page.items)
+          }));
+          return page;
+        } catch {
+          const pageNumber = input.page ?? 0;
+          const pageSize = input.size ?? 12;
+          const items = content.posts.slice(pageNumber * pageSize, pageNumber * pageSize + pageSize);
+          return {
+            items,
+            page: pageNumber,
+            size: pageSize,
+            total: content.posts.length,
+            totalPages: Math.max(1, Math.ceil(content.posts.length / pageSize))
+          };
+        }
+      },
+      async loadAlbumsPage(input) {
+        try {
+          const page = await fetchRemoteAlbumsPage(input);
+          setRemoteContent((current) => ({
+            ...current,
+            albums: mergeById(current.albums, page.items)
+          }));
+          return page;
+        } catch {
+          const pageNumber = input.page ?? 0;
+          const pageSize = input.size ?? 12;
+          const items = content.albums.slice(pageNumber * pageSize, pageNumber * pageSize + pageSize);
+          return {
+            items,
+            page: pageNumber,
+            size: pageSize,
+            total: content.albums.length,
+            totalPages: Math.max(1, Math.ceil(content.albums.length / pageSize))
+          };
+        }
+      },
+      async loadVideosPage(input) {
+        try {
+          const page = await fetchRemoteVideosPage(input);
+          setRemoteContent((current) => ({
+            ...current,
+            videoCollections: mergeById(current.videoCollections, page.items.map((item) => item.collection)),
+            videos: mergeById(current.videos, page.items.map((item) => item.video))
+          }));
+          return page;
+        } catch {
+          const pageNumber = input.page ?? 0;
+          const pageSize = input.size ?? 12;
+          const items = content.videoCollections
+            .slice(pageNumber * pageSize, pageNumber * pageSize + pageSize)
+            .map((collection) => ({
+              collection,
+              video: content.videos.find((video) => video.collectionId === collection.id) ?? {
+                collectionId: collection.id,
+                description: collection.description,
+                id: `${collection.id}-empty`,
+                mediaAssetId: "",
+                playbackUrl: "",
+                processingState: "ready" as const,
+                sortOrder: 1,
+                thumbnailUrl: collection.coverImage,
+                title: collection.title,
+                visibilityOverride: null
+              }
+            }));
+          return {
+            items,
+            page: pageNumber,
+            size: pageSize,
+            total: content.videoCollections.length,
+            totalPages: Math.max(1, Math.ceil(content.videoCollections.length / pageSize))
+          };
+        }
+      },
+      async loadAdminUsersPage(input) {
+        const page = input.page ?? 0;
+        const size = input.size ?? adminUserPage.size;
+        const query = input.q?.trim().toLowerCase() ?? "";
+
+        if (state.authSession?.accessToken) {
+          const nextPage = await fetchRemoteAdminUsers(state.authSession.accessToken, {
+            page,
+            q: input.q,
+            size
+          });
+          setRemoteAdminUserPage(nextPage);
+          setState((current) => ({
+            ...current,
+            users: mergeRemoteUsers(current.users, nextPage.users)
+          }));
+          return;
+        }
+
+        const filteredUsers = query
+          ? state.users.filter((user) =>
+              [user.name, user.email, user.level].some((value) => value.toLowerCase().includes(query))
+            )
+          : state.users;
+        setRemoteAdminUserPage(makeLocalAdminUserPage(filteredUsers, page, size));
       },
       updateUserLevel(userId, level) {
         setState((current) => ({
           ...current,
           users: current.users.map((user) => (user.id === userId ? { ...user, level } : user))
         }));
+        setRemoteAdminUserPage((current) =>
+          current
+            ? {
+                ...current,
+                users: current.users.map((user) => (user.id === userId ? { ...user, level } : user))
+              }
+            : current
+        );
 
         if (state.authSession?.accessToken) {
           void updateRemoteUser(state.authSession.accessToken, { level: level as InviteTargetLevel, userId }).catch(() => {
@@ -580,6 +737,16 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             user.id === userId ? { ...user, disabled: !user.disabled } : user
           )
         }));
+        setRemoteAdminUserPage((current) =>
+          current
+            ? {
+                ...current,
+                users: current.users.map((user) =>
+                  user.id === userId ? { ...user, disabled: nextDisabled } : user
+                )
+              }
+            : current
+        );
 
         if (state.authSession?.accessToken) {
           void updateRemoteUser(state.authSession.accessToken, { disabled: nextDisabled, userId }).catch(() => {
@@ -742,6 +909,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             description: collection.description,
             kind: "video",
             playbackUrl: video.playbackUrl,
+            coverMediaId: input.coverMediaId,
             thumbnailUrl: video.thumbnailUrl,
             title: collection.title,
             videoTitle: video.title,
@@ -851,6 +1019,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         if (state.authSession?.accessToken) {
           await updateRemoteContent(state.authSession.accessToken, {
             coverImage: updatedCollection.coverImage,
+            coverMediaId: input.coverMediaId || mediaIdFromAccessUrl(updatedCollection.coverImage),
             defaultVisibility: updatedCollection.defaultVisibility,
             description: updatedCollection.description,
             id: updatedCollection.id,

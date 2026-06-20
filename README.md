@@ -58,7 +58,19 @@ bash deploy/server-deploy.sh
 - `/api/` -> 后端容器
 - `/rinana-media/` -> MinIO 私有对象的短时签名访问入口
 
-媒体文件通过后端上传，存入 MinIO。用户访问媒体时，后端先做权限判断，再返回短时有效的 MinIO 预签名地址。
+MinIO 只在 Docker 内部网络可达，不直接映射宿主机端口。媒体文件通过后端上传，存入 MinIO。用户访问媒体时，后端先做权限判断，再返回经 Nginx `/rinana-media/` 转发的短时有效 MinIO 预签名地址。
+
+## 上传和 CDN
+
+当前默认上传限制按 Cloudflare 代理后的请求体上限配置：
+
+- 前端视频文件上限：`95MB`
+- Spring multipart：`MAX_UPLOAD_FILE_SIZE=95MB`、`MAX_UPLOAD_REQUEST_SIZE=100MB`
+- Nginx：`client_max_body_size 100m`
+
+这个上限是故意低于 Cloudflare Free/Pro 的 `100MB` 请求体限制，给 multipart 表单开销留余量。Cloudflare Business 是 `200MB`，Enterprise 默认 `500MB+`；如果后续升级套餐，也要同步调整前端校验、Spring multipart 和 Nginx。视频建议上传浏览器可直接播放的 MP4（H.264 + AAC）；当前系统不做转码、不做 HLS、不做多码率。
+
+后续接 Cloudflare CDN 时，主站、API 和媒体仍走同一个 Nginx 入口。`/rinana-media/` 是短时签名 URL，query string 会变化；如果要强缓存媒体路径，需要单独设计 Cloudflare Cache Rules，不能直接全站忽略 query string。MP4 播放先保证 Range 请求透传；如果 Safari/iOS 出现播放异常，再按 Cloudflare 当前排障文档单独处理 MP4 缓存规则。超过 `95MB` 的视频优先考虑分片上传、上传专用未代理域名、Cloudflare Stream/R2 或套餐升级，不要只改 Nginx。
 
 ## 核心接口
 

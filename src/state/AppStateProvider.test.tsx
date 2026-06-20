@@ -758,6 +758,22 @@ describe("AppStateProvider", () => {
     );
     vi.mocked(fetchRemoteAdminDataset).mockResolvedValue({
       invites: [{ code: "GOLD-REMOTE", id: "invite-remote", targetLevel: "gold", usedByUserId: null }],
+      userPage: {
+        page: 0,
+        size: 10,
+        total: 1,
+        totalPages: 1,
+        users: [
+          {
+            disabled: false,
+            email: "member@example.com",
+            id: "member-1",
+            isAdmin: true,
+            level: "gold",
+            name: "Member"
+          }
+        ]
+      },
       users: [
         {
           disabled: false,

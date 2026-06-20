@@ -161,6 +161,8 @@ curl http://127.0.0.1/api/content
 - `SPRING_DATA_REDIS_HOST`
 - `MINIO_ENDPOINT`
 - `MINIO_PUBLIC_ENDPOINT`
+- `MAX_UPLOAD_FILE_SIZE`
+- `MAX_UPLOAD_REQUEST_SIZE`
 - `MINIO_ACCESS_KEY`
 - `MINIO_SECRET_KEY`
 - `JWT_SECRET`
@@ -171,6 +173,8 @@ curl http://127.0.0.1/api/content
 ```env
 MINIO_ENDPOINT=http://minio:9000
 MINIO_PUBLIC_ENDPOINT=https://lingnaive520.uk
+MAX_UPLOAD_FILE_SIZE=95MB
+MAX_UPLOAD_REQUEST_SIZE=100MB
 ```
 
 ## 7. 已验证内容
@@ -188,15 +192,15 @@ MINIO_PUBLIC_ENDPOINT=https://lingnaive520.uk
 - 邀请码注册可用。
 - GOLD/DIAMOND 可见性规则可用。
 - 图片上传可用。
-- 视频上传可用。
+- 视频上传可用，默认单个视频不超过 `95MB`。
 - 头像上传小于 10MB 的限制可用。
 - 邮箱和密码修改可用。
 
 ## 8. 后续建议
 
 - 给 PostgreSQL 和 MinIO 增加定时备份。
-- 收紧 MinIO 管理端口的公网访问。
+- 保持 MinIO `9000/9001` 不直接公网暴露，维护时通过 SSH 隧道或临时管理员专用 Compose override 访问。
 - 生成正确的 Cloudflare Origin Server Certificate 后，将 SSL/TLS 从 `Full` 切换为 `Full (strict)`。
-- 增加上传前视频格式提示。
+- 增加上传前视频格式提示和上传进度显示。
 - 增加服务器磁盘占用监控。
 - 增加管理员审计日志查看页面。

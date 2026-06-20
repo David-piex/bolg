@@ -129,9 +129,38 @@ class AdminControllerTest {
 
     mvc.perform(get("/api/admin/users").cookie(adminCookie))
       .andExpect(status().isOk())
-      .andExpect(jsonPath("$[?(@.username == 'admin')]").isEmpty())
-      .andExpect(jsonPath("$[?(@.username == 'member-list')].memberLevel").value("NORMAL"))
-      .andExpect(jsonPath("$[?(@.username == 'member-list')].status").value("ACTIVE"));
+      .andExpect(jsonPath("$.users[?(@.username == 'admin')]").isEmpty())
+      .andExpect(jsonPath("$.users[?(@.username == 'member-list')].memberLevel").value("NORMAL"))
+      .andExpect(jsonPath("$.users[?(@.username == 'member-list')].status").value("ACTIVE"))
+      .andExpect(jsonPath("$.page").value(0))
+      .andExpect(jsonPath("$.size").value(10));
+  }
+
+  @Test
+  void superAdminCanPageAndSearchUsersForManagement() throws Exception {
+    Cookie adminCookie = loginAdmin();
+    createUser("page-alpha", "page-alpha@example.com");
+    createUser("page-beta", "page-beta@example.com");
+    createUser("page-gamma", "page-gamma@example.com");
+
+    mvc.perform(get("/api/admin/users")
+        .queryParam("q", "page-")
+        .queryParam("page", "0")
+        .queryParam("size", "2")
+        .cookie(adminCookie))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.users.length()").value(2))
+      .andExpect(jsonPath("$.total").value(3))
+      .andExpect(jsonPath("$.totalPages").value(2));
+
+    mvc.perform(get("/api/admin/users")
+        .queryParam("q", "page-beta")
+        .queryParam("page", "0")
+        .queryParam("size", "10")
+        .cookie(adminCookie))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.users.length()").value(1))
+      .andExpect(jsonPath("$.users[0].username").value("page-beta"));
   }
 
   @Test

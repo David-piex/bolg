@@ -19,7 +19,8 @@ describe("ContentCard", () => {
     );
 
     expect(screen.getByText("暂无封面")).toBeInTheDocument();
-    expect(screen.getByLabelText("未命名相册封面")).not.toHaveStyle("background-image: url()");
+    expect(screen.getByLabelText("未命名相册封面")).toHaveClass("card-media-empty");
+    expect(screen.queryByRole("img", { name: "未命名相册封面" })).not.toBeInTheDocument();
     expect(screen.queryByText("Untitled album")).not.toBeInTheDocument();
     expect(screen.queryByText("New album")).not.toBeInTheDocument();
   });

@@ -13,8 +13,8 @@ spring:
     enabled: true
   servlet:
     multipart:
-      max-file-size: ${MAX_UPLOAD_FILE_SIZE:512MB}
-      max-request-size: ${MAX_UPLOAD_REQUEST_SIZE:512MB}
+      max-file-size: ${MAX_UPLOAD_FILE_SIZE:95MB}
+      max-request-size: ${MAX_UPLOAD_REQUEST_SIZE:100MB}
 
 server:
   port: ${SERVER_PORT:8080}

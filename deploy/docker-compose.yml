@@ -70,9 +70,9 @@ services:
     command: server /data --console-address ":9001"
     env_file:
       - ./env/minio.env
-    ports:
-      - "9000:9000"
-      - "9001:9001"
+    expose:
+      - "9000"
+      - "9001"
     volumes:
       - minio-data:/data
     restart: unless-stopped

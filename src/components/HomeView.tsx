@@ -1,8 +1,10 @@
 "use client";
 
 import { ContentCard } from "@/components/ContentCard";
+import { EmptyContentState } from "@/components/EmptyContentState";
 import { getHomeFeed } from "@/data/repository";
 import type { getDictionary } from "@/i18n/dictionaries";
+import type { Locale } from "@/i18n/routing";
 import { useAppState } from "@/state/AppStateProvider";
 
 type Dictionary = ReturnType<typeof getDictionary>;
@@ -21,7 +23,13 @@ function formatArchiveTitleLines(title: string) {
   return [title];
 }
 
-export function HomeView({ dictionary }: { dictionary: Dictionary }) {
+function hrefForFeedItem(locale: Locale, kind: "post" | "album" | "videoCollection", id: string) {
+  if (kind === "post") return `/${locale}/posts/${id}`;
+  if (kind === "album") return `/${locale}/albums/${id}`;
+  return `/${locale}/videos/${id}`;
+}
+
+export function HomeView({ dictionary, locale }: { dictionary: Dictionary; locale: Locale }) {
   const { viewer, currentUser, posts, albums, photos, videoCollections, videos } = useAppState();
   const feed = getHomeFeed(viewer, { posts, albums, photos, videoCollections, videos });
   const featured = feed[0];
@@ -76,8 +84,16 @@ export function HomeView({ dictionary }: { dictionary: Dictionary }) {
             <div
               className="featured-preview"
               aria-label={dictionary.home.featuredPreviewAria}
-              style={{ backgroundImage: `url(${featured.coverImage})` }}
             >
+              {featured.coverImage ? (
+                <img
+                  className="featured-preview-image"
+                  src={featured.coverImage}
+                  alt=""
+                  loading="eager"
+                  decoding="async"
+                />
+              ) : null}
               <div className="featured-preview-overlay">
                 <span>{formatFeedKind(featured.kind, dictionary)}</span>
                 <strong>{featured.title}</strong>
@@ -91,11 +107,11 @@ export function HomeView({ dictionary }: { dictionary: Dictionary }) {
 
           <div className="preview-strip" aria-hidden="true">
             {secondary.map((item) => (
-              <span
-                key={item.id}
-                className="preview-thumb"
-                style={{ backgroundImage: `url(${item.coverImage})` }}
-              />
+              <span key={item.id} className="preview-thumb">
+                {item.coverImage ? (
+                  <img className="preview-thumb-image" src={item.coverImage} alt="" loading="lazy" decoding="async" />
+                ) : null}
+              </span>
             ))}
           </div>
         </div>
@@ -117,10 +133,12 @@ export function HomeView({ dictionary }: { dictionary: Dictionary }) {
               coverImage={item.coverImage}
               requiredLevel={item.requiredLevel}
               dictionary={dictionary}
+              href={hrefForFeedItem(locale, item.kind, item.id)}
               meta={formatFeedKind(item.kind, dictionary)}
             />
           ))}
         </div>
+        {feed.length === 0 ? <EmptyContentState dictionary={dictionary} label={dictionary.home.latest} /> : null}
       </section>
     </div>
   );

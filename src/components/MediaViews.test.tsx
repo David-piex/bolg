@@ -9,7 +9,7 @@ describe("media collection views", () => {
   it("uses Chinese copy and compact count labels on the albums page", () => {
     render(
       <AppStateProvider>
-        <AlbumsView dictionary={getDictionary("zh")} />
+        <AlbumsView dictionary={getDictionary("zh")} locale="zh" />
       </AppStateProvider>
     );
 
@@ -21,7 +21,7 @@ describe("media collection views", () => {
   it("keeps the Chinese videos page free of admin service labels", () => {
     render(
       <AppStateProvider>
-        <VideosView dictionary={getDictionary("zh")} />
+        <VideosView dictionary={getDictionary("zh")} locale="zh" />
       </AppStateProvider>
     );
 

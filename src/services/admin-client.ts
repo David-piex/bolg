@@ -7,28 +7,31 @@ import {
   listInvites,
   updateUser,
   type JavaAdminUser,
+  type JavaAdminUserPage,
   type JavaInvite,
   type JavaMemberLevel,
   type JavaRole,
   type JavaUserStatus
 } from "@/services/java-api-client";
 
-type ErrorBody = {
-  error?: string;
-};
-
-function errorMessageFromBody(body: unknown): string | undefined {
-  if (body && typeof body === "object" && "error" in body) {
-    const message = (body as ErrorBody).error;
-    return typeof message === "string" ? message : undefined;
-  }
-
-  return undefined;
-}
-
 export type AdminDataset = {
   invites: InviteCode[];
+  userPage: AdminUserPage;
   users: UserProfile[];
+};
+
+export type AdminUserPage = {
+  page: number;
+  size: number;
+  total: number;
+  totalPages: number;
+  users: UserProfile[];
+};
+
+export type FetchAdminUsersInput = {
+  page?: number;
+  q?: string;
+  size?: number;
 };
 
 export type UpdateRemoteUserInput = {
@@ -70,34 +73,29 @@ function userFromJava(user: JavaAdminUser): UserProfile {
   };
 }
 
-async function readJson<T>(response: Response, fallback: string): Promise<T> {
-  const body = (await response.json().catch(() => ({}))) as T | ErrorBody;
-
-  if (!response.ok) {
-    throw new Error(errorMessageFromBody(body) || fallback);
-  }
-
-  return body as T;
-}
-
-function authHeaders(accessToken: string) {
+function userPageFromJava(page: JavaAdminUserPage): AdminUserPage {
   return {
-    Authorization: `Bearer ${accessToken}`
+    page: page.page,
+    size: page.size,
+    total: page.total,
+    totalPages: page.totalPages,
+    users: page.users.map(userFromJava)
   };
 }
 
-function jsonAuthHeaders(accessToken: string) {
-  return {
-    ...authHeaders(accessToken),
-    "Content-Type": "application/json"
-  };
+export async function fetchRemoteAdminUsers(
+  accessToken: string,
+  input: FetchAdminUsersInput = {}
+): Promise<AdminUserPage> {
+  return userPageFromJava(await listAdminUsers(input));
 }
 
 export async function fetchRemoteAdminDataset(accessToken: string): Promise<AdminDataset> {
-  const [invites, users] = await Promise.all([listInvites(), listAdminUsers()]);
+  const [invites, userPage] = await Promise.all([listInvites(), fetchRemoteAdminUsers(accessToken, { page: 0, size: 10 })]);
   return {
     invites: invites.map(inviteFromJava),
-    users: users.map(userFromJava)
+    userPage,
+    users: userPage.users
   };
 }
 

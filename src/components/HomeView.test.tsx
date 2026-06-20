@@ -10,7 +10,7 @@ describe("HomeView", () => {
 
     render(
       <AppStateProvider>
-        <HomeView dictionary={dictionary} />
+        <HomeView dictionary={dictionary} locale="zh" />
       </AppStateProvider>
     );
 
@@ -32,6 +32,7 @@ describe("HomeView", () => {
       "按会员等级开放"
     ]);
     expect(screen.getByText(dictionary.home.latest)).toBeInTheDocument();
+    expect(screen.getAllByText(dictionary.content.openDetail).length).toBeGreaterThan(0);
 
     expect(screen.queryByText("MEDIA ARCHIVE")).not.toBeInTheDocument();
     expect(screen.queryByText("Access ladder")).not.toBeInTheDocument();

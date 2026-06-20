@@ -13,6 +13,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
@@ -82,12 +85,18 @@ public class AdminController {
   }
 
   @GetMapping("/users")
-  List<AdminUserResponse> listUsers(HttpServletRequest request) {
+  AdminUserPageResponse listUsers(
+    @RequestParam(defaultValue = "0") int page,
+    @RequestParam(defaultValue = "10") int size,
+    @RequestParam(required = false) String q,
+    HttpServletRequest request
+  ) {
     requireAdmin(request);
-    return userRepository.findAllUsers().stream()
-      .filter(user -> user.getRole() != Role.SUPER_ADMIN)
-      .map(AdminUserResponse::from)
-      .toList();
+    int safePage = Math.max(page, 0);
+    int safeSize = Math.max(1, Math.min(size, 50));
+    String query = q == null || q.isBlank() ? null : q.trim();
+    var pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+    return AdminUserPageResponse.from(userRepository.findManageableUsers(query, pageable).map(AdminUserResponse::from));
   }
 
   @DeleteMapping("/invites/{id}")

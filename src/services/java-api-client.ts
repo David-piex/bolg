@@ -30,6 +30,20 @@ export type JavaAdminUser = JavaUser & {
   status: JavaUserStatus;
 };
 
+export type JavaAdminUserPage = {
+  page: number;
+  size: number;
+  total: number;
+  totalPages: number;
+  users: JavaAdminUser[];
+};
+
+export type ListAdminUsersInput = {
+  page?: number;
+  q?: string;
+  size?: number;
+};
+
 export type JavaInvite = {
   code: string;
   id: string;
@@ -52,6 +66,27 @@ export type JavaMediaAsset = {
 export type JavaMediaAccess = {
   expiresAt: string;
   url: string;
+};
+
+export type JavaDirectUploadRequest = {
+  mediaType: JavaMediaType;
+  mimeType: string;
+  originalName: string;
+  sizeBytes: number;
+};
+
+export type JavaDirectUpload = {
+  bucketName: string;
+  expiresAt: string;
+  mediaType: JavaMediaType;
+  mimeType: string;
+  objectKey: string;
+  uploadUrl: string;
+};
+
+export type JavaCompleteDirectUploadRequest = JavaDirectUploadRequest & {
+  bucketName: string;
+  objectKey: string;
 };
 
 export type JavaPost = {
@@ -86,6 +121,19 @@ export type JavaContentFeed = {
   albums: JavaAlbum[];
   posts: JavaPost[];
   videos: JavaVideo[];
+};
+
+export type JavaContentPage<T> = {
+  items: T[];
+  page: number;
+  size: number;
+  total: number;
+  totalPages: number;
+};
+
+export type ListContentPageInput = {
+  page?: number;
+  size?: number;
 };
 
 export type LoginInput = {
@@ -184,8 +232,19 @@ export async function listInvites(): Promise<JavaInvite[]> {
   return request<JavaInvite[]>("/api/admin/invites", { method: "GET" });
 }
 
-export async function listAdminUsers(): Promise<JavaAdminUser[]> {
-  return request<JavaAdminUser[]>("/api/admin/users", { method: "GET" });
+export async function listAdminUsers(input: ListAdminUsersInput = {}): Promise<JavaAdminUserPage> {
+  const params = new URLSearchParams();
+  if (input.page !== undefined) {
+    params.set("page", String(input.page));
+  }
+  if (input.size !== undefined) {
+    params.set("size", String(input.size));
+  }
+  if (input.q?.trim()) {
+    params.set("q", input.q.trim());
+  }
+  const query = params.toString();
+  return request<JavaAdminUserPage>(`/api/admin/users${query ? `?${query}` : ""}`, { method: "GET" });
 }
 
 export async function deleteInvite(inviteId: string): Promise<void> {
@@ -204,6 +263,18 @@ export async function updateUser(input: UpdateUserInput): Promise<JavaAdminUser>
 
 export async function listContent(): Promise<JavaContentFeed> {
   return request<JavaContentFeed>("/api/content", { method: "GET" });
+}
+
+export async function listPosts(input: ListContentPageInput = {}): Promise<JavaContentPage<JavaPost>> {
+  return request<JavaContentPage<JavaPost>>(contentPagePath("/api/content/posts", input), { method: "GET" });
+}
+
+export async function listAlbums(input: ListContentPageInput = {}): Promise<JavaContentPage<JavaAlbum>> {
+  return request<JavaContentPage<JavaAlbum>>(contentPagePath("/api/content/albums", input), { method: "GET" });
+}
+
+export async function listVideos(input: ListContentPageInput = {}): Promise<JavaContentPage<JavaVideo>> {
+  return request<JavaContentPage<JavaVideo>>(contentPagePath("/api/content/videos", input), { method: "GET" });
 }
 
 export async function createPost(input: CreatePostInput): Promise<JavaPost> {
@@ -284,6 +355,20 @@ export async function uploadVideo(file: File): Promise<JavaMediaAsset> {
   return uploadMedia("/api/media/videos", file);
 }
 
+export async function createDirectUpload(input: JavaDirectUploadRequest): Promise<JavaDirectUpload> {
+  return request<JavaDirectUpload>("/api/media/direct-uploads", {
+    body: JSON.stringify(input),
+    method: "POST"
+  });
+}
+
+export async function completeDirectUpload(input: JavaCompleteDirectUploadRequest): Promise<JavaMediaAsset> {
+  return request<JavaMediaAsset>("/api/media/direct-uploads/complete", {
+    body: JSON.stringify(input),
+    method: "POST"
+  });
+}
+
 export async function getMediaAccess(mediaId: string): Promise<JavaMediaAccess> {
   return request<JavaMediaAccess>(`/api/media/${encodeURIComponent(mediaId)}/access`, { method: "GET" });
 }
@@ -295,6 +380,18 @@ async function uploadMedia(path: string, file: File): Promise<JavaMediaAsset> {
     body: formData,
     method: "POST"
   });
+}
+
+function contentPagePath(path: string, input: ListContentPageInput): string {
+  const params = new URLSearchParams();
+  if (input.page !== undefined) {
+    params.set("page", String(input.page));
+  }
+  if (input.size !== undefined) {
+    params.set("size", String(input.size));
+  }
+  const query = params.toString();
+  return `${path}${query ? `?${query}` : ""}`;
 }
 
 async function request<T>(path: string, init: RequestInit): Promise<T> {

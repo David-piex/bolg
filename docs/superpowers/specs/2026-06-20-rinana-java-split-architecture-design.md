@@ -176,6 +176,15 @@ MinIO 使用私有 bucket：`rinana-media`。
 5. 后端写入 `media_assets`。
 6. 发布内容时将内容实体和媒体资产关联。
 
+默认大小限制：
+
+- 图片：前端限制 `10MB`。
+- 视频：前端限制 `95MB`。
+- Spring multipart：`MAX_UPLOAD_FILE_SIZE=95MB`、`MAX_UPLOAD_REQUEST_SIZE=100MB`。
+- Nginx：`client_max_body_size 100m`。
+
+视频限制低于 Cloudflare Free/Pro 代理请求体 `100MB` 上限，避免 multipart 表单接近边界时出现 `413`。如果后续要支持更大视频，需要分片上传、上传专用 DNS-only 域名、Cloudflare Stream/R2，或者升级 Cloudflare 套餐；单纯调大 Nginx 和 Spring 限制不能绕过 Cloudflare 代理层。
+
 访问流程：
 
 1. 前端请求 `/api/media/{id}/view` 或 `/api/media/{id}/access`。
@@ -199,6 +208,15 @@ MinIO 使用私有 bucket：`rinana-media`。
 - `80`
 - `443`
 
+MinIO `9000/9001` 只在 Docker 内部网络可达，不直接公网暴露。浏览器媒体访问通过 Nginx `/rinana-media/` 代理到 MinIO 的短时签名 URL。
+
+Nginx 媒体要求：
+
+- `/api/media/` 关闭请求缓冲，减少上传时 Nginx 临时文件开销。
+- `/rinana-media/` 透传 `Range` 和 `If-Range`。
+- `/rinana-media/` 返回 `Accept-Ranges: bytes`。
+- 不对视频响应做 gzip/brotli 转换。
+
 当前域名：
 
 - 主站：`https://lingnaive520.uk/zh`
@@ -209,6 +227,8 @@ Cloudflare 当前建议：
 - DNS：主域名和 `www` 指向服务器 IP，并开启代理。
 - SSL/TLS 模式：当前源站自签证书下使用 `Full`。
 - 如果以后换成 Cloudflare Origin Server Certificate，再切换为 `Full (strict)`。
+- 不要全站忽略 query string。媒体 URL 使用短时签名 query，若要缓存媒体路径，应只对安全路径单独配置 Cache Rules。
+- MP4 先保证 Range 请求透传。如果 Safari/iOS 上出现黑屏或无法拖动，再按 Cloudflare 当前 MP4/Safari 排障文档单独处理缓存规则。
 
 ## 11. 资源规划
 
@@ -234,8 +254,8 @@ Redis 不是主数据来源，不能替代数据库和对象存储备份。
 
 ## 13. 后续方向
 
-- 收紧 MinIO `9000/9001` 端口的公网暴露。
+- 保持 MinIO `9000/9001` 不直接公网暴露，维护时通过 SSH 隧道或临时管理员专用 Compose override 访问。
 - 换成 Cloudflare Origin Server Certificate，并切换到 `Full (strict)`。
 - 增加自动备份脚本。
 - 增加管理员审计列表。
-- 增加视频格式提示和上传前校验。
+- 增加视频格式提示、上传前校验、上传进度显示和分片上传。

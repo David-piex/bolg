@@ -1,6 +1,8 @@
 package com.rinana.media.user;
 
 import com.rinana.media.common.Role;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.Optional;
 import java.util.List;
@@ -22,6 +24,8 @@ public interface UserRepository {
   long countByRole(Role role);
 
   List<UserEntity> findAllUsers();
+
+  Page<UserEntity> findManageableUsers(String query, Pageable pageable);
 
   UserEntity saveUser(UserEntity user);
 }

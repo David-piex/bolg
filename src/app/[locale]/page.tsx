@@ -8,7 +8,8 @@ export default async function HomePage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale: localeParam } = await params;
-  const dictionary = getDictionary(normalizeLocale(localeParam));
+  const locale = normalizeLocale(localeParam);
+  const dictionary = getDictionary(locale);
 
-  return <HomeView dictionary={dictionary} />;
+  return <HomeView dictionary={dictionary} locale={locale} />;
 }

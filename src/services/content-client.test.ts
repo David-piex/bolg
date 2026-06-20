@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   deleteRemoteContent,
+  fetchRemotePostsPage,
   fetchRemoteContentDataset,
   publishRemoteContent,
   updateRemoteContent
@@ -137,6 +138,41 @@ describe("content client", () => {
     );
 
     await expect(fetchRemoteContentDataset()).rejects.toThrow("Content API failed");
+  });
+
+  it("loads paged posts from the Java content API", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        items: [
+          {
+            content: "Body",
+            id: "post-1",
+            mediaAssetIds: [],
+            publishedAt: "2026-06-18T00:00:00Z",
+            title: "Paged post",
+            visibility: "PUBLIC"
+          }
+        ],
+        page: 1,
+        size: 12,
+        total: 13,
+        totalPages: 2
+      })
+    }));
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    await expect(fetchRemotePostsPage({ page: 1, size: 12 })).resolves.toMatchObject({
+      items: [{ id: "post-1", visibility: "public" }],
+      page: 1,
+      total: 13,
+      totalPages: 2
+    });
+    expect(fetchMock).toHaveBeenCalledWith("/api/content/posts?page=1&size=12", {
+      credentials: "include",
+      headers: expect.any(Headers),
+      method: "GET"
+    });
   });
 
   it("publishes admin posts through the Java content API", async () => {

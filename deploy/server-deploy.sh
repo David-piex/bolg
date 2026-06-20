@@ -12,7 +12,7 @@ if [ -z "${server_ip}" ]; then
 fi
 site_domain="${SITE_DOMAIN:-lingnaive520.uk}"
 media_domain="${MEDIA_DOMAIN:-}"
-minio_public_endpoint="${MINIO_PUBLIC_ENDPOINT:-http://${server_ip}:9000}"
+minio_public_endpoint="${MINIO_PUBLIC_ENDPOINT:-http://${server_ip}}"
 if [ -n "$site_domain" ]; then
   minio_public_endpoint="https://${site_domain}"
 fi
@@ -133,8 +133,8 @@ if [ -f "$ENV_DIR/minio.env" ]; then
 fi
 
 write_backend_env_if_missing "$ENV_DIR/backend.env" "SERVER_PORT=8080
-MAX_UPLOAD_FILE_SIZE=512MB
-MAX_UPLOAD_REQUEST_SIZE=512MB
+MAX_UPLOAD_FILE_SIZE=95MB
+MAX_UPLOAD_REQUEST_SIZE=100MB
 DATABASE_URL=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-rinana}
 DATABASE_USERNAME=${POSTGRES_USER:-rinana}
 DATABASE_PASSWORD=${POSTGRES_PASSWORD:-$postgres_password}
@@ -201,7 +201,7 @@ docker compose ps
 echo
 echo "Site: http://${server_ip}/zh"
 echo "Admin login: http://${server_ip}/zh/login"
-echo "MinIO console: http://${server_ip}:9001"
+echo "MinIO console: not exposed publicly; access it through an SSH tunnel or a temporary admin-only compose override."
 echo "Super admin username: admin"
 echo "Super admin email: admin@rinana.local"
 echo "Super admin password is stored in ${ENV_DIR}/backend.env"

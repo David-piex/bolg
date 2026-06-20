@@ -1,4 +1,4 @@
-import { AdminPanel } from "@/components/AdminPanel";
+import { AdminPanelLazy } from "@/components/AdminPanelLazy";
 import { getDictionary } from "@/i18n/dictionaries";
 import { normalizeLocale } from "@/i18n/routing";
 
@@ -17,7 +17,7 @@ export default async function AdminPage({
         <h1>{dictionary.admin.title}</h1>
         <p>{dictionary.admin.subtitle}</p>
       </section>
-      <AdminPanel dictionary={dictionary} />
+      <AdminPanelLazy dictionary={dictionary} />
     </div>
   );
 }

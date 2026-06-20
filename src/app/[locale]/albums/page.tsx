@@ -8,7 +8,8 @@ export default async function AlbumsPage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale: localeParam } = await params;
-  const dictionary = getDictionary(normalizeLocale(localeParam));
+  const locale = normalizeLocale(localeParam);
+  const dictionary = getDictionary(locale);
 
-  return <AlbumsView dictionary={dictionary} />;
+  return <AlbumsView dictionary={dictionary} locale={locale} />;
 }

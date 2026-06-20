@@ -1,6 +1,6 @@
 ﻿SERVER_PORT=8080
-MAX_UPLOAD_FILE_SIZE=512MB
-MAX_UPLOAD_REQUEST_SIZE=512MB
+MAX_UPLOAD_FILE_SIZE=95MB
+MAX_UPLOAD_REQUEST_SIZE=100MB
 DATABASE_URL=jdbc:postgresql://postgres:5432/rinana
 DATABASE_USERNAME=rinana
 DATABASE_PASSWORD=rinana_change_me
@@ -23,4 +23,4 @@ SUPER_ADMIN_DISPLAY_NAME=站长
 # Use the Cloudflare proxied site domain so presigned URLs resolve as
 # https://lingnaive520.uk/rinana-media/<object-key>.
 # Create the MinIO bucket named by MINIO_BUCKET before uploading media.
-# The MinIO console is exposed on http://SERVER_IP:9001 by docker-compose.yml.
+# MinIO is not exposed directly by docker-compose.yml; public media access goes through Nginx.

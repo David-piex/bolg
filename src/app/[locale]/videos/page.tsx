@@ -8,7 +8,8 @@ export default async function VideosPage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale: localeParam } = await params;
-  const dictionary = getDictionary(normalizeLocale(localeParam));
+  const locale = normalizeLocale(localeParam);
+  const dictionary = getDictionary(locale);
 
-  return <VideosView dictionary={dictionary} />;
+  return <VideosView dictionary={dictionary} locale={locale} />;
 }

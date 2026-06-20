@@ -8,7 +8,7 @@ describe("PostsView", () => {
   it("uses localized membership level names in the Chinese route copy", () => {
     render(
       <AppStateProvider>
-        <PostsView dictionary={getDictionary("zh")} />
+        <PostsView dictionary={getDictionary("zh")} locale="zh" />
       </AppStateProvider>
     );
 

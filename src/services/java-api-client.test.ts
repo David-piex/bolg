@@ -2,11 +2,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   JavaApiError,
+  completeDirectUpload,
+  createDirectUpload,
   createAlbum,
   createInvite,
   createPost,
   createVideo,
   getMe,
+  listPosts,
   listAdminUsers,
   login,
   register,
@@ -68,14 +71,14 @@ describe("java api client", () => {
     );
 
     await createInvite({ code: "diamond-code", initialLevel: "DIAMOND", maxUses: 1 });
-    await listAdminUsers();
+    await listAdminUsers({ page: 1, q: "lin", size: 20 });
     await updateUser({ disabled: true, memberLevel: "GOLD", userId: "user-1" });
 
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/admin/invites", expect.objectContaining({
       credentials: "include",
       method: "POST"
     }));
-    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/admin/users", expect.objectContaining({
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/admin/users?page=1&size=20&q=lin", expect.objectContaining({
       credentials: "include",
       method: "GET"
     }));
@@ -127,12 +130,34 @@ describe("java api client", () => {
 
     await uploadImage(new File(["abc"], "a.png", { type: "image/png" }));
     await uploadVideo(new File(["abc"], "a.mp4", { type: "video/mp4" }));
+    await createDirectUpload({
+      mediaType: "IMAGE",
+      mimeType: "image/png",
+      originalName: "a.png",
+      sizeBytes: 3
+    });
+    await completeDirectUpload({
+      bucketName: "rinana-media",
+      mediaType: "IMAGE",
+      mimeType: "image/png",
+      objectKey: "images/a.png",
+      originalName: "a.png",
+      sizeBytes: 3
+    });
 
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/media/images", expect.objectContaining({
       credentials: "include",
       method: "POST"
     }));
     expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/media/videos", expect.objectContaining({
+      credentials: "include",
+      method: "POST"
+    }));
+    expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/media/direct-uploads", expect.objectContaining({
+      credentials: "include",
+      method: "POST"
+    }));
+    expect(fetchMock).toHaveBeenNthCalledWith(4, "/api/media/direct-uploads/complete", expect.objectContaining({
       credentials: "include",
       method: "POST"
     }));
@@ -152,6 +177,7 @@ describe("java api client", () => {
     await createPost({ content: "body", title: "title", visibility: "GOLD" });
     await createAlbum({ coverMediaId: "media-image", description: "album", title: "album", visibility: "GOLD" });
     await createVideo({ description: "video", mediaAssetId: "media-video", title: "video", visibility: "DIAMOND" });
+    await listPosts({ page: 2, size: 12 });
 
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/content/posts", expect.objectContaining({
       credentials: "include",
@@ -164,6 +190,10 @@ describe("java api client", () => {
     expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/content/videos", expect.objectContaining({
       credentials: "include",
       method: "POST"
+    }));
+    expect(fetchMock).toHaveBeenNthCalledWith(4, "/api/content/posts?page=2&size=12", expect.objectContaining({
+      credentials: "include",
+      method: "GET"
     }));
   });
 });

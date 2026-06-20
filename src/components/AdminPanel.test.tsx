@@ -113,6 +113,9 @@ describe("AdminPanel", () => {
     expect(screen.getByText("视频存储")).toBeInTheDocument();
     expect(screen.getByText("图片上传服务：MinIO")).toBeInTheDocument();
     expect(screen.getByText("视频上传服务：MinIO")).toBeInTheDocument();
+    expect(screen.getByText("搜索成员")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("昵称或邮箱")).toBeInTheDocument();
+    expect(screen.getByText(/第 1 \/ 1 页/)).toBeInTheDocument();
     expect(screen.getByText("标题")).toBeInTheDocument();
     expect(screen.getByText("正文")).toBeInTheDocument();
     expect(screen.getByText("媒体文件")).toBeInTheDocument();
@@ -122,6 +125,8 @@ describe("AdminPanel", () => {
 
     fireEvent.change(screen.getByLabelText("内容类型"), { target: { value: "video" } });
     expect(screen.getByText("视频简介")).toBeInTheDocument();
+    expect(screen.getByText("封面图片")).toBeInTheDocument();
+    expect(screen.getByText("上传视频封面")).toBeInTheDocument();
 
     expect(screen.queryByText("Enable")).not.toBeInTheDocument();
     expect(screen.queryByText("Disable")).not.toBeInTheDocument();
@@ -186,6 +191,7 @@ describe("AdminPanel", () => {
     expect(uploadImageFile).toHaveBeenCalledWith({
       accessToken: "cookie-session",
       file,
+      onProgress: expect.any(Function),
       visibility: "gold"
     });
   });
@@ -246,6 +252,93 @@ describe("AdminPanel", () => {
       accessToken: "cookie-session",
       collectionId: expect.stringMatching(/^draft-video-/),
       file,
+      onProgress: expect.any(Function),
+      visibility: "gold"
+    });
+  });
+
+  it("shows upload progress and blocks publishing while a file is still uploading", async () => {
+    window.localStorage.clear();
+    mockRemoteAdminLogin();
+    vi.mocked(uploadImageFile).mockImplementation(
+      ({ onProgress }) =>
+        new Promise((resolve) => {
+          onProgress?.({ percent: 46, phase: "uploading" });
+          setTimeout(() => {
+            resolve({
+              mediaAssetId: "media-image",
+              path: "gold/cover.webp",
+              publicUrl: "/api/media/media-image/view"
+            });
+          }, 50);
+        })
+    );
+    const dictionary = getDictionary("zh");
+
+    render(
+      <AppStateProvider>
+        <AdminLoginProbe remote />
+        <AdminPanel dictionary={dictionary} />
+      </AppStateProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("内容管理")).toBeInTheDocument();
+    });
+
+    const file = new File(["image-bytes"], "cover.webp", { type: "image/webp" });
+    fireEvent.change(screen.getByLabelText("上传图片文件"), {
+      target: { files: [file] }
+    });
+
+    const progressbar = await screen.findByRole("progressbar");
+    expect(progressbar).toHaveAttribute("aria-valuenow", "46");
+    expect(screen.getAllByText("正在上传文件").length).toBeGreaterThan(0);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "发布" })).toBeDisabled();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("图片已上传，可随内容发布。")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: "发布" })).not.toBeDisabled();
+  });
+
+  it("uploads a separate cover image for video publishing", async () => {
+    window.localStorage.clear();
+    mockRemoteAdminLogin();
+    vi.mocked(uploadImageFile).mockResolvedValue({
+      mediaAssetId: "media-cover",
+      path: "images/video-cover.webp",
+      publicUrl: "/api/media/media-cover/view"
+    });
+    const dictionary = getDictionary("zh");
+
+    render(
+      <AppStateProvider>
+        <AdminLoginProbe remote />
+        <AdminPanel dictionary={dictionary} />
+      </AppStateProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("内容管理")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText("内容类型"), { target: { value: "video" } });
+    const file = new File(["cover-bytes"], "video-cover.webp", { type: "image/webp" });
+    fireEvent.change(screen.getByLabelText("上传视频封面"), {
+      target: { files: [file] }
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("视频封面已上传，可随视频发布。")).toBeInTheDocument();
+    });
+    expect(screen.getByText("已关联封面，发布后会显示在视频卡片上。")).toBeInTheDocument();
+    expect(uploadImageFile).toHaveBeenCalledWith({
+      accessToken: "cookie-session",
+      file,
+      onProgress: expect.any(Function),
       visibility: "gold"
     });
   });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Cloud,
   Database,
@@ -10,17 +10,26 @@ import {
   ShieldCheck,
   Trash2,
   Upload,
+  Search,
   UsersRound,
+  Image,
   Video
 } from "lucide-react";
 import { canManage, type MembershipLevel } from "@/domain/membership";
 import type { getDictionary } from "@/i18n/dictionaries";
-import { uploadImageFile, uploadVideoFile, type UploadedImage, type UploadedVideo } from "@/services/admin-upload-client";
+import {
+  uploadImageFile,
+  uploadVideoFile,
+  type UploadedImage,
+  type UploadedVideo,
+  type UploadProgress
+} from "@/services/admin-upload-client";
 import { useAppState } from "@/state/AppStateProvider";
 
 type Dictionary = ReturnType<typeof getDictionary>;
 type EditableLevel = Exclude<MembershipLevel, "public">;
 type ContentKind = "post" | "album" | "video";
+type UploadTarget = "image" | "video" | "cover";
 type EditingContent = {
   id: string;
   kind: ContentKind;
@@ -66,9 +75,42 @@ function titlePlaceholderFor(kind: ContentKind, dictionary: Dictionary) {
   return `${dictionary.content.posts}${dictionary.admin.titleLabel}`;
 }
 
+function latestPublishedAt(items: Array<{ publishedAt?: string }>, fallback: string) {
+  const latest = items
+    .map((item) => item.publishedAt)
+    .filter((value): value is string => Boolean(value))
+    .sort()
+    .at(-1);
+
+  return latest ?? fallback;
+}
+
+function memberPageSummary(template: string, input: { page: number; total: number; totalPages: number }) {
+  return template
+    .replace("{page}", String(input.page))
+    .replace("{totalPages}", String(input.totalPages))
+    .replace("{total}", String(input.total));
+}
+
+function uploadPhaseLabel(progress: UploadProgress, dictionary: Dictionary) {
+  if (progress.phase === "preparing") return dictionary.admin.uploadPreparing;
+  if (progress.phase === "finalizing") return dictionary.admin.uploadFinalizing;
+  if (progress.phase === "fallback") return dictionary.admin.uploadFallback;
+  if (progress.phase === "complete") return dictionary.admin.uploadComplete;
+  return dictionary.admin.uploading;
+}
+
+function uploadTargetLabel(target: UploadTarget | null, dictionary: Dictionary) {
+  if (target === "cover") return dictionary.admin.coverFile;
+  if (target === "video") return dictionary.admin.uploadVideoFile;
+  if (target === "image") return dictionary.admin.uploadImageFile;
+  return dictionary.admin.mediaUpload;
+}
+
 export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
   const {
     users,
+    adminUserPage,
     invites,
     posts,
     albums,
@@ -78,6 +120,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
     currentUser,
     authSession,
     authReady,
+    loadAdminUsersPage,
     updateUserLevel,
     toggleUserDisabled,
     generateInvite,
@@ -99,10 +142,60 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
   const [contentAsset, setContentAsset] = useState("");
   const [publishMessage, setPublishMessage] = useState<string | null>(null);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
+  const [uploadTarget, setUploadTarget] = useState<UploadTarget | null>(null);
   const [uploadedImageMeta, setUploadedImageMeta] = useState<UploadedImage | null>(null);
+  const [uploadedVideoCoverMeta, setUploadedVideoCoverMeta] = useState<UploadedImage | null>(null);
   const [uploadedVideoMeta, setUploadedVideoMeta] = useState<UploadedVideo | null>(null);
   const [editingContent, setEditingContent] = useState<EditingContent>(null);
+  const [memberQuery, setMemberQuery] = useState("");
+  const [memberPageSize, setMemberPageSize] = useState(10);
+  const [memberLoading, setMemberLoading] = useState(false);
+  const [memberError, setMemberError] = useState<string | null>(null);
   const unusedInvites = invites.filter((invite) => !invite.usedByUserId);
+  const contentTotal = posts.length + albums.length + videoCollections.length;
+  const mediaTotal = photos.length + videos.length;
+  const memberRows = adminUserPage.users;
+  const memberCurrentPage = adminUserPage.page + 1;
+  const memberTotalPages = Math.max(1, adminUserPage.totalPages);
+  const memberSummary = memberPageSummary(dictionary.admin.memberPageSummary, {
+    page: memberCurrentPage,
+    total: adminUserPage.total,
+    totalPages: memberTotalPages
+  });
+  const latestContentDate = latestPublishedAt(
+    [...posts, ...albums, ...videoCollections],
+    dictionary.admin.noDate
+  );
+  const isUploading = uploadTarget !== null;
+
+  useEffect(() => {
+    if (!authReady) {
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setMemberLoading(true);
+      setMemberError(null);
+      void loadAdminUsersPage({ page: 0, q: memberQuery, size: memberPageSize })
+        .catch((error) => {
+          if (!cancelled) {
+            setMemberError(error instanceof Error ? error.message : dictionary.admin.noMembers);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setMemberLoading(false);
+          }
+        });
+    }, 260);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [authReady, authSession?.accessToken, memberPageSize, memberQuery]);
 
   if (!authReady) {
     return (
@@ -130,10 +223,26 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
     setGeneratedCode(await generateInvite(newInviteLevel));
   }
 
+  async function onLoadMemberPage(page: number) {
+    setMemberLoading(true);
+    setMemberError(null);
+
+    try {
+      await loadAdminUsersPage({ page, q: memberQuery, size: memberPageSize });
+    } catch (error) {
+      setMemberError(error instanceof Error ? error.message : dictionary.admin.noMembers);
+    } finally {
+      setMemberLoading(false);
+    }
+  }
+
   function onChangeContentKind(kind: ContentKind) {
     setContentKind(kind);
     setUploadMessage(null);
+    setUploadProgress(null);
+    setUploadTarget(null);
     setUploadedImageMeta(null);
+    setUploadedVideoCoverMeta(null);
     setUploadedVideoMeta(null);
     setEditingContent(null);
   }
@@ -143,29 +252,48 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
       return;
     }
 
+    if (isUploading) {
+      return;
+    }
+
     if (!authSession?.accessToken) {
       setUploadMessage(dictionary.admin.uploadNeedsLogin);
       return;
     }
 
+    const target: UploadTarget = contentKind === "video" ? "cover" : "image";
+    setUploadTarget(target);
+    setUploadProgress({ percent: 0, phase: "preparing" });
     setUploadMessage(dictionary.admin.uploading);
 
     try {
       const uploaded = await uploadImageFile({
         accessToken: authSession.accessToken,
         file,
+        onProgress: setUploadProgress,
         visibility: contentVisibility
       });
-      setContentAsset(uploaded.publicUrl);
-      setUploadedImageMeta(uploaded);
-      setUploadMessage(dictionary.admin.imageUploadedReady);
+      if (contentKind === "video") {
+        setUploadedVideoCoverMeta(uploaded);
+        setUploadMessage(dictionary.admin.videoCoverUploadedReady);
+      } else {
+        setContentAsset(uploaded.publicUrl);
+        setUploadedImageMeta(uploaded);
+        setUploadMessage(dictionary.admin.imageUploadedReady);
+      }
     } catch (error) {
       setUploadMessage(uploadErrorMessage(error, dictionary.admin.uploadFailed));
+    } finally {
+      setUploadTarget(null);
     }
   }
 
   async function onUploadVideoFile(file: File | undefined) {
     if (!file) {
+      return;
+    }
+
+    if (isUploading) {
       return;
     }
 
@@ -179,6 +307,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
       return;
     }
 
+    setUploadTarget("video");
+    setUploadProgress({ percent: 0, phase: "preparing" });
     setUploadMessage(dictionary.admin.uploading);
 
     try {
@@ -186,6 +316,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
         accessToken: authSession.accessToken,
         collectionId: `draft-video-${Date.now()}`,
         file,
+        onProgress: setUploadProgress,
         visibility: contentVisibility
       });
       setContentAsset(uploaded.playbackUrl);
@@ -193,6 +324,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
       setUploadMessage(dictionary.admin.videoUploadedReady);
     } catch (error) {
       setUploadMessage(uploadErrorMessage(error, dictionary.admin.uploadFailed));
+    } finally {
+      setUploadTarget(null);
     }
   }
 
@@ -201,8 +334,11 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
     setContentBody("");
     setContentAsset("");
     setUploadedImageMeta(null);
+    setUploadedVideoCoverMeta(null);
     setUploadedVideoMeta(null);
     setUploadMessage(null);
+    setUploadProgress(null);
+    setUploadTarget(null);
     setEditingContent(null);
   }
 
@@ -211,7 +347,10 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
     setContentKind(nextEditing.kind);
     setPublishMessage(null);
     setUploadMessage(null);
+    setUploadProgress(null);
+    setUploadTarget(null);
     setUploadedImageMeta(null);
+    setUploadedVideoCoverMeta(null);
     setUploadedVideoMeta(null);
 
     if (nextEditing.kind === "post") {
@@ -249,6 +388,11 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
   }
 
   async function onPublishContent() {
+    if (isUploading) {
+      setPublishMessage(dictionary.admin.uploadBlocksPublish);
+      return;
+    }
+
     setPublishMessage(null);
 
     try {
@@ -275,7 +419,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           title: contentTitle,
           description: contentBody,
           defaultVisibility: contentVisibility,
-          coverImage: contentAsset
+          coverImage: uploadedVideoCoverMeta?.publicUrl || contentAsset,
+          coverMediaId: uploadedVideoCoverMeta?.mediaAssetId
         });
       } else if (contentKind === "post") {
         await publishPost({
@@ -302,7 +447,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           videoTitle: contentTitle,
           playbackUrl: contentAsset,
           mediaAssetId: uploadedVideoMeta?.mediaAssetId,
-          thumbnailUrl: uploadedVideoMeta?.thumbnailUrl
+          coverMediaId: uploadedVideoCoverMeta?.mediaAssetId,
+          thumbnailUrl: uploadedVideoCoverMeta?.publicUrl || uploadedVideoMeta?.thumbnailUrl
         });
       }
 
@@ -314,151 +460,292 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
   }
 
   return (
-    <div className="admin-grid">
-      <section className="admin-section admin-section-wide">
-        <div className="section-heading">
-          <ShieldCheck size={20} />
-          <div>
-            <h2>{dictionary.admin.signedInAs}</h2>
-            <p>
-              {currentUser?.name}
-              {dictionary.common.colon}
-              {currentUser?.email}
-            </p>
+    <div className="admin-dashboard">
+      <section className="admin-overview" aria-label={dictionary.admin.overview}>
+        <div className="admin-identity">
+          <div className="section-heading">
+            <ShieldCheck size={20} />
+            <div>
+              <span className="eyebrow">{dictionary.admin.overview}</span>
+              <h2>{dictionary.admin.signedInAs}</h2>
+              <p>
+                {currentUser?.name}
+                {dictionary.common.colon}
+                {currentUser?.email}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="admin-stat-strip">
+          <div className="admin-stat">
+            <span>{dictionary.admin.publishedTotal}</span>
+            <strong>{contentTotal}</strong>
+          </div>
+          <div className="admin-stat">
+            <span>{dictionary.admin.mediaTotal}</span>
+            <strong>{mediaTotal}</strong>
+          </div>
+          <div className="admin-stat">
+            <span>{dictionary.admin.pendingInvites}</span>
+            <strong>{unusedInvites.length}</strong>
+          </div>
+          <div className="admin-stat">
+            <span>{dictionary.admin.memberAccounts}</span>
+            <strong>{users.length}</strong>
+          </div>
+          <div className="admin-stat admin-stat-date">
+            <span>{dictionary.admin.latestUpdate}</span>
+            <strong>{latestContentDate}</strong>
           </div>
         </div>
       </section>
 
-      <section className="admin-section admin-section-wide">
-        <div className="section-heading">
-          <Upload size={20} />
-          <div>
-            <h2>{editingContent ? dictionary.admin.editContent : dictionary.admin.content}</h2>
-            <p>{dictionary.admin.subtitle}</p>
+      <div className="admin-workspace">
+        <section className="admin-section admin-publish-panel">
+          <div className="section-heading">
+            <Upload size={20} />
+            <div>
+              <span className="eyebrow">{dictionary.admin.content}</span>
+              <h2>{editingContent ? dictionary.admin.editContent : dictionary.admin.publishWorkspace}</h2>
+              <p>{dictionary.admin.publishWorkspaceHint}</p>
+            </div>
           </div>
-        </div>
-        <div className="admin-form-grid">
-          <label>
-            <span>{dictionary.admin.contentType}</span>
-            <select value={contentKind} onChange={(event) => onChangeContentKind(event.target.value as typeof contentKind)}>
-              <option value="post">{dictionary.content.posts}</option>
-              <option value="album">{dictionary.content.albums}</option>
-              <option value="video">{dictionary.content.videos}</option>
-            </select>
-          </label>
-          <label>
-            <span>{dictionary.admin.titleLabel}</span>
-            <input
-              value={contentTitle}
-              onChange={(event) => setContentTitle(event.target.value)}
-              placeholder={titlePlaceholderFor(contentKind, dictionary)}
-            />
-          </label>
-          <label>
-            <span>{dictionary.content.visibility}</span>
-            <select
-              value={contentVisibility}
-              onChange={(event) => setContentVisibility(event.target.value as MembershipLevel)}
+          <div className="content-kind-tabs" aria-hidden="true">
+            <button
+              type="button"
+              className={contentKind === "post" ? "active" : ""}
+              disabled={isUploading}
+              onClick={() => onChangeContentKind("post")}
             >
-              <option value="public">{dictionary.membership.public}</option>
-              <option value="normal">{dictionary.membership.normal}</option>
-              <option value="gold">{dictionary.membership.gold}</option>
-              <option value="diamond">{dictionary.membership.diamond}</option>
-            </select>
-          </label>
-          {contentKind === "video" ? (
-            <label className="file-upload-label">
-              <span>{dictionary.admin.mediaFile}</span>
-              <span className="file-upload-control">
-                <FileUp size={17} />
-                <span>{dictionary.admin.uploadVideoFile}</span>
-                <input
-                  aria-label={dictionary.admin.uploadVideoFile}
-                  type="file"
-                  accept="video/*"
-                  onChange={(event) => {
-                    void onUploadVideoFile(event.target.files?.[0]);
-                    event.target.value = "";
-                  }}
-                />
-              </span>
+              {dictionary.content.posts}
+            </button>
+            <button
+              type="button"
+              className={contentKind === "album" ? "active" : ""}
+              disabled={isUploading}
+              onClick={() => onChangeContentKind("album")}
+            >
+              {dictionary.content.albums}
+            </button>
+            <button
+              type="button"
+              className={contentKind === "video" ? "active" : ""}
+              disabled={isUploading}
+              onClick={() => onChangeContentKind("video")}
+            >
+              {dictionary.content.videos}
+            </button>
+          </div>
+          <div className="admin-form-grid admin-editor-grid">
+            <label>
+              <span>{dictionary.admin.contentType}</span>
+              <select
+                aria-label={dictionary.admin.contentType}
+                value={contentKind}
+                disabled={isUploading}
+                onChange={(event) => onChangeContentKind(event.target.value as typeof contentKind)}
+              >
+                <option value="post">{dictionary.content.posts}</option>
+                <option value="album">{dictionary.content.albums}</option>
+                <option value="video">{dictionary.content.videos}</option>
+              </select>
             </label>
+            <label>
+              <span>{dictionary.content.visibility}</span>
+              <select
+                aria-label={dictionary.content.visibility}
+                value={contentVisibility}
+                disabled={isUploading}
+                onChange={(event) => setContentVisibility(event.target.value as MembershipLevel)}
+              >
+                <option value="public">{dictionary.membership.public}</option>
+                <option value="normal">{dictionary.membership.normal}</option>
+                <option value="gold">{dictionary.membership.gold}</option>
+                <option value="diamond">{dictionary.membership.diamond}</option>
+              </select>
+            </label>
+            <label className="full-row">
+              <span>{dictionary.admin.titleLabel}</span>
+              <input
+                value={contentTitle}
+                onChange={(event) => setContentTitle(event.target.value)}
+                placeholder={titlePlaceholderFor(contentKind, dictionary)}
+              />
+            </label>
+            <label className="full-row">
+              <span>{bodyLabelFor(contentKind, dictionary)}</span>
+              <textarea
+                value={contentBody}
+                onChange={(event) => setContentBody(event.target.value)}
+                placeholder={dictionary.content.bodyPlaceholder}
+                rows={7}
+              />
+            </label>
+            <div className="form-actions full-row">
+              <button type="button" onClick={() => void onPublishContent()} disabled={isUploading}>
+                {editingContent ? dictionary.common.save : dictionary.common.publish}
+              </button>
+              {editingContent ? (
+                <button type="button" className="secondary-button" onClick={resetContentForm}>
+                  {dictionary.common.cancel}
+                </button>
+              ) : null}
+            </div>
+          </div>
+          <p className="muted">{dictionary.admin.demoNotice}</p>
+          {publishMessage ? (
+            <p className="admin-message">
+              {publishMessage}
+              {publishMessage === dictionary.common.status ? (
+                <>
+                  {dictionary.common.colon}
+                  {formatCount(posts.length, dictionary.content.postUnit)} /{" "}
+                  {formatCount(albums.length, dictionary.content.albumUnit)} /{" "}
+                  {formatCount(videoCollections.length, dictionary.content.videoCollectionUnit)}
+                </>
+              ) : null}
+            </p>
+          ) : null}
+        </section>
+
+        <aside className="admin-section admin-media-panel">
+          <div className="section-heading">
+            <FileUp size={20} />
+            <div>
+              <span className="eyebrow">{dictionary.admin.mediaWorkflow}</span>
+              <h2>{dictionary.admin.mediaUpload}</h2>
+              <p>{dictionary.admin.mediaWorkflowHint}</p>
+            </div>
+          </div>
+          {contentKind === "video" ? (
+            <div className="video-upload-stack">
+              <label className="file-upload-label">
+                <span>{dictionary.admin.mediaFile}</span>
+                <span className="file-upload-control">
+                  <Video size={17} />
+                  <span>{uploadTarget === "video" ? dictionary.admin.uploading : dictionary.admin.uploadVideoFile}</span>
+                  <input
+                    aria-label={dictionary.admin.uploadVideoFile}
+                    type="file"
+                    accept="video/*"
+                    disabled={isUploading}
+                    onChange={(event) => {
+                      void onUploadVideoFile(event.target.files?.[0]);
+                      event.target.value = "";
+                    }}
+                  />
+                </span>
+                <small className="form-hint">{dictionary.admin.videoUploadHint}</small>
+              </label>
+              <label className="file-upload-label">
+                <span>{dictionary.admin.coverFile}</span>
+                <span className="file-upload-control">
+                  <Image size={17} />
+                  <span>{uploadTarget === "cover" ? dictionary.admin.uploading : dictionary.admin.uploadVideoCoverFile}</span>
+                  <input
+                    aria-label={dictionary.admin.uploadVideoCoverFile}
+                    type="file"
+                    accept="image/*"
+                    disabled={isUploading}
+                    onChange={(event) => {
+                      void onUploadImageFile(event.target.files?.[0]);
+                      event.target.value = "";
+                    }}
+                  />
+                </span>
+                <small className="form-hint">{dictionary.admin.imageUploadHint}</small>
+              </label>
+            </div>
           ) : (
             <label className="file-upload-label">
               <span>{dictionary.admin.mediaFile}</span>
               <span className="file-upload-control">
                 <FileUp size={17} />
-                <span>{dictionary.admin.uploadImageFile}</span>
+                <span>{uploadTarget === "image" ? dictionary.admin.uploading : dictionary.admin.uploadImageFile}</span>
                 <input
                   aria-label={dictionary.admin.uploadImageFile}
                   type="file"
                   accept="image/*"
+                  disabled={isUploading}
                   onChange={(event) => {
                     void onUploadImageFile(event.target.files?.[0]);
                     event.target.value = "";
                   }}
                 />
               </span>
+              <small className="form-hint">{dictionary.admin.imageUploadHint}</small>
             </label>
           )}
-          <div className="media-attachment-state">
-            <span>{contentAsset ? dictionary.admin.mediaAttached : dictionary.admin.replaceMediaHint}</span>
-          </div>
-          <label className="full-row">
-            <span>{bodyLabelFor(contentKind, dictionary)}</span>
-            <textarea
-              value={contentBody}
-              onChange={(event) => setContentBody(event.target.value)}
-              placeholder={dictionary.content.bodyPlaceholder}
-              rows={4}
-            />
-          </label>
-          <div className="form-actions full-row">
-            <button type="button" onClick={() => void onPublishContent()}>
-              {editingContent ? dictionary.common.save : dictionary.common.publish}
-            </button>
-            {editingContent ? (
-              <button type="button" onClick={resetContentForm}>
-                {dictionary.common.cancel}
-              </button>
+          {uploadProgress ? (
+            <div className="upload-progress-box" aria-live="polite">
+              <div className="upload-progress-copy">
+                <strong>{uploadTargetLabel(uploadTarget, dictionary)}</strong>
+                <span>{uploadPhaseLabel(uploadProgress, dictionary)}</span>
+                <b>{uploadProgress.percent}%</b>
+              </div>
+              <div
+                aria-label={`${uploadPhaseLabel(uploadProgress, dictionary)} ${uploadProgress.percent}%`}
+                aria-valuemax={100}
+                aria-valuemin={0}
+                aria-valuenow={uploadProgress.percent}
+                className="upload-progress-track"
+                role="progressbar"
+              >
+                <span style={{ width: `${uploadProgress.percent}%` }} />
+              </div>
+            </div>
+          ) : null}
+          <div className="media-attachment-grid">
+            <div className={`media-attachment-state${contentAsset ? " media-attachment-ready" : ""}`}>
+              <strong>{contentAsset ? dictionary.admin.attachedReady : dictionary.admin.waitingForMedia}</strong>
+              <span>{contentAsset ? dictionary.admin.mediaAttached : dictionary.admin.replaceMediaHint}</span>
+            </div>
+            {contentKind === "video" ? (
+              <div className={`media-attachment-state${uploadedVideoCoverMeta ? " media-attachment-ready" : ""}`}>
+                <strong>{uploadedVideoCoverMeta ? dictionary.admin.coverFile : dictionary.admin.waitingForMedia}</strong>
+                <span>{uploadedVideoCoverMeta ? dictionary.admin.coverAttached : dictionary.admin.imageUploadHint}</span>
+              </div>
             ) : null}
           </div>
-        </div>
-        <p className="muted">{dictionary.admin.demoNotice}</p>
-        {uploadMessage ? <p className="muted">{uploadMessage}</p> : null}
-        {publishMessage ? (
-          <p className="muted">
-            {publishMessage}
-            {publishMessage === dictionary.common.status ? (
-              <>
-                {dictionary.common.colon}
-                {formatCount(posts.length, dictionary.content.postUnit)} /{" "}
-                {formatCount(albums.length, dictionary.content.albumUnit)} /{" "}
-                {formatCount(videoCollections.length, dictionary.content.videoCollectionUnit)}
-              </>
-            ) : null}
-          </p>
-        ) : null}
-      </section>
+          <div className="upload-rule-list" aria-label={dictionary.admin.uploadRules}>
+            <div>
+              <span>{dictionary.admin.imageUploadRule}</span>
+              <strong>{formatCount(photos.length, dictionary.content.photoUnit)}</strong>
+              <small>{dictionary.admin.imageUploadHint}</small>
+            </div>
+            <div>
+              <span>{dictionary.admin.videoUploadRule}</span>
+              <strong>{formatCount(videos.length, dictionary.content.videoUnit)}</strong>
+              <small>{dictionary.admin.videoUploadHint}</small>
+            </div>
+          </div>
+          {uploadMessage ? <p className="admin-message">{uploadMessage}</p> : null}
+        </aside>
+      </div>
 
       <section className="admin-section admin-section-wide">
         <div className="section-heading">
           <Database size={20} />
           <div>
             <h2>{dictionary.admin.existingContent}</h2>
-            <p>
-              {formatCount(posts.length, dictionary.content.postUnit)} /{" "}
-              {formatCount(albums.length, dictionary.content.albumUnit)} /{" "}
-              {formatCount(videoCollections.length, dictionary.content.videoCollectionUnit)}
-            </p>
+            <p>{dictionary.admin.contentLibraryHint}</p>
           </div>
+        </div>
+        <div className="content-library-summary">
+          <span>{formatCount(posts.length, dictionary.content.postUnit)}</span>
+          <span>{formatCount(albums.length, dictionary.content.albumUnit)}</span>
+          <span>{formatCount(videoCollections.length, dictionary.content.videoCollectionUnit)}</span>
         </div>
         <div className="admin-content-list">
           {posts.map((post) => (
             <div key={post.id} className="admin-content-row">
               <div>
+                <span className="admin-content-meta">{dictionary.content.post}</span>
                 <strong>{post.title}</strong>
-                <span className={`tier-badge tier-${post.visibility}`}>{dictionary.membership[post.visibility]}</span>
+                <div className="admin-row-meta">
+                  <span className={`tier-badge tier-${post.visibility}`}>{dictionary.membership[post.visibility]}</span>
+                  <span>{post.publishedAt}</span>
+                </div>
               </div>
               <div className="row-actions">
                 <button type="button" onClick={() => onEditContent({ id: post.id, kind: "post" })}>
@@ -475,10 +762,14 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           {albums.map((album) => (
             <div key={album.id} className="admin-content-row">
               <div>
+                <span className="admin-content-meta">{dictionary.content.album}</span>
                 <strong>{album.title}</strong>
-                <span className={`tier-badge tier-${album.defaultVisibility}`}>
-                  {dictionary.membership[album.defaultVisibility]}
-                </span>
+                <div className="admin-row-meta">
+                  <span className={`tier-badge tier-${album.defaultVisibility}`}>
+                    {dictionary.membership[album.defaultVisibility]}
+                  </span>
+                  <span>{album.publishedAt}</span>
+                </div>
               </div>
               <div className="row-actions">
                 <button type="button" onClick={() => onEditContent({ id: album.id, kind: "album" })}>
@@ -495,10 +786,14 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           {videoCollections.map((collection) => (
             <div key={collection.id} className="admin-content-row">
               <div>
+                <span className="admin-content-meta">{dictionary.content.videoCollection}</span>
                 <strong>{collection.title}</strong>
-                <span className={`tier-badge tier-${collection.defaultVisibility}`}>
-                  {dictionary.membership[collection.defaultVisibility]}
-                </span>
+                <div className="admin-row-meta">
+                  <span className={`tier-badge tier-${collection.defaultVisibility}`}>
+                    {dictionary.membership[collection.defaultVisibility]}
+                  </span>
+                  <span>{collection.publishedAt}</span>
+                </div>
               </div>
               <div className="row-actions">
                 <button type="button" onClick={() => onEditContent({ id: collection.id, kind: "video" })}>
@@ -565,24 +860,83 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
             <p>{dictionary.admin.changeLevel}</p>
           </div>
         </div>
+        <div className="member-toolbar">
+          <label className="member-search">
+            <span>{dictionary.admin.searchMembers}</span>
+            <span className="member-search-control">
+              <Search size={16} />
+              <input
+                value={memberQuery}
+                onChange={(event) => setMemberQuery(event.target.value)}
+                placeholder={dictionary.admin.memberSearchPlaceholder}
+              />
+            </span>
+          </label>
+          <label className="member-page-size">
+            <span>{dictionary.admin.memberPageSize}</span>
+            <select
+              value={memberPageSize}
+              onChange={(event) => setMemberPageSize(Number(event.target.value))}
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
+          </label>
+        </div>
         <div className="user-list">
-          {users.map((user) => (
+          {memberRows.map((user) => (
             <div key={user.id} className="user-row">
-              <span>{user.name}</span>
-              <select
-                value={user.level}
-                onChange={(event) => updateUserLevel(user.id, event.target.value as EditableLevel)}
-                aria-label={`${dictionary.admin.changeLevel}${dictionary.common.colon}${user.name}`}
-              >
-                <option value="normal">{dictionary.membership.normal}</option>
-                <option value="gold">{dictionary.membership.gold}</option>
-                <option value="diamond">{dictionary.membership.diamond}</option>
-              </select>
-              <button type="button" onClick={() => toggleUserDisabled(user.id)}>
-                {user.disabled ? dictionary.content.enable : dictionary.content.disable}
-              </button>
+              <div className="member-profile">
+                <strong>{user.name}</strong>
+                <span>{user.email}</span>
+              </div>
+              <div className="member-badges">
+                <span className={`tier-badge tier-${user.level}`}>{dictionary.membership[user.level]}</span>
+                <span className={`member-status ${user.disabled ? "member-status-disabled" : "member-status-active"}`}>
+                  {user.disabled ? dictionary.admin.memberStatusDisabled : dictionary.admin.memberStatusActive}
+                </span>
+                <span className="member-role">
+                  {user.isAdmin ? dictionary.admin.memberRoleAdmin : dictionary.admin.memberRoleUser}
+                </span>
+              </div>
+              <div className="member-actions">
+                <select
+                  value={user.level}
+                  onChange={(event) => updateUserLevel(user.id, event.target.value as EditableLevel)}
+                  aria-label={`${dictionary.admin.changeLevel}${dictionary.common.colon}${user.name}`}
+                >
+                  <option value="normal">{dictionary.membership.normal}</option>
+                  <option value="gold">{dictionary.membership.gold}</option>
+                  <option value="diamond">{dictionary.membership.diamond}</option>
+                </select>
+                <button type="button" onClick={() => toggleUserDisabled(user.id)}>
+                  {user.disabled ? dictionary.content.enable : dictionary.content.disable}
+                </button>
+              </div>
             </div>
           ))}
+          {memberRows.length === 0 ? <p className="muted">{dictionary.admin.noMembers}</p> : null}
+        </div>
+        <div className="member-pagination" aria-live="polite">
+          <span>{memberLoading ? dictionary.admin.uploading : memberSummary}</span>
+          {memberError ? <strong>{memberError}</strong> : null}
+          <div>
+            <button
+              type="button"
+              onClick={() => void onLoadMemberPage(Math.max(adminUserPage.page - 1, 0))}
+              disabled={memberLoading || adminUserPage.page <= 0}
+            >
+              {dictionary.admin.memberPrevious}
+            </button>
+            <button
+              type="button"
+              onClick={() => void onLoadMemberPage(adminUserPage.page + 1)}
+              disabled={memberLoading || memberCurrentPage >= memberTotalPages}
+            >
+              {dictionary.admin.memberNext}
+            </button>
+          </div>
         </div>
       </section>
 

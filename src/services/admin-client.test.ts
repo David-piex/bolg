@@ -14,18 +14,24 @@ describe("admin client", () => {
   it("loads admin users and invite codes", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
-      if (path.endsWith("/users")) {
+      if (path.endsWith("/users?page=0&size=10")) {
         return {
           ok: true,
-          json: async () => [{
-            displayName: "Admin",
-            email: "admin@example.com",
-            id: "admin-1",
-            memberLevel: "DIAMOND",
-            role: "SUPER_ADMIN",
-            status: "ACTIVE",
-            username: "admin"
-          }]
+          json: async () => ({
+            page: 0,
+            size: 10,
+            total: 1,
+            totalPages: 1,
+            users: [{
+              displayName: "Admin",
+              email: "admin@example.com",
+              id: "admin-1",
+              memberLevel: "DIAMOND",
+              role: "SUPER_ADMIN",
+              status: "ACTIVE",
+              username: "admin"
+            }]
+          })
         };
       }
 
@@ -45,9 +51,10 @@ describe("admin client", () => {
 
     await expect(fetchRemoteAdminDataset("admin-token")).resolves.toMatchObject({
       invites: [{ code: "GOLD-2026" }],
+      userPage: { page: 0, size: 10, total: 1, totalPages: 1 },
       users: [{ id: "admin-1", isAdmin: true, level: "diamond", name: "Admin" }]
     });
-    expect(fetchMock).toHaveBeenCalledWith("/api/admin/users", {
+    expect(fetchMock).toHaveBeenCalledWith("/api/admin/users?page=0&size=10", {
       credentials: "include",
       headers: expect.any(Headers),
       method: "GET"

@@ -1,7 +1,11 @@
 package com.rinana.media.user;
 
 import com.rinana.media.common.Role;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Comparator;
 import java.util.List;
@@ -32,6 +36,19 @@ public interface JpaUserRepository extends JpaRepository<UserEntity, UUID>, User
       .sorted(Comparator.comparing(UserEntity::getCreatedAt).reversed())
       .toList();
   }
+
+  @Override
+  @Query("""
+    select user from UserEntity user
+    where user.role <> com.rinana.media.common.Role.SUPER_ADMIN
+      and (
+        :query is null
+        or lower(user.username) like lower(concat('%', :query, '%'))
+        or lower(user.email) like lower(concat('%', :query, '%'))
+        or lower(user.displayName) like lower(concat('%', :query, '%'))
+      )
+    """)
+  Page<UserEntity> findManageableUsers(@Param("query") String query, Pageable pageable);
 
   @Override
   default UserEntity saveUser(UserEntity user) {

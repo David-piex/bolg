@@ -8,8 +8,12 @@ import {
   deleteAlbum,
   deletePost,
   deleteVideo,
+  listAlbums,
   listContent,
+  listPosts,
+  listVideos,
   type JavaAlbum,
+  type JavaContentPage,
   type JavaContentVisibility,
   type JavaPost,
   type JavaVideo,
@@ -50,6 +54,7 @@ export type RemotePublishInput =
       visibility: MembershipLevel;
     }
   | {
+      coverMediaId?: string;
       description: string;
       kind: "video";
       mediaAssetId?: string;
@@ -81,6 +86,7 @@ export type RemoteUpdateInput =
     }
   | {
       coverImage?: string;
+      coverMediaId?: string;
       defaultVisibility: MembershipLevel;
       description: string;
       id: string;
@@ -97,6 +103,14 @@ export type RemotePublishResult =
   | { post: PostRecord }
   | { album: AlbumRecord; photo: PhotoRecord }
   | { collection: VideoCollectionRecord; video: VideoRecord };
+
+export type RemoteContentPage<T> = {
+  items: T[];
+  page: number;
+  size: number;
+  total: number;
+  totalPages: number;
+};
 
 async function readJson<T>(response: Response, fallback: string): Promise<T> {
   const body = (await response.json().catch(() => ({}))) as T | ErrorBody;
@@ -190,6 +204,23 @@ export async function fetchRemoteContentDataset(accessToken?: string): Promise<C
   };
 }
 
+export async function fetchRemotePostsPage(input: { page?: number; size?: number } = {}): Promise<RemoteContentPage<PostRecord>> {
+  return contentPageFromJava(await listPosts(input), postFromJava);
+}
+
+export async function fetchRemoteAlbumsPage(input: { page?: number; size?: number } = {}): Promise<RemoteContentPage<AlbumRecord>> {
+  return contentPageFromJava(await listAlbums(input), albumFromJava);
+}
+
+export async function fetchRemoteVideosPage(
+  input: { page?: number; size?: number } = {}
+): Promise<RemoteContentPage<{ collection: VideoCollectionRecord; video: VideoRecord }>> {
+  return contentPageFromJava(await listVideos(input), (video) => ({
+    collection: videoCollectionFromJava(video),
+    video: videoFromJava(video)
+  }));
+}
+
 export async function publishRemoteContent(
   accessToken: string,
   input: RemotePublishInput
@@ -225,6 +256,7 @@ export async function publishRemoteContent(
   }
 
   const video = await createVideo({
+    coverMediaId: input.coverMediaId,
     description: input.description,
     mediaAssetId: input.mediaAssetId || input.playbackUrl || "",
     title: input.videoTitle || input.title,
@@ -260,6 +292,7 @@ export async function updateRemoteContent(accessToken: string, input: RemoteUpda
   }
 
   await updateVideo({
+    coverMediaId: input.coverMediaId,
     description: input.description,
     id: javaVideoIdFromCollectionId(input.id),
     title: input.title,
@@ -283,4 +316,17 @@ export async function deleteRemoteContent(accessToken: string, input: RemoteDele
 
 function javaVideoIdFromCollectionId(id: string): string {
   return id.startsWith("collection-") ? id.slice("collection-".length) : id;
+}
+
+function contentPageFromJava<TJava, TItem>(
+  page: JavaContentPage<TJava>,
+  mapItem: (item: TJava) => TItem
+): RemoteContentPage<TItem> {
+  return {
+    items: page.items.map(mapItem),
+    page: page.page,
+    size: page.size,
+    total: page.total,
+    totalPages: page.totalPages
+  };
 }

@@ -148,6 +148,30 @@ class ContentControllerTest {
   }
 
   @Test
+  void contentListEndpointsSupportPagination() throws Exception {
+    Cookie adminCookie = login("admin", "admin123456");
+    createPost(adminCookie, "page-one", "PUBLIC");
+    createPost(adminCookie, "page-two", "PUBLIC");
+    createPost(adminCookie, "page-three", "PUBLIC");
+
+    mvc.perform(get("/api/content/posts")
+        .queryParam("page", "0")
+        .queryParam("size", "2"))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.items", hasSize(2)))
+      .andExpect(jsonPath("$.page").value(0))
+      .andExpect(jsonPath("$.size").value(2))
+      .andExpect(jsonPath("$.total").value(3))
+      .andExpect(jsonPath("$.totalPages").value(2));
+
+    mvc.perform(get("/api/content/posts")
+        .queryParam("page", "1")
+        .queryParam("size", "2"))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.items", hasSize(1)));
+  }
+
+  @Test
   void adminCanPublishAlbumsAndVideosAndFeedFiltersThemByMembership() throws Exception {
     Cookie adminCookie = login("admin", "admin123456");
     MediaAssetEntity image = createMediaAsset("images/album.jpg", com.rinana.media.media.MediaType.IMAGE);

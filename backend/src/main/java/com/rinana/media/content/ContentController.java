@@ -11,6 +11,8 @@ import com.rinana.media.security.VisibilityPolicy;
 import com.rinana.media.user.UserEntity;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,9 +23,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -54,22 +58,63 @@ public class ContentController {
   @Transactional(readOnly = true)
   ContentFeedResponse listContent(HttpServletRequest request) {
     UserEntity viewer = currentViewerOrVisitor(request);
-    Role role = viewer == null ? Role.USER : viewer.getRole();
-    MemberLevel memberLevel = viewer == null ? MemberLevel.NORMAL : viewer.getMemberLevel();
+    List<ContentVisibility> visibleLevels = visibleLevelsFor(viewer);
 
-    var posts = postRepository.findByStatusOrderByPublishedAtDesc(ContentStatus.PUBLISHED).stream()
-      .filter(post -> canView(viewer, role, memberLevel, post.getVisibility()))
+    var posts = postRepository.findByStatusAndVisibilityInOrderByPublishedAtDesc(ContentStatus.PUBLISHED, visibleLevels).stream()
       .map(PostResponse::from)
       .toList();
-    var albums = albumRepository.findByStatusOrderByPublishedAtDesc(ContentStatus.PUBLISHED).stream()
-      .filter(album -> canView(viewer, role, memberLevel, album.getVisibility()))
+    var albums = albumRepository.findByStatusAndVisibilityInOrderByPublishedAtDesc(ContentStatus.PUBLISHED, visibleLevels).stream()
       .map(AlbumResponse::from)
       .toList();
-    var videos = videoRepository.findByStatusOrderByPublishedAtDesc(ContentStatus.PUBLISHED).stream()
-      .filter(video -> canView(viewer, role, memberLevel, video.getVisibility()))
+    var videos = videoRepository.findByStatusAndVisibilityInOrderByPublishedAtDesc(ContentStatus.PUBLISHED, visibleLevels).stream()
       .map(VideoResponse::from)
       .toList();
     return new ContentFeedResponse(posts, albums, videos);
+  }
+
+  @GetMapping("/posts")
+  @Transactional(readOnly = true)
+  ContentPageResponse<PostResponse> listPosts(
+    @RequestParam(defaultValue = "0") int page,
+    @RequestParam(defaultValue = "12") int size,
+    HttpServletRequest request
+  ) {
+    UserEntity viewer = currentViewerOrVisitor(request);
+    var pageable = PageRequest.of(safePage(page), safeSize(size), Sort.by(Sort.Direction.DESC, "publishedAt"));
+    return ContentPageResponse.from(
+      postRepository.findByStatusAndVisibilityIn(ContentStatus.PUBLISHED, visibleLevelsFor(viewer), pageable)
+        .map(PostResponse::from)
+    );
+  }
+
+  @GetMapping("/albums")
+  @Transactional(readOnly = true)
+  ContentPageResponse<AlbumResponse> listAlbums(
+    @RequestParam(defaultValue = "0") int page,
+    @RequestParam(defaultValue = "12") int size,
+    HttpServletRequest request
+  ) {
+    UserEntity viewer = currentViewerOrVisitor(request);
+    var pageable = PageRequest.of(safePage(page), safeSize(size), Sort.by(Sort.Direction.DESC, "publishedAt"));
+    return ContentPageResponse.from(
+      albumRepository.findByStatusAndVisibilityIn(ContentStatus.PUBLISHED, visibleLevelsFor(viewer), pageable)
+        .map(AlbumResponse::from)
+    );
+  }
+
+  @GetMapping("/videos")
+  @Transactional(readOnly = true)
+  ContentPageResponse<VideoResponse> listVideos(
+    @RequestParam(defaultValue = "0") int page,
+    @RequestParam(defaultValue = "12") int size,
+    HttpServletRequest request
+  ) {
+    UserEntity viewer = currentViewerOrVisitor(request);
+    var pageable = PageRequest.of(safePage(page), safeSize(size), Sort.by(Sort.Direction.DESC, "publishedAt"));
+    return ContentPageResponse.from(
+      videoRepository.findByStatusAndVisibilityIn(ContentStatus.PUBLISHED, visibleLevelsFor(viewer), pageable)
+        .map(VideoResponse::from)
+    );
   }
 
   @PostMapping("/posts")
@@ -227,9 +272,21 @@ public class ContentController {
     return ResponseEntity.noContent().build();
   }
 
-  private boolean canView(UserEntity viewer, Role role, MemberLevel memberLevel, ContentVisibility visibility) {
-    return visibility == ContentVisibility.PUBLIC
-      || viewer != null && VisibilityPolicy.canView(role, memberLevel, visibility);
+  private List<ContentVisibility> visibleLevelsFor(UserEntity viewer) {
+    Role role = viewer == null ? Role.USER : viewer.getRole();
+    MemberLevel memberLevel = viewer == null ? MemberLevel.NORMAL : viewer.getMemberLevel();
+    return Arrays.stream(ContentVisibility.values())
+      .filter(visibility -> visibility == ContentVisibility.PUBLIC
+        || viewer != null && VisibilityPolicy.canView(role, memberLevel, visibility))
+      .toList();
+  }
+
+  private int safePage(int page) {
+    return Math.max(page, 0);
+  }
+
+  private int safeSize(int size) {
+    return Math.max(1, Math.min(size, 36));
   }
 
   private MediaAssetEntity requireMedia(java.util.UUID id) {

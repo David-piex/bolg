@@ -5,6 +5,7 @@ import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
+import io.minio.StatObjectArgs;
 import io.minio.http.Method;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -16,6 +17,7 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class MinioMediaStorageService implements MediaStorageService {
   private static final int ACCESS_URL_MINUTES = 15;
+  private static final int UPLOAD_URL_MINUTES = 10;
 
   private final MinioClient storageClient;
   private final MinioClient accessClient;
@@ -36,9 +38,13 @@ public class MinioMediaStorageService implements MediaStorageService {
   }
 
   @Override
+  public String bucketName() {
+    return properties.bucket();
+  }
+
+  @Override
   public StoredMediaObject store(MultipartFile file, MediaType mediaType, String objectPrefix) {
-    String extension = extensionFrom(file.getOriginalFilename());
-    String objectKey = objectPrefix + "/" + UUID.randomUUID() + extension;
+    String objectKey = createObjectKey(objectPrefix, file.getOriginalFilename());
     try {
       ensureBucketExists();
       storageClient.putObject(PutObjectArgs.builder()
@@ -66,6 +72,40 @@ public class MinioMediaStorageService implements MediaStorageService {
     } catch (Exception exception) {
       throw new IllegalStateException("Media access URL creation failed", exception);
     }
+  }
+
+  @Override
+  public MediaUploadUrl createUploadUrl(MediaType mediaType, String objectPrefix, String originalName, String mimeType) {
+    String objectKey = createObjectKey(objectPrefix, originalName);
+    try {
+      ensureBucketExists();
+      String url = accessClient.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
+        .method(Method.PUT)
+        .bucket(properties.bucket())
+        .object(objectKey)
+        .expiry(UPLOAD_URL_MINUTES, TimeUnit.MINUTES)
+        .build());
+      return new MediaUploadUrl(java.net.URI.create(url), properties.bucket(), objectKey, Instant.now().plusSeconds(UPLOAD_URL_MINUTES * 60L));
+    } catch (Exception exception) {
+      throw new IllegalStateException("Media upload URL creation failed", exception);
+    }
+  }
+
+  @Override
+  public boolean objectExists(String bucketName, String objectKey, long expectedSizeBytes) {
+    try {
+      long objectSize = storageClient.statObject(StatObjectArgs.builder()
+        .bucket(bucketName)
+        .object(objectKey)
+        .build()).size();
+      return expectedSizeBytes <= 0 || objectSize == expectedSizeBytes;
+    } catch (Exception exception) {
+      return false;
+    }
+  }
+
+  private String createObjectKey(String objectPrefix, String filename) {
+    return objectPrefix + "/" + UUID.randomUUID() + extensionFrom(filename);
   }
 
   private String extensionFrom(String filename) {

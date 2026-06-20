@@ -11,6 +11,7 @@ import com.rinana.media.content.VideoRepository;
 import com.rinana.media.security.VisibilityPolicy;
 import com.rinana.media.user.UserEntity;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -29,6 +31,9 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/media")
 public class MediaController {
+  private static final long IMAGE_MAX_BYTES = 10L * 1024 * 1024;
+  private static final long VIDEO_MAX_BYTES = 95L * 1024 * 1024;
+
   private final CurrentUserResolver currentUserResolver;
   private final MediaStorageService mediaStorageService;
   private final MediaAssetRepository mediaAssetRepository;
@@ -56,7 +61,7 @@ public class MediaController {
   @Transactional
   ResponseEntity<MediaAssetResponse> uploadImage(@RequestParam("file") MultipartFile file, HttpServletRequest request) {
     requireAdmin(request);
-    requireMimePrefix(file, "image/");
+    requireUploadAccepted(MediaType.IMAGE, file.getContentType(), file.getSize());
     return ResponseEntity.status(HttpStatus.CREATED).body(MediaAssetResponse.from(store(file, MediaType.IMAGE, "images", request)));
   }
 
@@ -64,8 +69,54 @@ public class MediaController {
   @Transactional
   ResponseEntity<MediaAssetResponse> uploadVideo(@RequestParam("file") MultipartFile file, HttpServletRequest request) {
     requireAdmin(request);
-    requireMimePrefix(file, "video/");
+    requireUploadAccepted(MediaType.VIDEO, file.getContentType(), file.getSize());
     return ResponseEntity.status(HttpStatus.CREATED).body(MediaAssetResponse.from(store(file, MediaType.VIDEO, "videos", request)));
+  }
+
+  @PostMapping("/direct-uploads")
+  ResponseEntity<DirectUploadResponse> createDirectUpload(
+    @Valid @RequestBody DirectUploadRequest uploadRequest,
+    HttpServletRequest request
+  ) {
+    requireAdmin(request);
+    requireUploadAccepted(uploadRequest.mediaType(), uploadRequest.mimeType(), uploadRequest.sizeBytes());
+    MediaUploadUrl uploadUrl = mediaStorageService.createUploadUrl(
+      uploadRequest.mediaType(),
+      objectPrefixFor(uploadRequest.mediaType()),
+      uploadRequest.originalName(),
+      uploadRequest.mimeType()
+    );
+    return ResponseEntity.status(HttpStatus.CREATED).body(
+      DirectUploadResponse.from(uploadUrl, uploadRequest.mediaType(), uploadRequest.mimeType())
+    );
+  }
+
+  @PostMapping("/direct-uploads/complete")
+  @Transactional
+  ResponseEntity<MediaAssetResponse> completeDirectUpload(
+    @Valid @RequestBody CompleteDirectUploadRequest uploadRequest,
+    HttpServletRequest request
+  ) {
+    UserEntity uploader = requireAdmin(request);
+    requireUploadAccepted(uploadRequest.mediaType(), uploadRequest.mimeType(), uploadRequest.sizeBytes());
+    requireManagedBucket(uploadRequest.bucketName());
+    requireObjectKeyMatchesMediaType(uploadRequest.mediaType(), uploadRequest.objectKey());
+
+    if (!mediaStorageService.objectExists(uploadRequest.bucketName(), uploadRequest.objectKey(), uploadRequest.sizeBytes())) {
+      throw new ApiException(HttpStatus.BAD_REQUEST, "MEDIA_UPLOAD_NOT_FOUND", "媒体文件尚未上传完成");
+    }
+
+    MediaAssetEntity asset = new MediaAssetEntity();
+    asset.setMediaType(uploadRequest.mediaType());
+    asset.setBucketName(uploadRequest.bucketName());
+    asset.setObjectKey(uploadRequest.objectKey());
+    asset.setOriginalName(uploadRequest.originalName());
+    asset.setMimeType(uploadRequest.mimeType());
+    asset.setSizeBytes(uploadRequest.sizeBytes());
+    asset.setUploadedBy(uploader);
+    asset.setCreatedAt(Instant.now());
+
+    return ResponseEntity.status(HttpStatus.CREATED).body(MediaAssetResponse.from(mediaAssetRepository.save(asset)));
   }
 
   @GetMapping("/{id}/access")
@@ -158,10 +209,34 @@ public class MediaController {
     return viewer != null && VisibilityPolicy.canView(viewer.getRole(), viewer.getMemberLevel(), visibility);
   }
 
-  private void requireMimePrefix(MultipartFile file, String prefix) {
-    String contentType = file.getContentType();
+  private void requireUploadAccepted(MediaType mediaType, String contentType, long sizeBytes) {
+    requireMimePrefix(contentType, mediaType == MediaType.IMAGE ? "image/" : "video/");
+    long maxBytes = mediaType == MediaType.IMAGE ? IMAGE_MAX_BYTES : VIDEO_MAX_BYTES;
+    if (sizeBytes <= 0 || sizeBytes > maxBytes) {
+      throw new ApiException(HttpStatus.BAD_REQUEST, "MEDIA_TOO_LARGE", "媒体文件大小不符合限制");
+    }
+  }
+
+  private void requireMimePrefix(String contentType, String prefix) {
     if (contentType == null || !contentType.startsWith(prefix)) {
       throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_MEDIA_TYPE", "媒体类型不支持");
+    }
+  }
+
+  private String objectPrefixFor(MediaType mediaType) {
+    return mediaType == MediaType.IMAGE ? "images" : "videos";
+  }
+
+  private void requireObjectKeyMatchesMediaType(MediaType mediaType, String objectKey) {
+    String expectedPrefix = objectPrefixFor(mediaType) + "/";
+    if (!objectKey.startsWith(expectedPrefix)) {
+      throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_MEDIA_OBJECT", "媒体对象路径不符合类型");
+    }
+  }
+
+  private void requireManagedBucket(String bucketName) {
+    if (!mediaStorageService.bucketName().equals(bucketName)) {
+      throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_MEDIA_BUCKET", "媒体存储桶不符合配置");
     }
   }
 }
