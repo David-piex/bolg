@@ -5,6 +5,7 @@ import {
   Cloud,
   Database,
   FileUp,
+  History,
   KeyRound,
   Pencil,
   ShieldCheck,
@@ -24,7 +25,13 @@ import {
   type UploadedVideo,
   type UploadProgress
 } from "@/services/admin-upload-client";
-import { listMedia, type JavaMediaAsset, type JavaMediaType } from "@/services/java-api-client";
+import {
+  listAdminAuditLogs,
+  listMedia,
+  type JavaAdminAuditLog,
+  type JavaMediaAsset,
+  type JavaMediaType
+} from "@/services/java-api-client";
 import { useAppState } from "@/state/AppStateProvider";
 
 type Dictionary = ReturnType<typeof getDictionary>;
@@ -98,6 +105,10 @@ function mediaPageSummary(template: string, input: { page: number; total: number
   return memberPageSummary(template, input);
 }
 
+function auditPageSummary(template: string, input: { page: number; total: number; totalPages: number }) {
+  return memberPageSummary(template, input);
+}
+
 function formatBytes(bytes: number) {
   if (bytes >= 1024 * 1024) {
     return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -126,6 +137,44 @@ function normalizeMediaPage(page: unknown, fallbackSize: number) {
     total: typeof candidate.total === "number" ? candidate.total : 0,
     totalPages: typeof candidate.totalPages === "number" ? candidate.totalPages : 1
   };
+}
+
+function normalizeAuditPage(page: unknown, fallbackSize: number) {
+  const candidate = page as Partial<{
+    items: JavaAdminAuditLog[];
+    page: number;
+    size: number;
+    total: number;
+    totalPages: number;
+  }>;
+
+  return {
+    items: Array.isArray(candidate.items) ? candidate.items : [],
+    page: typeof candidate.page === "number" ? candidate.page : 0,
+    size: typeof candidate.size === "number" ? candidate.size : fallbackSize,
+    total: typeof candidate.total === "number" ? candidate.total : 0,
+    totalPages: typeof candidate.totalPages === "number" ? candidate.totalPages : 1
+  };
+}
+
+function formatAuditDetail(detailJson: string) {
+  try {
+    const parsed = JSON.parse(detailJson) as Record<string, unknown>;
+    return Object.entries(parsed)
+      .map(([key, value]) => `${key}: ${String(value)}`)
+      .join(" / ");
+  } catch {
+    return detailJson;
+  }
+}
+
+function formatAuditDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString();
 }
 
 function uploadPhaseLabel(progress: UploadProgress, dictionary: Dictionary) {
@@ -199,6 +248,15 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
   });
   const [mediaLoading, setMediaLoading] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
+  const [auditPage, setAuditPage] = useState({
+    items: [] as JavaAdminAuditLog[],
+    page: 0,
+    size: 8,
+    total: 0,
+    totalPages: 1
+  });
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState<string | null>(null);
   const unusedInvites = invites.filter((invite) => !invite.usedByUserId);
   const contentTotal = posts.length + albums.length + videoCollections.length;
   const mediaTotal = photos.length + videos.length;
@@ -216,6 +274,13 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
     page: mediaCurrentPage,
     total: mediaPage.total,
     totalPages: mediaTotalPages
+  });
+  const auditCurrentPage = auditPage.page + 1;
+  const auditTotalPages = Math.max(1, auditPage.totalPages);
+  const auditSummary = auditPageSummary(dictionary.admin.auditPageSummary, {
+    page: auditCurrentPage,
+    total: auditPage.total,
+    totalPages: auditTotalPages
   });
   const latestContentDate = latestPublishedAt(
     [...posts, ...albums, ...videoCollections],
@@ -289,6 +354,36 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
     };
   }, [authReady, authSession?.accessToken, mediaPage.size, mediaQuery, mediaTypeFilter]);
 
+  useEffect(() => {
+    if (!authReady || !authSession?.accessToken) {
+      return;
+    }
+
+    let cancelled = false;
+    setAuditLoading(true);
+    setAuditError(null);
+    void listAdminAuditLogs({ page: 0, size: auditPage.size })
+      .then((page) => {
+        if (!cancelled) {
+          setAuditPage(normalizeAuditPage(page, auditPage.size));
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setAuditError(error instanceof Error ? error.message : dictionary.admin.noAuditLogs);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setAuditLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authReady, authSession?.accessToken, auditPage.size]);
+
   if (!authReady) {
     return (
       <section className="locked-state">
@@ -349,6 +444,25 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
       setMediaError(error instanceof Error ? error.message : dictionary.admin.noMediaAssets);
     } finally {
       setMediaLoading(false);
+    }
+  }
+
+  async function onLoadAuditPage(page: number) {
+    if (!authSession?.accessToken) {
+      setAuditError(dictionary.admin.uploadNeedsLogin);
+      return;
+    }
+
+    setAuditLoading(true);
+    setAuditError(null);
+
+    try {
+      const nextPage = await listAdminAuditLogs({ page, size: auditPage.size });
+      setAuditPage(normalizeAuditPage(nextPage, auditPage.size));
+    } catch (error) {
+      setAuditError(error instanceof Error ? error.message : dictionary.admin.noAuditLogs);
+    } finally {
+      setAuditLoading(false);
     }
   }
 
@@ -1190,6 +1304,67 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
               type="button"
               onClick={() => void onLoadMemberPage(adminUserPage.page + 1)}
               disabled={memberLoading || memberCurrentPage >= memberTotalPages}
+            >
+              {dictionary.admin.memberNext}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section className="admin-section admin-section-wide audit-section">
+        <div className="section-heading">
+          <History size={20} />
+          <div>
+            <h2>{dictionary.admin.auditLogs}</h2>
+            <p>{dictionary.admin.auditLogsHint}</p>
+          </div>
+        </div>
+        <div className="audit-list" aria-live="polite">
+          {auditPage.items.map((log) => (
+            <div className="audit-row" key={log.id}>
+              <div className="audit-action">
+                <span>{log.actionType}</span>
+                <strong>{formatAuditDate(log.createdAt)}</strong>
+              </div>
+              <div className="audit-main">
+                <div className="audit-meta-grid">
+                  <span>
+                    {dictionary.admin.auditActor}
+                    {dictionary.common.colon}
+                    <b>{log.adminDisplayName || log.adminUsername}</b>
+                  </span>
+                  <span>
+                    {dictionary.admin.auditTarget}
+                    {dictionary.common.colon}
+                    <b>{log.targetType}</b>
+                  </span>
+                </div>
+                <p>
+                  {dictionary.admin.auditDetail}
+                  {dictionary.common.colon}
+                  {formatAuditDetail(log.detailJson)}
+                </p>
+              </div>
+              <code title={log.targetId ?? log.id}>{log.targetId ?? log.id}</code>
+            </div>
+          ))}
+          {auditPage.items.length === 0 ? <p className="muted">{dictionary.admin.noAuditLogs}</p> : null}
+        </div>
+        <div className="member-pagination" aria-live="polite">
+          <span>{auditLoading ? dictionary.admin.uploading : auditSummary}</span>
+          {auditError ? <strong>{auditError}</strong> : null}
+          <div>
+            <button
+              type="button"
+              onClick={() => void onLoadAuditPage(Math.max(auditPage.page - 1, 0))}
+              disabled={auditLoading || auditPage.page <= 0}
+            >
+              {dictionary.admin.memberPrevious}
+            </button>
+            <button
+              type="button"
+              onClick={() => void onLoadAuditPage(auditPage.page + 1)}
+              disabled={auditLoading || auditCurrentPage >= auditTotalPages}
             >
               {dictionary.admin.memberNext}
             </button>

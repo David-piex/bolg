@@ -44,6 +44,31 @@ export type ListAdminUsersInput = {
   size?: number;
 };
 
+export type JavaAdminAuditLog = {
+  actionType: string;
+  adminDisplayName: string;
+  adminUserId: string;
+  adminUsername: string;
+  createdAt: string;
+  detailJson: string;
+  id: string;
+  targetId: string | null;
+  targetType: string;
+};
+
+export type JavaAdminAuditLogPage = {
+  items: JavaAdminAuditLog[];
+  page: number;
+  size: number;
+  total: number;
+  totalPages: number;
+};
+
+export type ListAdminAuditLogsInput = {
+  page?: number;
+  size?: number;
+};
+
 export type JavaInvite = {
   code: string;
   id: string;
@@ -260,6 +285,18 @@ export async function listAdminUsers(input: ListAdminUsersInput = {}): Promise<J
   }
   const query = params.toString();
   return request<JavaAdminUserPage>(`/api/admin/users${query ? `?${query}` : ""}`, { method: "GET" });
+}
+
+export async function listAdminAuditLogs(input: ListAdminAuditLogsInput = {}): Promise<JavaAdminAuditLogPage> {
+  const params = new URLSearchParams();
+  if (input.page !== undefined) {
+    params.set("page", String(input.page));
+  }
+  if (input.size !== undefined) {
+    params.set("size", String(input.size));
+  }
+  const query = params.toString();
+  return request<JavaAdminAuditLogPage>(`/api/admin/audit-logs${query ? `?${query}` : ""}`, { method: "GET" });
 }
 
 export async function deleteInvite(inviteId: string): Promise<void> {

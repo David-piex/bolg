@@ -99,6 +99,16 @@ public class AdminController {
     return AdminUserPageResponse.from(userRepository.findManageableUsers(query, pageable).map(AdminUserResponse::from));
   }
 
+  @GetMapping("/audit-logs")
+  AdminAuditLogPageResponse listAuditLogs(
+    @RequestParam(defaultValue = "0") int page,
+    @RequestParam(defaultValue = "20") int size,
+    HttpServletRequest request
+  ) {
+    requireAdmin(request);
+    return adminAuditService.list(page, size);
+  }
+
   @DeleteMapping("/invites/{id}")
   @Transactional
   ResponseEntity<Void> disableInvite(@PathVariable UUID id, HttpServletRequest request) {

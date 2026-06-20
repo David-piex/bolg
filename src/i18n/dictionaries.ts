@@ -176,6 +176,13 @@ type Dictionary = {
     mediaLibraryImageSelected: string;
     mediaLibraryCoverSelected: string;
     mediaLibraryVideoSelected: string;
+    auditLogs: string;
+    auditLogsHint: string;
+    auditActor: string;
+    auditTarget: string;
+    auditDetail: string;
+    auditPageSummary: string;
+    noAuditLogs: string;
   };
   membership: Record<MembershipLevel, string> & {
     visitor: string;
@@ -412,7 +419,14 @@ export const dictionaries: Record<Locale, Dictionary> = {
       noMediaAssets: "暂无可复用素材",
       mediaLibraryImageSelected: "已从素材库关联图片。",
       mediaLibraryCoverSelected: "已从素材库关联视频封面。",
-      mediaLibraryVideoSelected: "已从素材库关联视频文件。"
+      mediaLibraryVideoSelected: "已从素材库关联视频文件。",
+      auditLogs: "操作记录",
+      auditLogsHint: "查看管理员对邀请码和成员账号的关键操作，方便追踪问题。",
+      auditActor: "操作人",
+      auditTarget: "对象",
+      auditDetail: "详情",
+      auditPageSummary: "第 {page} / {totalPages} 页，共 {total} 条记录",
+      noAuditLogs: "暂无操作记录"
     },
     membership: {
       public: "公开",
@@ -650,7 +664,14 @@ export const dictionaries: Record<Locale, Dictionary> = {
       noMediaAssets: "No reusable media",
       mediaLibraryImageSelected: "Image attached from the media library.",
       mediaLibraryCoverSelected: "Video cover attached from the media library.",
-      mediaLibraryVideoSelected: "Video file attached from the media library."
+      mediaLibraryVideoSelected: "Video file attached from the media library.",
+      auditLogs: "Audit log",
+      auditLogsHint: "Review key admin actions on invite codes and member accounts.",
+      auditActor: "Actor",
+      auditTarget: "Target",
+      auditDetail: "Detail",
+      auditPageSummary: "Page {page} of {totalPages}, {total} records",
+      noAuditLogs: "No audit records"
     },
     membership: {
       public: "Public",

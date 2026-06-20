@@ -116,6 +116,8 @@ describe("AdminPanel", () => {
     expect(screen.getByText("搜索成员")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("昵称或邮箱")).toBeInTheDocument();
     expect(screen.getByText(/第 1 \/ 1 页，共 4 人/)).toBeInTheDocument();
+    expect(screen.getByText("操作记录")).toBeInTheDocument();
+    expect(screen.getByText("暂无操作记录")).toBeInTheDocument();
     expect(screen.getByText("标题")).toBeInTheDocument();
     expect(screen.getByText("正文")).toBeInTheDocument();
     expect(screen.getByText("媒体文件")).toBeInTheDocument();
@@ -260,17 +262,18 @@ describe("AdminPanel", () => {
   it("shows upload progress and blocks publishing while a file is still uploading", async () => {
     window.localStorage.clear();
     mockRemoteAdminLogin();
+    const uploadControl = { finish: () => undefined };
     vi.mocked(uploadImageFile).mockImplementation(
       ({ onProgress }) =>
         new Promise((resolve) => {
           onProgress?.({ percent: 46, phase: "uploading" });
-          setTimeout(() => {
+          uploadControl.finish = () => {
             resolve({
               mediaAssetId: "media-image",
               path: "gold/cover.webp",
               publicUrl: "/api/media/media-image/view"
             });
-          }, 50);
+          };
         })
     );
     const dictionary = getDictionary("zh");
@@ -297,6 +300,8 @@ describe("AdminPanel", () => {
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "发布", hidden: false })).toBeDisabled();
     });
+
+    uploadControl.finish();
 
     await waitFor(() => {
       expect(screen.getByText("图片已上传，可随内容发布。")).toBeInTheDocument();

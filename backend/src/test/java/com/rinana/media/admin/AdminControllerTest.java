@@ -164,6 +164,47 @@ class AdminControllerTest {
   }
 
   @Test
+  void superAdminCanListAuditLogsWithPagination() throws Exception {
+    Cookie adminCookie = loginAdmin();
+    UserEntity user = createUser("audit-member", "audit-member@example.com");
+
+    mvc.perform(post("/api/admin/invites")
+        .cookie(adminCookie)
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(json(Map.of(
+          "code", "audit-gold",
+          "initialLevel", "GOLD",
+          "maxUses", 1
+        ))))
+      .andExpect(status().isCreated());
+
+    mvc.perform(patch("/api/admin/users/" + user.getId())
+        .cookie(adminCookie)
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(json(Map.of(
+          "memberLevel", "DIAMOND",
+          "disabled", true
+        ))))
+      .andExpect(status().isOk());
+
+    mvc.perform(get("/api/admin/audit-logs")
+        .queryParam("page", "0")
+        .queryParam("size", "1")
+        .cookie(adminCookie))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.items.length()").value(1))
+      .andExpect(jsonPath("$.items[0].adminUsername").value("admin"))
+      .andExpect(jsonPath("$.items[0].adminDisplayName").value("站长"))
+      .andExpect(jsonPath("$.items[0].actionType").value("UPDATE_USER"))
+      .andExpect(jsonPath("$.items[0].targetType").value("USER"))
+      .andExpect(jsonPath("$.items[0].detailJson").value("{\"memberLevel\":\"DIAMOND\",\"status\":\"DISABLED\"}"))
+      .andExpect(jsonPath("$.page").value(0))
+      .andExpect(jsonPath("$.size").value(1))
+      .andExpect(jsonPath("$.total").value(2))
+      .andExpect(jsonPath("$.totalPages").value(2));
+  }
+
+  @Test
   void superAdminAccountCannotBeModifiedFromAdminApi() throws Exception {
     Cookie adminCookie = loginAdmin();
     UserEntity superAdmin = userRepository.findByUsername("admin").orElseThrow();
@@ -185,6 +226,10 @@ class AdminControllerTest {
     Cookie userCookie = login("normal-admin-denied", "password123");
 
     mvc.perform(get("/api/admin/invites").cookie(userCookie))
+      .andExpect(status().isForbidden())
+      .andExpect(jsonPath("$.errorCode").value("ADMIN_REQUIRED"));
+
+    mvc.perform(get("/api/admin/audit-logs").cookie(userCookie))
       .andExpect(status().isForbidden())
       .andExpect(jsonPath("$.errorCode").value("ADMIN_REQUIRED"));
   }

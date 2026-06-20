@@ -14,6 +14,7 @@ import {
   getVideo,
   listMedia,
   listPosts,
+  listAdminAuditLogs,
   listAdminUsers,
   login,
   register,
@@ -76,6 +77,7 @@ describe("java api client", () => {
 
     await createInvite({ code: "diamond-code", initialLevel: "DIAMOND", maxUses: 1 });
     await listAdminUsers({ page: 1, q: "lin", size: 20 });
+    await listAdminAuditLogs({ page: 2, size: 8 });
     await updateUser({ disabled: true, memberLevel: "GOLD", userId: "user-1" });
 
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/admin/invites", expect.objectContaining({
@@ -86,7 +88,11 @@ describe("java api client", () => {
       credentials: "include",
       method: "GET"
     }));
-    expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/admin/users/user-1", expect.objectContaining({
+    expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/admin/audit-logs?page=2&size=8", expect.objectContaining({
+      credentials: "include",
+      method: "GET"
+    }));
+    expect(fetchMock).toHaveBeenNthCalledWith(4, "/api/admin/users/user-1", expect.objectContaining({
       credentials: "include",
       method: "PATCH"
     }));

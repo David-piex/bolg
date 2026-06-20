@@ -1659,7 +1659,8 @@ main {
 
 .invite-list,
 .user-list,
-.admin-content-list {
+.admin-content-list,
+.audit-list {
   display: grid;
   gap: 10px;
 }
@@ -1952,6 +1953,77 @@ main {
   font-size: 0.86rem;
 }
 
+.audit-section {
+  background:
+    linear-gradient(135deg, rgba(255, 250, 253, 0.98), rgba(255, 243, 248, 0.98)),
+    linear-gradient(90deg, rgba(216, 63, 123, 0.05) 0 1px, transparent 1px 24px);
+}
+
+.audit-row {
+  display: grid;
+  grid-template-columns: minmax(132px, 0.2fr) minmax(0, 1fr) minmax(150px, 0.28fr);
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid rgba(105, 41, 72, 0.12);
+  border-radius: var(--radius);
+  background: rgba(255, 250, 253, 0.78);
+}
+
+.audit-action,
+.audit-main {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.audit-action span {
+  justify-self: start;
+  min-height: 26px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(216, 63, 123, 0.1);
+  color: var(--accent);
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.audit-action strong {
+  color: var(--ink-strong);
+  font-size: 0.88rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.audit-meta-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.audit-meta-grid b {
+  color: var(--ink-strong);
+}
+
+.audit-main p {
+  margin: 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.audit-row code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 8px 9px;
+  border: 1px solid rgba(116, 45, 78, 0.12);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 .row-actions {
   display: flex;
   flex-wrap: wrap;
@@ -2103,6 +2175,10 @@ main {
 
   .media-library-actions {
     justify-content: flex-start;
+  }
+
+  .audit-row {
+    grid-template-columns: 1fr;
   }
 }
 
