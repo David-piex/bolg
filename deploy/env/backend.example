@@ -1,0 +1,25 @@
+﻿SERVER_PORT=8080
+MAX_UPLOAD_FILE_SIZE=512MB
+MAX_UPLOAD_REQUEST_SIZE=512MB
+DATABASE_URL=jdbc:postgresql://postgres:5432/rinana
+DATABASE_USERNAME=rinana
+DATABASE_PASSWORD=rinana_change_me
+SPRING_DATA_REDIS_HOST=redis
+SPRING_DATA_REDIS_PORT=6379
+MINIO_ENDPOINT=http://minio:9000
+MINIO_PUBLIC_ENDPOINT=http://SERVER_IP:9000
+MINIO_ACCESS_KEY=rinana_minio
+MINIO_SECRET_KEY=rinana_minio_change_me
+MINIO_BUCKET=rinana-media
+MINIO_REGION=us-east-1
+JWT_SECRET=change-this-to-a-long-random-secret-with-at-least-32-bytes
+SUPER_ADMIN_USERNAME=admin
+SUPER_ADMIN_EMAIL=admin@example.com
+SUPER_ADMIN_PASSWORD=change-me-before-deploy
+SUPER_ADMIN_DISPLAY_NAME=站长
+
+# MINIO_ENDPOINT is used inside Docker by the backend.
+# MINIO_PUBLIC_ENDPOINT must be reachable by the user's browser for presigned media URLs.
+# Replace SERVER_IP with your server IP or domain before deployment.
+# Create the MinIO bucket named by MINIO_BUCKET before uploading media.
+# The MinIO console is exposed on http://SERVER_IP:9001 by docker-compose.yml.

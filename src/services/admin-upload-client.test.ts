@@ -1,108 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  createImageUpload,
-  createVideoUploadSignature,
-  uploadImageFile,
-  uploadVideoFile
-} from "@/services/admin-upload-client";
+import { validateImageFile, validateVideoFile, uploadImageFile, uploadVideoFile } from "@/services/admin-upload-client";
 
 describe("admin upload client", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("sends the admin bearer token when requesting Supabase image upload URLs", async () => {
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        path: "gold/cover.webp",
-        token: "signed-token",
-        uploadUrl: "https://project.supabase.co/storage/v1/object/upload/sign/images/gold/cover.webp?token=signed-token"
-      })
-    }));
-    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
-
-    await expect(
-      createImageUpload({
-        accessToken: "admin-access-token",
-        contentType: "image/webp",
-        fileName: "Cover.webp",
-        visibility: "gold"
-      })
-    ).resolves.toMatchObject({
-      path: "gold/cover.webp",
-      token: "signed-token"
-    });
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      "/api/supabase/image-upload",
-      expect.objectContaining({
-        headers: {
-          Authorization: "Bearer admin-access-token",
-          "Content-Type": "application/json"
-        },
-        method: "POST"
-      })
-    );
-  });
-
-  it("sends the admin bearer token when requesting Cloudinary video signatures", async () => {
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        apiKey: "api-key",
-        cloudName: "demo-cloud",
-        folder: "rinana/videos",
-        publicId: "collection-1/trailer",
-        resourceType: "video",
-        signature: "signature",
-        tags: ["visibility:gold", "collection:collection-1"],
-        timestamp: 1_781_000_000,
-        uploadUrl: "https://api.cloudinary.com/v1_1/demo-cloud/video/upload"
-      })
-    }));
-    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
-
-    await expect(
-      createVideoUploadSignature({
-        accessToken: "admin-access-token",
-        collectionId: "collection-1",
-        fileName: "Trailer.mp4",
-        visibility: "gold"
-      })
-    ).resolves.toMatchObject({
-      publicId: "collection-1/trailer",
-      signature: "signature"
-    });
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      "/api/cloudinary/video-signature",
-      expect.objectContaining({
-        headers: {
-          Authorization: "Bearer admin-access-token",
-          "Content-Type": "application/json"
-        },
-        method: "POST"
-      })
-    );
-  });
-
-  it("uploads image files to signed Supabase Storage URLs and returns the public object URL", async () => {
+  it("uploads image files directly through the Java media API", async () => {
     const file = new File(["image-bytes"], "Cover.webp", { type: "image/webp" });
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          path: "gold/cover.webp",
-          token: "signed-token",
-          uploadUrl: "https://project.supabase.co/storage/v1/object/upload/sign/images/gold/cover.webp?token=signed-token"
-        })
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        id: "media-1",
+        mediaType: "IMAGE",
+        objectKey: "images/cover.webp",
+        originalName: "Cover.webp"
       })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({})
-      });
+    }));
     vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
 
     await expect(
@@ -112,46 +26,32 @@ describe("admin upload client", () => {
         visibility: "gold"
       })
     ).resolves.toEqual({
-      path: "gold/cover.webp",
-      publicUrl: "https://project.supabase.co/storage/v1/object/public/images/gold/cover.webp"
+      mediaAssetId: "media-1",
+      path: "images/cover.webp",
+      publicUrl: "/api/media/media-1/view"
     });
 
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
-      "https://project.supabase.co/storage/v1/object/upload/sign/images/gold/cover.webp?token=signed-token",
-      {
-        body: file,
-        headers: { "Content-Type": "image/webp" },
-        method: "PUT"
-      }
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/media/images",
+      expect.objectContaining({
+        body: expect.any(FormData),
+        credentials: "include",
+        method: "POST"
+      })
     );
   });
 
-  it("uploads video files to Cloudinary with the signed payload and returns playback details", async () => {
+  it("uploads video files directly through the Java media API", async () => {
     const file = new File(["video-bytes"], "Trailer.mp4", { type: "video/mp4" });
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          apiKey: "api-key",
-          cloudName: "demo-cloud",
-          folder: "rinana/videos",
-          publicId: "collection-1/trailer",
-          resourceType: "video",
-          signature: "signature",
-          tags: ["visibility:gold", "collection:collection-1"],
-          timestamp: 1_781_000_000,
-          uploadUrl: "https://api.cloudinary.com/v1_1/demo-cloud/video/upload"
-        })
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        id: "media-2",
+        mediaType: "VIDEO",
+        objectKey: "videos/trailer.mp4",
+        originalName: "Trailer.mp4"
       })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          public_id: "collection-1/trailer",
-          secure_url: "https://res.cloudinary.com/demo-cloud/video/upload/rinana/videos/collection-1/trailer.mp4"
-        })
-      });
+    }));
     vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
 
     await expect(
@@ -162,23 +62,36 @@ describe("admin upload client", () => {
         visibility: "gold"
       })
     ).resolves.toEqual({
-      cloudinaryPublicId: "collection-1/trailer",
-      playbackUrl: "https://res.cloudinary.com/demo-cloud/video/upload/rinana/videos/collection-1/trailer.mp4",
-      thumbnailUrl: "https://res.cloudinary.com/demo-cloud/video/upload/so_0/collection-1/trailer.jpg"
+      mediaAssetId: "media-2",
+      playbackUrl: "/api/media/media-2/view",
+      thumbnailUrl: ""
     });
 
-    const [, uploadOptions] = fetchMock.mock.calls[1];
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
-      "https://api.cloudinary.com/v1_1/demo-cloud/video/upload",
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/media/videos",
       expect.objectContaining({
         body: expect.any(FormData),
+        credentials: "include",
         method: "POST"
       })
     );
-    expect(uploadOptions.body.get("file")).toBe(file);
-    expect(uploadOptions.body.get("api_key")).toBe("api-key");
-    expect(uploadOptions.body.get("signature")).toBe("signature");
-    expect(uploadOptions.body.get("public_id")).toBe("collection-1/trailer");
+  });
+
+  it("rejects unsupported image file types before upload", () => {
+    const file = new File(["image-bytes"], "photo.heic", { type: "image/heic" });
+
+    expect(validateImageFile(file)).toBe("图片只支持 JPG、PNG、WebP 或 GIF。");
+  });
+
+  it("rejects images over the configured image upload limit before upload", () => {
+    const file = new File([new Uint8Array(10 * 1024 * 1024 + 1)], "photo.png", { type: "image/png" });
+
+    expect(validateImageFile(file)).toBe("图片不能超过 10MB。");
+  });
+
+  it("rejects videos over the configured video upload limit before upload", () => {
+    const file = new File([new Uint8Array(100 * 1024 * 1024 + 1)], "clip.mp4", { type: "video/mp4" });
+
+    expect(validateVideoFile(file)).toBe("视频不能超过 100MB。");
   });
 });

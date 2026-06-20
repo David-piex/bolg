@@ -1,4 +1,5 @@
 import type { InviteTargetLevel } from "@/domain/invites";
+import { getMe, login, logout, register, type JavaMemberLevel, type JavaRole, type JavaUser } from "@/services/java-api-client";
 
 export type ClientRegisterInput = {
   displayName: string;
@@ -44,22 +45,67 @@ async function readJson<T>(response: Response): Promise<T> {
   return body;
 }
 
+function fromJavaLevel(level: JavaMemberLevel): InviteTargetLevel {
+  return level.toLowerCase() as InviteTargetLevel;
+}
+
+function isAdminRole(role: JavaRole): boolean {
+  return role === "ADMIN" || role === "SUPER_ADMIN";
+}
+
+function usernameFromDisplayNameOrEmail(displayName: string, email: string): string {
+  const value = displayName.trim() || email.split("@")[0] || "user";
+  return value.toLowerCase().replace(/[^a-z0-9_-]/g, "-").replace(/-+/g, "-").slice(0, 64);
+}
+
+function sessionFromJavaUser(user: JavaUser): ClientLoginSession {
+  return {
+    accessToken: "cookie-session",
+    expiresIn: 900,
+    profile: {
+      disabled: false,
+      displayName: user.displayName,
+      email: user.email,
+      isAdmin: isAdminRole(user.role),
+      level: fromJavaLevel(user.memberLevel),
+      userId: user.id
+    },
+    refreshToken: "cookie-session"
+  };
+}
+
 export async function registerWithInviteClient(input: ClientRegisterInput): Promise<ClientRegisteredUser> {
-  const response = await fetch("/api/auth/register", {
-    body: JSON.stringify(input),
-    headers: { "Content-Type": "application/json" },
-    method: "POST"
+  const user = await register({
+    email: input.email,
+    inviteCode: input.inviteCode,
+    password: input.password,
+    username: usernameFromDisplayNameOrEmail(input.displayName, input.email)
   });
 
-  return readJson<ClientRegisteredUser>(response);
+  return {
+    email: user.email,
+    level: fromJavaLevel(user.memberLevel),
+    userId: user.id
+  };
 }
 
 export async function loginWithPasswordClient(input: ClientLoginInput): Promise<ClientLoginSession> {
-  const response = await fetch("/api/auth/login", {
-    body: JSON.stringify(input),
-    headers: { "Content-Type": "application/json" },
-    method: "POST"
+  const user = await login({
+    account: input.email,
+    password: input.password
   });
 
-  return readJson<ClientLoginSession>(response);
+  return sessionFromJavaUser(user);
+}
+
+export async function getCurrentSessionClient(): Promise<ClientLoginSession | null> {
+  try {
+    return sessionFromJavaUser(await getMe());
+  } catch {
+    return null;
+  }
+}
+
+export async function logoutClient(): Promise<void> {
+  await logout();
 }

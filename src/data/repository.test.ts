@@ -33,13 +33,13 @@ describe("mock repository", () => {
     expect(memberAlbum?.photos.some((photo) => photo.visibilityOverride === "diamond")).toBe(true);
   });
 
-  it("exposes video metadata needed for Cloudinary playback", () => {
+  it("exposes video metadata needed for media playback", () => {
     const collections = getVideoCollections(getViewerByScenario("diamond"));
     const firstVideo = collections.flatMap((collection) => collection.videos)[0];
 
-    expect(firstVideo.cloudinaryPublicId).toBeTruthy();
-    expect(firstVideo.playbackUrl).toMatch(/^https:\/\/res\.cloudinary\.com\//);
-    expect(firstVideo.thumbnailUrl).toMatch(/^https:\/\/res\.cloudinary\.com\//);
+    expect(firstVideo.mediaAssetId).toBeTruthy();
+    expect(firstVideo.playbackUrl).toMatch(/^\/api\/media\/.+\/access$/);
+    expect(firstVideo.thumbnailUrl).toBeTruthy();
   });
 
   it("summarizes admin users, invites, and content", () => {

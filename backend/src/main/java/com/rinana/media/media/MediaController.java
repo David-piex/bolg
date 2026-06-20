@@ -1,0 +1,167 @@
+package com.rinana.media.media;
+
+import com.rinana.media.auth.ApiException;
+import com.rinana.media.auth.CurrentUserResolver;
+import com.rinana.media.common.ContentVisibility;
+import com.rinana.media.common.Role;
+import com.rinana.media.content.AlbumRepository;
+import com.rinana.media.content.ContentStatus;
+import com.rinana.media.content.PostRepository;
+import com.rinana.media.content.VideoRepository;
+import com.rinana.media.security.VisibilityPolicy;
+import com.rinana.media.user.UserEntity;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.time.Instant;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/media")
+public class MediaController {
+  private final CurrentUserResolver currentUserResolver;
+  private final MediaStorageService mediaStorageService;
+  private final MediaAssetRepository mediaAssetRepository;
+  private final VideoRepository videoRepository;
+  private final AlbumRepository albumRepository;
+  private final PostRepository postRepository;
+
+  public MediaController(
+    CurrentUserResolver currentUserResolver,
+    MediaStorageService mediaStorageService,
+    MediaAssetRepository mediaAssetRepository,
+    VideoRepository videoRepository,
+    AlbumRepository albumRepository,
+    PostRepository postRepository
+  ) {
+    this.currentUserResolver = currentUserResolver;
+    this.mediaStorageService = mediaStorageService;
+    this.mediaAssetRepository = mediaAssetRepository;
+    this.videoRepository = videoRepository;
+    this.albumRepository = albumRepository;
+    this.postRepository = postRepository;
+  }
+
+  @PostMapping("/images")
+  @Transactional
+  ResponseEntity<MediaAssetResponse> uploadImage(@RequestParam("file") MultipartFile file, HttpServletRequest request) {
+    requireAdmin(request);
+    requireMimePrefix(file, "image/");
+    return ResponseEntity.status(HttpStatus.CREATED).body(MediaAssetResponse.from(store(file, MediaType.IMAGE, "images", request)));
+  }
+
+  @PostMapping("/videos")
+  @Transactional
+  ResponseEntity<MediaAssetResponse> uploadVideo(@RequestParam("file") MultipartFile file, HttpServletRequest request) {
+    requireAdmin(request);
+    requireMimePrefix(file, "video/");
+    return ResponseEntity.status(HttpStatus.CREATED).body(MediaAssetResponse.from(store(file, MediaType.VIDEO, "videos", request)));
+  }
+
+  @GetMapping("/{id}/access")
+  MediaAccessResponse access(@PathVariable UUID id, HttpServletRequest request) {
+    UserEntity viewer = currentUserResolver.currentUser(request).orElse(null);
+    MediaAssetEntity asset = mediaAssetRepository.findById(id)
+      .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "MEDIA_NOT_FOUND", "媒体不存在"));
+    requireLinkedContentVisible(asset, viewer);
+    MediaAccessUrl accessUrl = mediaStorageService.createAccessUrl(asset.getBucketName(), asset.getObjectKey());
+    return new MediaAccessResponse(accessUrl.url().toString(), accessUrl.expiresAt());
+  }
+
+  @GetMapping("/{id}/view")
+  ResponseEntity<Void> view(@PathVariable UUID id, HttpServletRequest request) {
+    UserEntity viewer = currentUserResolver.currentUser(request).orElse(null);
+    MediaAssetEntity asset = mediaAssetRepository.findById(id)
+      .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "MEDIA_NOT_FOUND", "媒体不存在"));
+    requireLinkedContentVisible(asset, viewer);
+    MediaAccessUrl accessUrl = mediaStorageService.createAccessUrl(asset.getBucketName(), asset.getObjectKey());
+    return ResponseEntity.status(HttpStatus.FOUND)
+      .header(HttpHeaders.LOCATION, accessUrl.url().toString())
+      .build();
+  }
+
+  private MediaAssetEntity store(MultipartFile file, MediaType mediaType, String objectPrefix, HttpServletRequest request) {
+    UserEntity uploader = requireAdmin(request);
+    StoredMediaObject stored = mediaStorageService.store(file, mediaType, objectPrefix);
+    MediaAssetEntity asset = new MediaAssetEntity();
+    asset.setMediaType(mediaType);
+    asset.setBucketName(stored.bucketName());
+    asset.setObjectKey(stored.objectKey());
+    asset.setOriginalName(file.getOriginalFilename() == null ? "upload" : file.getOriginalFilename());
+    asset.setMimeType(file.getContentType() == null ? "application/octet-stream" : file.getContentType());
+    asset.setSizeBytes(file.getSize());
+    asset.setUploadedBy(uploader);
+    asset.setCreatedAt(Instant.now());
+    return mediaAssetRepository.save(asset);
+  }
+
+  private UserEntity requireAdmin(HttpServletRequest request) {
+    UserEntity user = currentUserResolver.requireCurrentUser(request);
+    if (user.getRole() != Role.ADMIN && user.getRole() != Role.SUPER_ADMIN) {
+      throw new ApiException(HttpStatus.FORBIDDEN, "ADMIN_REQUIRED", "需要管理员权限");
+    }
+    return user;
+  }
+
+  private void requireLinkedContentVisible(MediaAssetEntity asset, UserEntity viewer) {
+    if (viewer != null && (viewer.getRole() == Role.ADMIN || viewer.getRole() == Role.SUPER_ADMIN)) {
+      return;
+    }
+
+    boolean linkedToPublishedContent = false;
+
+    var linkedVideo = videoRepository.findPublishedByMediaAssetId(asset.getId(), ContentStatus.PUBLISHED);
+    if (linkedVideo.isPresent()) {
+      linkedToPublishedContent = true;
+      if (viewerCanSee(viewer, linkedVideo.get().getVisibility())) {
+        return;
+      }
+    }
+
+    var linkedAlbum = albumRepository.findPublishedByCoverMediaId(asset.getId(), ContentStatus.PUBLISHED);
+    if (linkedAlbum.isPresent()) {
+      linkedToPublishedContent = true;
+      if (viewerCanSee(viewer, linkedAlbum.get().getVisibility())) {
+        return;
+      }
+    }
+
+    var linkedPost = postRepository.findPublishedByMediaAssetId(asset.getId(), ContentStatus.PUBLISHED);
+    if (linkedPost.isPresent()) {
+      linkedToPublishedContent = true;
+      if (viewerCanSee(viewer, linkedPost.get().getVisibility())) {
+        return;
+      }
+    }
+
+    if (!linkedToPublishedContent || viewer == null) {
+      throw new ApiException(HttpStatus.FORBIDDEN, "CONTENT_NOT_VISIBLE", "内容对当前账号不可见");
+    }
+
+    throw new ApiException(HttpStatus.FORBIDDEN, "CONTENT_NOT_VISIBLE", "内容对当前账号不可见");
+  }
+
+  private boolean viewerCanSee(UserEntity viewer, ContentVisibility visibility) {
+    if (visibility == ContentVisibility.PUBLIC) {
+      return true;
+    }
+    return viewer != null && VisibilityPolicy.canView(viewer.getRole(), viewer.getMemberLevel(), visibility);
+  }
+
+  private void requireMimePrefix(MultipartFile file, String prefix) {
+    String contentType = file.getContentType();
+    if (contentType == null || !contentType.startsWith(prefix)) {
+      throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_MEDIA_TYPE", "媒体类型不支持");
+    }
+  }
+}

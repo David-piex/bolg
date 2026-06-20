@@ -6,13 +6,16 @@ describe("auth client", () => {
     vi.restoreAllMocks();
   });
 
-  it("registers through the local auth API without exposing Supabase service credentials", async () => {
+  it("registers through the Java auth API without exposing service credentials", async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
       json: async () => ({
+        displayName: "New User",
         email: "new@example.com",
-        level: "gold",
-        userId: "user-1"
+        id: "user-1",
+        memberLevel: "GOLD",
+        role: "USER",
+        username: "new"
       })
     }));
     vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
@@ -34,12 +37,13 @@ describe("auth client", () => {
       "/api/auth/register",
       expect.objectContaining({
         body: JSON.stringify({
-          displayName: "New User",
           email: "new@example.com",
           inviteCode: "GOLD-2026",
-          password: "secret-password"
+          password: "secret-password",
+          username: "new-user"
         }),
-        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        headers: expect.any(Headers),
         method: "POST"
       })
     );
@@ -51,17 +55,12 @@ describe("auth client", () => {
       vi.fn(async () => ({
         ok: true,
         json: async () => ({
-          accessToken: "access-token",
-          expiresIn: 3600,
-          profile: {
-            disabled: false,
-            displayName: "Member",
-            email: "member@example.com",
-            isAdmin: false,
-            level: "diamond",
-            userId: "user-1"
-          },
-          refreshToken: "refresh-token"
+          displayName: "Member",
+          email: "member@example.com",
+          id: "user-1",
+          memberLevel: "DIAMOND",
+          role: "USER",
+          username: "member"
         })
       })) as unknown as typeof fetch
     );
@@ -72,7 +71,6 @@ describe("auth client", () => {
         password: "secret-password"
       })
     ).resolves.toMatchObject({
-      accessToken: "access-token",
       profile: {
         displayName: "Member",
         level: "diamond",
@@ -86,7 +84,7 @@ describe("auth client", () => {
       "fetch",
       vi.fn(async () => ({
         ok: false,
-        json: async () => ({ error: "Invite code is invalid" })
+        json: async () => ({ errorCode: "INVALID_INVITE_CODE", message: "Invite code is invalid" })
       })) as unknown as typeof fetch
     );
 

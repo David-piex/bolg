@@ -53,7 +53,7 @@ export type VideoRecord = {
   collectionId: string;
   title: string;
   description: string;
-  cloudinaryPublicId: string;
+  mediaAssetId: string;
   playbackUrl: string;
   thumbnailUrl: string;
   visibilityOverride: MembershipLevel | null;
@@ -217,9 +217,9 @@ export const videos: VideoRecord[] = [
     collectionId: "videos-public",
     title: "公开预告片",
     description: "所有访客可播放。",
-    cloudinaryPublicId: "demo/public-trailer",
-    playbackUrl: "https://res.cloudinary.com/demo/video/upload/sample.mp4",
-    thumbnailUrl: "https://res.cloudinary.com/demo/video/upload/so_0/sample.jpg",
+    mediaAssetId: "demo-public-video",
+    playbackUrl: "/api/media/demo-public-video/access",
+    thumbnailUrl: "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=1200&q=80",
     visibilityOverride: null,
     processingState: "ready",
     sortOrder: 1
@@ -229,9 +229,9 @@ export const videos: VideoRecord[] = [
     collectionId: "videos-member",
     title: "黄金正片",
     description: "黄金和钻石用户可播放。",
-    cloudinaryPublicId: "demo/gold-feature",
-    playbackUrl: "https://res.cloudinary.com/demo/video/upload/sample.mp4",
-    thumbnailUrl: "https://res.cloudinary.com/demo/video/upload/so_1/sample.jpg",
+    mediaAssetId: "demo-gold-video",
+    playbackUrl: "/api/media/demo-gold-video/access",
+    thumbnailUrl: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=1200&q=80",
     visibilityOverride: null,
     processingState: "ready",
     sortOrder: 1
@@ -241,9 +241,9 @@ export const videos: VideoRecord[] = [
     collectionId: "videos-member",
     title: "钻石花絮",
     description: "钻石用户可播放。",
-    cloudinaryPublicId: "demo/diamond-extra",
-    playbackUrl: "https://res.cloudinary.com/demo/video/upload/sample.mp4",
-    thumbnailUrl: "https://res.cloudinary.com/demo/video/upload/so_2/sample.jpg",
+    mediaAssetId: "demo-diamond-video",
+    playbackUrl: "/api/media/demo-diamond-video/access",
+    thumbnailUrl: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=1200&q=80",
     visibilityOverride: "diamond",
     processingState: "processing",
     sortOrder: 2

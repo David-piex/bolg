@@ -8,14 +8,29 @@ import {
   useState,
   type ReactNode
 } from "react";
-import { fetchRemoteContentDataset, publishRemoteContent } from "@/services/content-client";
-import { consumeInviteCode, type InviteCode } from "@/domain/invites";
+import {
+  deleteRemoteContent,
+  fetchRemoteContentDataset,
+  publishRemoteContent,
+  updateRemoteContent
+} from "@/services/content-client";
+import {
+  createRemoteInvite,
+  deleteRemoteInvite,
+  fetchRemoteAdminDataset,
+  updateRemoteUser
+} from "@/services/admin-client";
+import { consumeInviteCode, type InviteCode, type InviteTargetLevel } from "@/domain/invites";
 import type { MembershipLevel, Viewer } from "@/domain/membership";
+import { displayNameOrFallback } from "@/domain/display-name";
 import {
   loginWithPasswordClient,
   registerWithInviteClient,
+  getCurrentSessionClient,
+  logoutClient,
   type ClientLoginSession
 } from "@/services/auth-client";
+import type { ContentDataset } from "@/data/repository";
 import {
   albums as seedAlbums,
   invites as seedInvites,
@@ -37,13 +52,21 @@ type RegisterResult =
   | { ok: false; reason: "missing" | "used" };
 
 type RemoteAuthResult =
-  | { ok: true }
+  | { ok: true; isAdmin: boolean }
   | { ok: false; message: string };
 
 type AuthSession = {
   accessToken: string;
   expiresIn: number;
   refreshToken: string;
+};
+
+type ContentState = {
+  posts: PostRecord[];
+  albums: AlbumRecord[];
+  photos: PhotoRecord[];
+  videoCollections: VideoCollectionRecord[];
+  videos: VideoRecord[];
 };
 
 type AppStateValue = {
@@ -57,41 +80,73 @@ type AppStateValue = {
   currentUserId: string | null;
   currentUser: UserProfile | null;
   authSession: AuthSession | null;
+  authReady: boolean;
   viewer: Viewer;
   registerWithInvite: (input: { name: string; email: string; inviteCode: string }) => RegisterResult;
   registerWithPassword: (input: { name: string; email: string; inviteCode: string; password: string }) => Promise<RemoteAuthResult>;
   loginWithPassword: (input: { email: string; password: string }) => Promise<RemoteAuthResult>;
   loginAs: (userId: string | null) => void;
+  logout: () => Promise<void>;
   updateUserLevel: (userId: string, level: Exclude<MembershipLevel, "public">) => void;
   toggleUserDisabled: (userId: string) => void;
-  generateInvite: (level: Exclude<MembershipLevel, "public">) => string;
+  generateInvite: (level: Exclude<MembershipLevel, "public">) => Promise<string>;
+  deleteInvite: (inviteId: string) => void;
   publishPost: (input: {
     title: string;
     body: string;
     visibility: MembershipLevel;
     coverImage?: string;
-  }) => void;
+    mediaAssetId?: string;
+  }) => Promise<void>;
   createAlbumWithPhoto: (input: {
     title: string;
     description: string;
     visibility: MembershipLevel;
     photoTitle: string;
     imageUrl?: string;
-  }) => void;
+    mediaAssetId?: string;
+  }) => Promise<void>;
   createVideoCollectionWithVideo: (input: {
     title: string;
     description: string;
     visibility: MembershipLevel;
     videoTitle: string;
     playbackUrl?: string;
-    cloudinaryPublicId?: string;
+    mediaAssetId?: string;
     thumbnailUrl?: string;
-  }) => void;
+  }) => Promise<void>;
+  updatePost: (input: {
+    id: string;
+    title: string;
+    body: string;
+    visibility: MembershipLevel;
+    coverImage?: string;
+    mediaAssetId?: string;
+  }) => Promise<void>;
+  updateAlbum: (input: {
+    id: string;
+    title: string;
+    description: string;
+    defaultVisibility: MembershipLevel;
+    coverImage?: string;
+  }) => Promise<void>;
+  updateVideoCollection: (input: {
+    id: string;
+    title: string;
+    description: string;
+    defaultVisibility: MembershipLevel;
+    coverImage?: string;
+  }) => Promise<void>;
+  deleteContent: (input: { kind: "post" | "album" | "video"; id: string }) => Promise<void>;
 };
 
 const storageKey = "media-gate-state-v1";
 
 const AppStateContext = createContext<AppStateValue | null>(null);
+
+function demoDataEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_RINANA_DEMO_MODE === "enabled" || process.env.NODE_ENV !== "production";
+}
 
 type PersistedState = {
   users: UserProfile[];
@@ -106,6 +161,20 @@ type PersistedState = {
 };
 
 function createInitialState(): PersistedState {
+  if (!demoDataEnabled()) {
+    return {
+      users: [],
+      invites: [],
+      posts: [],
+      albums: [],
+      photos: [],
+      videoCollections: [],
+      videos: [],
+      currentUserId: null,
+      authSession: null
+    };
+  }
+
   return {
     users: seedUsers,
     invites: seedInvites,
@@ -119,10 +188,41 @@ function createInitialState(): PersistedState {
   };
 }
 
+function emptyContentState(): ContentState {
+  return {
+    albums: [],
+    photos: [],
+    posts: [],
+    videoCollections: [],
+    videos: []
+  };
+}
+
+function contentStateFromDataset(dataset: ContentDataset): ContentState {
+  return {
+    albums: dataset.albums ?? [],
+    photos: dataset.photos ?? [],
+    posts: dataset.posts ?? [],
+    videoCollections: dataset.videoCollections ?? [],
+    videos: dataset.videos ?? []
+  };
+}
+
+function hasRemoteContent(content: ContentState): boolean {
+  return (
+    content.albums.length +
+      content.photos.length +
+      content.posts.length +
+      content.videoCollections.length +
+      content.videos.length >
+    0
+  );
+}
+
 function hydrateState(saved: Partial<PersistedState>): PersistedState {
   const initial = createInitialState();
   return {
-    users: saved.users ?? initial.users,
+    users: sanitizeUsers(saved.users ?? initial.users),
     invites: saved.invites ?? initial.invites,
     posts: saved.posts ?? initial.posts,
     albums: saved.albums ?? initial.albums,
@@ -132,6 +232,20 @@ function hydrateState(saved: Partial<PersistedState>): PersistedState {
     currentUserId: saved.currentUserId ?? initial.currentUserId,
     authSession: saved.authSession ?? initial.authSession
   };
+}
+
+function sanitizeUsers(users: UserProfile[]): UserProfile[] {
+  return users.map((user) => ({
+    ...user,
+    name: displayNameOrFallback(
+      {
+        email: user.email,
+        isAdmin: user.isAdmin,
+        name: user.name
+      },
+      { admin: "管理员", user: "用户" }
+    )
+  }));
 }
 
 function toViewer(user: UserProfile | null): Viewer {
@@ -152,6 +266,10 @@ function makeInviteCode(level: Exclude<MembershipLevel, "public">): string {
   return `${prefix}-${suffix}`;
 }
 
+function shortExcerpt(value: string, fallback: string): string {
+  return (value.trim() || fallback.trim() || "新内容").slice(0, 120);
+}
+
 function userFromSession(session: ClientLoginSession): UserProfile {
   return {
     disabled: session.profile.disabled,
@@ -159,7 +277,14 @@ function userFromSession(session: ClientLoginSession): UserProfile {
     id: session.profile.userId,
     isAdmin: session.profile.isAdmin,
     level: session.profile.level,
-    name: session.profile.displayName
+    name: displayNameOrFallback(
+      {
+        email: session.profile.email,
+        isAdmin: session.profile.isAdmin,
+        name: session.profile.displayName
+      },
+      { admin: "管理员", user: "用户" }
+    )
   };
 }
 
@@ -173,6 +298,11 @@ function upsertUser(users: UserProfile[], user: UserProfile): UserProfile[] {
   return users.map((current) => (current.id === user.id ? user : current));
 }
 
+function mergeRemoteUsers(currentUsers: UserProfile[], remoteUsers: UserProfile[]): UserProfile[] {
+  const remoteUserIds = new Set(remoteUsers.map((user) => user.id));
+  return [...remoteUsers, ...currentUsers.filter((user) => !remoteUserIds.has(user.id))];
+}
+
 function sessionFromLogin(session: ClientLoginSession): AuthSession {
   return {
     accessToken: session.accessToken,
@@ -181,9 +311,20 @@ function sessionFromLogin(session: ClientLoginSession): AuthSession {
   };
 }
 
+function mediaIdFromAccessUrl(value: string): string | undefined {
+  const match = value.match(/^\/api\/media\/([^/]+)\/(?:access|view)$/);
+  return match ? decodeURIComponent(match[1]) : undefined;
+}
+
+function userCanManage(user: UserProfile | null): boolean {
+  return Boolean(user?.isAdmin && !user.disabled);
+}
+
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<PersistedState>(createInitialState);
+  const [remoteContent, setRemoteContent] = useState<ContentState>(emptyContentState);
   const [hydrated, setHydrated] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(storageKey);
@@ -192,6 +333,39 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }
     setHydrated(true);
   }, []);
+
+  useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+
+    let cancelled = false;
+    setAuthReady(false);
+
+    void getCurrentSessionClient()
+      .then((session) => {
+        if (cancelled || !session) {
+          return;
+        }
+
+        const user = userFromSession(session);
+        setState((current) => ({
+          ...current,
+          authSession: sessionFromLogin(session),
+          currentUserId: user.id,
+          users: upsertUser(current.users, user)
+        }));
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setAuthReady(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated]);
 
   useEffect(() => {
     if (!hydrated) {
@@ -214,17 +388,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        setState((current) => ({
-          ...current,
-          albums: dataset.albums ?? current.albums,
-          photos: dataset.photos ?? current.photos,
-          posts: dataset.posts ?? current.posts,
-          videoCollections: dataset.videoCollections ?? current.videoCollections,
-          videos: dataset.videos ?? current.videos
-        }));
+        setRemoteContent(contentStateFromDataset(dataset));
       })
       .catch(() => {
-        // Keep local demo content when Supabase content is not configured.
+        // Keep local demo content when the Java content API is unavailable.
       });
 
     return () => {
@@ -232,20 +399,64 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     };
   }, [hydrated, state.authSession?.accessToken]);
 
+  useEffect(() => {
+    if (!hydrated || !state.authSession?.accessToken) {
+      return;
+    }
+
+    const currentUser = state.users.find((user) => user.id === state.currentUserId) ?? null;
+
+    if (!userCanManage(currentUser)) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void fetchRemoteAdminDataset(state.authSession.accessToken)
+      .then((dataset) => {
+        if (cancelled) {
+          return;
+        }
+
+        setState((current) => ({
+          ...current,
+          invites: dataset.invites ?? current.invites,
+          users: dataset.users ? mergeRemoteUsers(current.users, dataset.users) : current.users
+        }));
+      })
+      .catch(() => {
+        // Keep local admin demo data when the admin API is unavailable.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated, state.authSession?.accessToken, state.currentUserId]);
+
   const value = useMemo<AppStateValue>(() => {
     const currentUser = state.users.find((user) => user.id === state.currentUserId) ?? null;
+    const content = hasRemoteContent(remoteContent)
+      ? remoteContent
+      : {
+          albums: state.albums,
+          photos: state.photos,
+          posts: state.posts,
+          videoCollections: state.videoCollections,
+          videos: state.videos
+        };
 
     return {
       users: state.users,
       invites: state.invites,
-      posts: state.posts,
-      albums: state.albums,
-      photos: state.photos,
-      videoCollections: state.videoCollections,
-      videos: state.videos,
+      posts: content.posts,
+      albums: content.albums,
+      photos: content.photos,
+      videoCollections: content.videoCollections,
+      videos: content.videos,
       currentUserId: state.currentUserId,
       currentUser,
       authSession: state.authSession,
+      authReady,
       viewer: toViewer(currentUser),
       registerWithInvite(input) {
         const newUserId = `user-${Date.now()}`;
@@ -294,7 +505,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             users: upsertUser(current.users, { ...user, id: registered.userId, level: registered.level })
           }));
 
-          return { ok: true };
+          return { ok: true, isAdmin: user.isAdmin };
         } catch (error) {
           return {
             ok: false,
@@ -314,7 +525,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             users: upsertUser(current.users, user)
           }));
 
-          return { ok: true };
+          return { ok: true, isAdmin: user.isAdmin };
         } catch (error) {
           return {
             ok: false,
@@ -325,21 +536,48 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       loginAs(userId) {
         setState((current) => ({ ...current, authSession: null, currentUserId: userId }));
       },
+      async logout() {
+        if (state.authSession?.accessToken) {
+          await logoutClient();
+        }
+        setState((current) => ({ ...current, authSession: null, currentUserId: null }));
+      },
       updateUserLevel(userId, level) {
         setState((current) => ({
           ...current,
           users: current.users.map((user) => (user.id === userId ? { ...user, level } : user))
         }));
+
+        if (state.authSession?.accessToken) {
+          void updateRemoteUser(state.authSession.accessToken, { level: level as InviteTargetLevel, userId }).catch(() => {
+            // Keep the optimistic local admin update if production admin updates are unavailable.
+          });
+        }
       },
       toggleUserDisabled(userId) {
+        const targetUser = state.users.find((user) => user.id === userId);
+        const nextDisabled = !targetUser?.disabled;
+
         setState((current) => ({
           ...current,
           users: current.users.map((user) =>
             user.id === userId ? { ...user, disabled: !user.disabled } : user
           )
         }));
+
+        if (state.authSession?.accessToken) {
+          void updateRemoteUser(state.authSession.accessToken, { disabled: nextDisabled, userId }).catch(() => {
+            // Keep the optimistic local admin update if production admin updates are unavailable.
+          });
+        }
       },
-      generateInvite(level) {
+      async generateInvite(level) {
+        if (state.authSession?.accessToken) {
+          const invite = await createRemoteInvite(state.authSession.accessToken, level as InviteTargetLevel);
+          setState((current) => ({ ...current, invites: [invite, ...current.invites] }));
+          return invite.code;
+        }
+
         const code = makeInviteCode(level);
         const invite: InviteCode = {
           id: `invite-${Date.now()}`,
@@ -351,13 +589,31 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         setState((current) => ({ ...current, invites: [invite, ...current.invites] }));
         return code;
       },
-      publishPost(input) {
+      deleteInvite(inviteId) {
+        const invite = state.invites.find((candidate) => candidate.id === inviteId);
+
+        if (invite?.usedByUserId) {
+          return;
+        }
+
+        setState((current) => ({
+          ...current,
+          invites: current.invites.filter((candidate) => candidate.id !== inviteId)
+        }));
+
+        if (state.authSession?.accessToken) {
+          void deleteRemoteInvite(state.authSession.accessToken, inviteId).catch(() => {
+            // Keep the optimistic local admin update if production admin updates are unavailable.
+          });
+        }
+      },
+      async publishPost(input) {
         const id = `post-${Date.now()}`;
         const post: PostRecord = {
           id,
           type: "post",
-          title: input.title.trim() || "Untitled post",
-          excerpt: input.body.trim().slice(0, 120) || input.title.trim() || "New post",
+          title: input.title.trim() || "未命名动态",
+          excerpt: input.body.trim().slice(0, 120) || input.title.trim() || "动态正文",
           body: input.body,
           coverImage:
             input.coverImage ||
@@ -365,36 +621,34 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           visibility: input.visibility,
           publishedAt: new Date().toISOString().slice(0, 10)
         };
-        setState((current) => ({ ...current, posts: [post, ...current.posts] }));
 
         if (state.authSession?.accessToken) {
-          void publishRemoteContent(state.authSession.accessToken, {
+          const result = await publishRemoteContent(state.authSession.accessToken, {
             body: post.body,
             coverImage: post.coverImage,
             kind: "post",
+            mediaAssetId: input.mediaAssetId || mediaIdFromAccessUrl(post.coverImage),
             title: post.title,
             visibility: post.visibility
-          })
-            .then((result) => {
-              if ("post" in result) {
-                setState((current) => ({
-                  ...current,
-                  posts: [result.post, ...current.posts.filter((currentPost) => currentPost.id !== id)]
-                }));
-              }
-            })
-            .catch(() => {
-              // Keep the optimistic local demo record if production publishing is unavailable.
-            });
+          });
+          if ("post" in result) {
+            setRemoteContent((current) => ({
+              ...current,
+              posts: [result.post, ...current.posts.filter((currentPost) => currentPost.id !== id)]
+            }));
+          }
+          return;
         }
+
+        setState((current) => ({ ...current, posts: [post, ...current.posts] }));
       },
-      createAlbumWithPhoto(input) {
+      async createAlbumWithPhoto(input) {
         const timestamp = Date.now();
         const albumId = `album-${timestamp}`;
         const album: AlbumRecord = {
           id: albumId,
-          title: input.title.trim() || "Untitled album",
-          description: input.description.trim() || "New album",
+          title: input.title.trim() || "未命名相册",
+          description: input.description.trim() || "相册描述",
           coverImage:
             input.imageUrl ||
             "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80",
@@ -409,49 +663,46 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           visibilityOverride: null,
           sortOrder: 1
         };
+
+        if (state.authSession?.accessToken) {
+          const result = await publishRemoteContent(state.authSession.accessToken, {
+            description: album.description,
+            imageUrl: photo.imageUrl,
+            kind: "album",
+            mediaAssetId: input.mediaAssetId,
+            photoTitle: photo.title,
+            title: album.title,
+            visibility: album.defaultVisibility
+          });
+          if ("album" in result) {
+            setRemoteContent((current) => ({
+              ...current,
+              albums: [result.album, ...current.albums.filter((currentAlbum) => currentAlbum.id !== albumId)],
+              photos: [
+                result.photo,
+                ...current.photos.filter((currentPhoto) => currentPhoto.albumId !== albumId)
+              ]
+            }));
+          }
+          return;
+        }
+
         setState((current) => ({
           ...current,
           albums: [album, ...current.albums],
           photos: [photo, ...current.photos]
         }));
-
-        if (state.authSession?.accessToken) {
-          void publishRemoteContent(state.authSession.accessToken, {
-            description: album.description,
-            imageUrl: photo.imageUrl,
-            kind: "album",
-            photoTitle: photo.title,
-            title: album.title,
-            visibility: album.defaultVisibility
-          })
-            .then((result) => {
-              if ("album" in result) {
-                setState((current) => ({
-                  ...current,
-                  albums: [result.album, ...current.albums.filter((currentAlbum) => currentAlbum.id !== albumId)],
-                  photos: [
-                    result.photo,
-                    ...current.photos.filter((currentPhoto) => currentPhoto.albumId !== albumId)
-                  ]
-                }));
-              }
-            })
-            .catch(() => {
-              // Keep the optimistic local demo record if production publishing is unavailable.
-            });
-        }
       },
-      createVideoCollectionWithVideo(input) {
+      async createVideoCollectionWithVideo(input) {
         const timestamp = Date.now();
         const collectionId = `video-collection-${timestamp}`;
-        const playbackUrl =
-          input.playbackUrl || "https://res.cloudinary.com/demo/video/upload/sample.mp4";
+        const playbackUrl = input.playbackUrl || "";
         const thumbnailUrl =
-          input.thumbnailUrl || "https://res.cloudinary.com/demo/video/upload/so_0/sample.jpg";
+          input.thumbnailUrl || "https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=1200&q=80";
         const collection: VideoCollectionRecord = {
           id: collectionId,
-          title: input.title.trim() || "Untitled videos",
-          description: input.description.trim() || "New video collection",
+          title: input.title.trim() || "未命名视频",
+          description: input.description.trim() || "视频简介",
           coverImage: thumbnailUrl,
           defaultVisibility: input.visibility,
           publishedAt: new Date().toISOString().slice(0, 10)
@@ -461,22 +712,17 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           collectionId,
           title: input.videoTitle.trim() || collection.title,
           description: collection.description,
-          cloudinaryPublicId: input.cloudinaryPublicId || `local/${timestamp}`,
+          mediaAssetId: input.mediaAssetId || `local/${timestamp}`,
           playbackUrl,
           thumbnailUrl,
           visibilityOverride: null,
           processingState: "ready",
           sortOrder: 1
         };
-        setState((current) => ({
-          ...current,
-          videoCollections: [collection, ...current.videoCollections],
-          videos: [video, ...current.videos]
-        }));
 
         if (state.authSession?.accessToken) {
-          void publishRemoteContent(state.authSession.accessToken, {
-            cloudinaryPublicId: video.cloudinaryPublicId,
+          const result = await publishRemoteContent(state.authSession.accessToken, {
+            mediaAssetId: video.mediaAssetId,
             description: collection.description,
             kind: "video",
             playbackUrl: video.playbackUrl,
@@ -484,29 +730,177 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             title: collection.title,
             videoTitle: video.title,
             visibility: collection.defaultVisibility
-          })
-            .then((result) => {
-              if ("collection" in result) {
-                setState((current) => ({
-                  ...current,
-                  videoCollections: [
-                    result.collection,
-                    ...current.videoCollections.filter((currentCollection) => currentCollection.id !== collectionId)
-                  ],
-                  videos: [
-                    result.video,
-                    ...current.videos.filter((currentVideo) => currentVideo.collectionId !== collectionId)
-                  ]
-                }));
-              }
-            })
-            .catch(() => {
-              // Keep the optimistic local demo record if production publishing is unavailable.
-            });
+          });
+          if ("collection" in result) {
+            setRemoteContent((current) => ({
+              ...current,
+              videoCollections: [
+                result.collection,
+                ...current.videoCollections.filter((currentCollection) => currentCollection.id !== collectionId)
+              ],
+              videos: [
+                result.video,
+                ...current.videos.filter((currentVideo) => currentVideo.collectionId !== collectionId)
+              ]
+            }));
+          }
+          return;
+        }
+
+        setState((current) => ({
+          ...current,
+          videoCollections: [collection, ...current.videoCollections],
+          videos: [video, ...current.videos]
+        }));
+      },
+      async updatePost(input) {
+        const updatedPost = {
+          body: input.body,
+          coverImage: input.coverImage || "",
+          excerpt: shortExcerpt(input.body, input.title),
+          id: input.id,
+          title: input.title.trim() || "未命名动态",
+          visibility: input.visibility
+        };
+
+        setState((current) => ({
+          ...current,
+          posts: current.posts.map((post) => (post.id === input.id ? { ...post, ...updatedPost } : post))
+        }));
+
+        if (state.authSession?.accessToken) {
+          await updateRemoteContent(state.authSession.accessToken, {
+            body: updatedPost.body,
+            coverImage: updatedPost.coverImage,
+            id: updatedPost.id,
+            kind: "post",
+            mediaAssetId: input.mediaAssetId || mediaIdFromAccessUrl(updatedPost.coverImage),
+            title: updatedPost.title,
+            visibility: updatedPost.visibility
+          });
+          setRemoteContent((current) => ({
+            ...current,
+            posts: current.posts.map((post) => (post.id === input.id ? { ...post, ...updatedPost } : post))
+          }));
+        }
+      },
+      async updateAlbum(input) {
+        const updatedAlbum = {
+          coverImage: input.coverImage || "",
+          defaultVisibility: input.defaultVisibility,
+          description: input.description,
+          id: input.id,
+          title: input.title.trim() || "未命名相册"
+        };
+
+        setState((current) => ({
+          ...current,
+          albums: current.albums.map((album) => (album.id === input.id ? { ...album, ...updatedAlbum } : album))
+        }));
+
+        if (state.authSession?.accessToken) {
+          await updateRemoteContent(state.authSession.accessToken, {
+            coverImage: updatedAlbum.coverImage,
+            coverMediaId: mediaIdFromAccessUrl(updatedAlbum.coverImage),
+            defaultVisibility: updatedAlbum.defaultVisibility,
+            description: updatedAlbum.description,
+            id: updatedAlbum.id,
+            kind: "album",
+            title: updatedAlbum.title
+          });
+          setRemoteContent((current) => ({
+            ...current,
+            albums: current.albums.map((album) =>
+              album.id === input.id ? { ...album, ...updatedAlbum } : album
+            )
+          }));
+        }
+      },
+      async updateVideoCollection(input) {
+        const updatedCollection = {
+          coverImage: input.coverImage || "",
+          defaultVisibility: input.defaultVisibility,
+          description: input.description,
+          id: input.id,
+          title: input.title.trim() || "未命名视频"
+        };
+
+        setState((current) => ({
+          ...current,
+          videoCollections: current.videoCollections.map((collection) =>
+            collection.id === input.id ? { ...collection, ...updatedCollection } : collection
+          )
+        }));
+
+        if (state.authSession?.accessToken) {
+          await updateRemoteContent(state.authSession.accessToken, {
+            coverImage: updatedCollection.coverImage,
+            defaultVisibility: updatedCollection.defaultVisibility,
+            description: updatedCollection.description,
+            id: updatedCollection.id,
+            kind: "video",
+            title: updatedCollection.title
+          });
+          setRemoteContent((current) => ({
+            ...current,
+            videoCollections: current.videoCollections.map((collection) =>
+              collection.id === input.id ? { ...collection, ...updatedCollection } : collection
+            )
+          }));
+        }
+      },
+      async deleteContent(input) {
+        setState((current) => {
+          if (input.kind === "post") {
+            return {
+              ...current,
+              posts: current.posts.filter((post) => post.id !== input.id)
+            };
+          }
+
+          if (input.kind === "album") {
+            return {
+              ...current,
+              albums: current.albums.filter((album) => album.id !== input.id),
+              photos: current.photos.filter((photo) => photo.albumId !== input.id)
+            };
+          }
+
+          return {
+            ...current,
+            videoCollections: current.videoCollections.filter((collection) => collection.id !== input.id),
+            videos: current.videos.filter((video) => video.collectionId !== input.id)
+          };
+        });
+
+        if (state.authSession?.accessToken) {
+          await deleteRemoteContent(state.authSession.accessToken, input);
+          setRemoteContent((current) => {
+            if (input.kind === "post") {
+              return {
+                ...current,
+                posts: current.posts.filter((post) => post.id !== input.id)
+              };
+            }
+
+            if (input.kind === "album") {
+              return {
+                ...current,
+                albums: current.albums.filter((album) => album.id !== input.id),
+                photos: current.photos.filter((photo) => photo.albumId !== input.id)
+              };
+            }
+
+            return {
+              ...current,
+              videoCollections: current.videoCollections.filter((collection) => collection.id !== input.id),
+              videos: current.videos.filter((video) => video.collectionId !== input.id)
+            };
+          });
         }
       }
     };
-  }, [state]);
+  }, [authReady, remoteContent, state]);
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
 }

@@ -42,8 +42,8 @@ if ((Test-Path $localPath) -and -not $Force) {
 }
 
 $lines = @(
-  "# Local deployment configuration.",
-  "# Fill values from your own Supabase, Cloudinary, and deploy platform accounts.",
+  "# Local frontend configuration.",
+  "# Backend production secrets live in deploy/env/*.example copies.",
   "# Do not commit this file.",
   ""
 )

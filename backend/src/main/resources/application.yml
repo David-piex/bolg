@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: rinana-media
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/rinana}
+    username: ${DATABASE_USERNAME:rinana}
+    password: ${DATABASE_PASSWORD:rinana}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+  servlet:
+    multipart:
+      max-file-size: ${MAX_UPLOAD_FILE_SIZE:512MB}
+      max-request-size: ${MAX_UPLOAD_REQUEST_SIZE:512MB}
+
+server:
+  port: ${SERVER_PORT:8080}
+
+rinana:
+  auth:
+    jwt-secret: ${JWT_SECRET:dev-only-change-this-secret-with-at-least-32-bytes}
+    access-token-minutes: 15
+    refresh-token-days: 14
+  super-admin:
+    username: ${SUPER_ADMIN_USERNAME:admin}
+    email: ${SUPER_ADMIN_EMAIL:admin@example.com}
+    password: ${SUPER_ADMIN_PASSWORD:admin123456}
+    display-name: ${SUPER_ADMIN_DISPLAY_NAME:站长}
+  minio:
+    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+    public-endpoint: ${MINIO_PUBLIC_ENDPOINT:${MINIO_ENDPOINT:http://localhost:9000}}
+    access-key: ${MINIO_ACCESS_KEY:minioadmin}
+    secret-key: ${MINIO_SECRET_KEY:minioadmin}
+    bucket: ${MINIO_BUCKET:rinana-media}
+    region: ${MINIO_REGION:us-east-1}

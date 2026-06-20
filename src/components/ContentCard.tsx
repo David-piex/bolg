@@ -22,10 +22,18 @@ export function ContentCard({
   meta?: string;
   video?: boolean;
 }) {
+  const hasCoverImage = Boolean(coverImage.trim());
+  const mediaStyle = hasCoverImage ? { backgroundImage: `url(${coverImage})` } : undefined;
+
   return (
     <article className="content-card">
-      <div className="card-media" style={{ backgroundImage: `url(${coverImage})` }}>
+      <div
+        aria-label={`${title}${dictionary.common.chinese === "中文版" ? "封面" : " cover"}`}
+        className={`card-media${hasCoverImage ? "" : " card-media-empty"}`}
+        style={mediaStyle}
+      >
         <span className="media-grain" aria-hidden="true" />
+        {!hasCoverImage ? <span className="media-empty-label">{dictionary.content.noCover}</span> : null}
         {meta ? <span className="media-label">{meta}</span> : null}
         {video ? (
           <span className="media-icon" aria-hidden="true">
