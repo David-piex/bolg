@@ -7,7 +7,7 @@ DATABASE_PASSWORD=rinana_change_me
 SPRING_DATA_REDIS_HOST=redis
 SPRING_DATA_REDIS_PORT=6379
 MINIO_ENDPOINT=http://minio:9000
-MINIO_PUBLIC_ENDPOINT=http://SERVER_IP:9000
+MINIO_PUBLIC_ENDPOINT=https://lingnaive520.uk
 MINIO_ACCESS_KEY=rinana_minio
 MINIO_SECRET_KEY=rinana_minio_change_me
 MINIO_BUCKET=rinana-media
@@ -20,6 +20,7 @@ SUPER_ADMIN_DISPLAY_NAME=站长
 
 # MINIO_ENDPOINT is used inside Docker by the backend.
 # MINIO_PUBLIC_ENDPOINT must be reachable by the user's browser for presigned media URLs.
-# Replace SERVER_IP with your server IP or domain before deployment.
+# Use the Cloudflare proxied site domain so presigned URLs resolve as
+# https://lingnaive520.uk/rinana-media/<object-key>.
 # Create the MinIO bucket named by MINIO_BUCKET before uploading media.
 # The MinIO console is exposed on http://SERVER_IP:9001 by docker-compose.yml.

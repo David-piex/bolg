@@ -9,6 +9,15 @@ server_ip="${SERVER_IP:-$(hostname -I 2>/dev/null | awk '{print $1}')}"
 if [ -z "${server_ip}" ]; then
   server_ip="127.0.0.1"
 fi
+site_domain="${SITE_DOMAIN:-}"
+media_domain="${MEDIA_DOMAIN:-}"
+minio_public_endpoint="${MINIO_PUBLIC_ENDPOINT:-http://${server_ip}:9000}"
+if [ -n "$site_domain" ]; then
+  minio_public_endpoint="https://${site_domain}"
+fi
+if [ -n "$media_domain" ]; then
+  minio_public_endpoint="https://${media_domain}"
+fi
 
 random_secret() {
   openssl rand -base64 36 | tr -d '\n'
@@ -96,7 +105,7 @@ DATABASE_PASSWORD=${POSTGRES_PASSWORD:-$postgres_password}
 SPRING_DATA_REDIS_HOST=redis
 SPRING_DATA_REDIS_PORT=6379
 MINIO_ENDPOINT=http://minio:9000
-MINIO_PUBLIC_ENDPOINT=http://${server_ip}:9000
+MINIO_PUBLIC_ENDPOINT=${minio_public_endpoint}
 MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-rinana_minio}
 MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-$minio_secret}
 MINIO_BUCKET=rinana-media
