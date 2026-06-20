@@ -1,1049 +1,202 @@
-# Rinana Java Split Implementation Plan
+# 绫奈 Java 前后端分离实施记录
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+本文档记录绫奈站点从前端单体/云服务方案迁移到自托管 Java 前后端分离方案的实施结果。当前仓库已经完成该迁移，本文不再作为逐步编码计划使用。
 
-**Goal:** Rebuild the site as a self-hosted split system with a Next.js frontend, Spring Boot backend, PostgreSQL, Redis, MinIO, Nginx, and Docker Compose.
+## 1. 实施目标
 
-**Architecture:** Keep the existing Next.js UI shell and replace the Supabase/R2 runtime with a Spring Boot REST API under `/api`. The backend owns authentication, invite registration, roles, membership visibility, content metadata, media metadata, MinIO access, and admin audit logs. Docker Compose runs `frontend`, `backend`, `postgres`, `redis`, `minio`, and `nginx` as a single-machine deployment target.
+将站点改造成可在单台 Linux VPS 上部署的自托管系统：
 
-**Tech Stack:** Next.js 15, React 19, Spring Boot 3, Java 17, PostgreSQL, Redis, MinIO S3 API, Flyway, Spring Security, Docker Compose, Nginx, Vitest, JUnit 5.
+- Next.js 前端
+- Spring Boot 后端
+- PostgreSQL 数据库
+- Redis 刷新令牌和短期状态
+- MinIO 媒体对象存储
+- Nginx 公网入口
+- Docker Compose 部署
 
----
+生产运行时不再依赖 Supabase、Cloudflare R2、Cloudflare Workers、Vercel 或 Netlify。
 
-## Scope Notes
-
-This plan implements the confirmed design in phases. The local machine currently has Java 17 available, but `docker` is not available in PATH. Docker Compose files can be authored locally, while full container verification must run on the target server or a machine with Docker installed.
-
-The current worktree is dirty with prior Cloudflare/R2/Supabase migration work. Do not revert unrelated changes. Touch only files needed for each task and commit frequently.
-
-## File Structure
-
-Create a new backend while keeping the existing frontend at the repository root:
+## 2. 当前目录结构
 
 ```text
-personal-media-site/
+bolg/
   backend/
     pom.xml
     src/main/java/com/rinana/media/
-      RinanaMediaApplication.java
-      auth/
-      common/
-      content/
-      invite/
-      media/
-      security/
-      user/
     src/main/resources/
-      application.yml
-      db/migration/
     src/test/java/com/rinana/media/
   deploy/
     docker-compose.yml
     nginx/site.conf
-    env/backend.env.example
-    env/postgres.env.example
-    env/minio.env.example
+    env/
+    server-deploy.sh
+  docs/
   src/
-    services/java-api-client.ts
-    services/java-api-client.test.ts
+    app/
+    components/
+    services/
+    state/
+  Dockerfile.frontend
+  package.json
+  README.md
 ```
 
-Responsibility split:
+## 3. 已完成模块
 
-- `backend/auth`: login, register, refresh, logout, `/api/auth/me`.
-- `backend/user`: user records, roles, membership levels, disabled status.
-- `backend/invite`: invite code generation, consumption, validation.
-- `backend/content`: posts, albums, videos, visibility filtering.
-- `backend/media`: MinIO upload, object metadata, presigned access URLs.
-- `backend/security`: JWT, refresh-token cookies, authorization rules.
-- `backend/common`: error responses, time providers, enums, audit helpers.
-- `src/services/java-api-client.ts`: frontend-only API client that replaces direct Supabase/R2 calls.
+### 后端
 
-## Phase 1: Backend Skeleton and Domain Model
+- Spring Boot 项目骨架。
+- Flyway 初始数据库结构。
+- 用户、角色、会员等级、账号状态模型。
+- 超级管理员初始化。
+- 邀请码注册。
+- 登录、刷新令牌、退出登录、当前用户接口。
+- 内容接口：动态、相册、视频。
+- 会员等级可见性过滤。
+- 管理员接口：用户管理、邀请码管理。
+- MinIO 图片和视频上传。
+- 媒体访问鉴权和短时预签名 URL。
+- 账号资料、头像、邮箱、密码修改。
 
-### Task 1: Create Spring Boot Backend Skeleton
+### 前端
 
-**Files:**
-- Create: `backend/pom.xml`
-- Create: `backend/src/main/java/com/rinana/media/RinanaMediaApplication.java`
-- Create: `backend/src/main/resources/application.yml`
-- Create: `backend/src/test/java/com/rinana/media/RinanaMediaApplicationTests.java`
+- 接入 Java 后端 API。
+- 保留中文页面 `/zh`。
+- 登录、注册、账号页。
+- 动态、相册、视频浏览。
+- 管理员后台入口和管理功能。
+- 图片/视频上传和发布流程。
+- 中文文案和基础视觉优化。
 
-- [ ] **Step 1: Create a failing smoke test**
+### 部署
 
-Create `backend/src/test/java/com/rinana/media/RinanaMediaApplicationTests.java`:
+- Docker Compose 服务：`nginx`、`frontend`、`backend`、`postgres`、`redis`、`minio`。
+- Nginx 代理前端、后端和媒体访问路径。
+- 部署脚本 `deploy/server-deploy.sh`。
+- Cloudflare 域名接入。
+- 源站 443 已开放，当前可使用 Cloudflare SSL/TLS `Full` 模式。
 
-```java
-package com.rinana.media;
+## 4. 核心运行方式
 
-import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-
-@SpringBootTest
-class RinanaMediaApplicationTests {
-  @Test
-  void contextLoads() {
-  }
-}
-```
-
-- [ ] **Step 2: Run test and verify it fails because backend does not exist**
-
-Run:
+本地开发目录：
 
 ```powershell
-cd backend
+cd D:\Code\bolg
+```
+
+前端验证：
+
+```powershell
+pnpm install
+pnpm test
+pnpm build
+```
+
+后端验证：
+
+```powershell
+cd D:\Code\bolg\backend
 mvn test
 ```
 
-Expected: FAIL before `pom.xml` and application class exist.
-
-- [ ] **Step 3: Add Maven project**
-
-Create `backend/pom.xml`:
-
-```xml
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-  <modelVersion>4.0.0</modelVersion>
-
-  <parent>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.3.8</version>
-    <relativePath/>
-  </parent>
-
-  <groupId>com.rinana</groupId>
-  <artifactId>media</artifactId>
-  <version>0.1.0</version>
-  <name>rinana-media</name>
-
-  <properties>
-    <java.version>17</java.version>
-  </properties>
-
-  <dependencies>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-web</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-security</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-validation</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-data-jpa</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-data-redis</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.flywaydb</groupId>
-      <artifactId>flyway-core</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.flywaydb</groupId>
-      <artifactId>flyway-database-postgresql</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.postgresql</groupId>
-      <artifactId>postgresql</artifactId>
-      <scope>runtime</scope>
-    </dependency>
-    <dependency>
-      <groupId>io.minio</groupId>
-      <artifactId>minio</artifactId>
-      <version>8.5.14</version>
-    </dependency>
-    <dependency>
-      <groupId>io.jsonwebtoken</groupId>
-      <artifactId>jjwt-api</artifactId>
-      <version>0.12.6</version>
-    </dependency>
-    <dependency>
-      <groupId>io.jsonwebtoken</groupId>
-      <artifactId>jjwt-impl</artifactId>
-      <version>0.12.6</version>
-      <scope>runtime</scope>
-    </dependency>
-    <dependency>
-      <groupId>io.jsonwebtoken</groupId>
-      <artifactId>jjwt-jackson</artifactId>
-      <version>0.12.6</version>
-      <scope>runtime</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-test</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.security</groupId>
-      <artifactId>spring-security-test</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>com.h2database</groupId>
-      <artifactId>h2</artifactId>
-      <scope>test</scope>
-    </dependency>
-  </dependencies>
-
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-maven-plugin</artifactId>
-      </plugin>
-    </plugins>
-  </build>
-</project>
-```
-
-- [ ] **Step 4: Add application class**
-
-Create `backend/src/main/java/com/rinana/media/RinanaMediaApplication.java`:
-
-```java
-package com.rinana.media;
-
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-
-@SpringBootApplication
-public class RinanaMediaApplication {
-  public static void main(String[] args) {
-    SpringApplication.run(RinanaMediaApplication.class, args);
-  }
-}
-```
-
-- [ ] **Step 5: Add test-friendly application config**
-
-Create `backend/src/main/resources/application.yml`:
-
-```yaml
-spring:
-  application:
-    name: rinana-media
-  datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/rinana}
-    username: ${DATABASE_USERNAME:rinana}
-    password: ${DATABASE_PASSWORD:rinana}
-  jpa:
-    hibernate:
-      ddl-auto: validate
-    open-in-view: false
-  flyway:
-    enabled: true
-
-server:
-  port: ${SERVER_PORT:8080}
-
-rinana:
-  auth:
-    jwt-secret: ${JWT_SECRET:dev-only-change-this-secret-with-at-least-32-bytes}
-    access-token-minutes: 15
-    refresh-token-days: 14
-  super-admin:
-    username: ${SUPER_ADMIN_USERNAME:admin}
-    email: ${SUPER_ADMIN_EMAIL:admin@example.com}
-    password: ${SUPER_ADMIN_PASSWORD:admin123456}
-    display-name: ${SUPER_ADMIN_DISPLAY_NAME:站长}
-  minio:
-    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
-    access-key: ${MINIO_ACCESS_KEY:minioadmin}
-    secret-key: ${MINIO_SECRET_KEY:minioadmin}
-    bucket: ${MINIO_BUCKET:rinana-media}
-```
-
-- [ ] **Step 6: Run backend smoke test**
-
-Run:
+提交代码：
 
 ```powershell
-cd backend
-mvn test
+cd D:\Code\bolg
+git status
+git add .
+git commit -m "说明这次改了什么"
+git push origin main
 ```
 
-Expected: PASS for `RinanaMediaApplicationTests`.
+服务器更新：
 
-- [ ] **Step 7: Commit**
-
-```powershell
-git add backend/pom.xml backend/src/main/java/com/rinana/media/RinanaMediaApplication.java backend/src/main/resources/application.yml backend/src/test/java/com/rinana/media/RinanaMediaApplicationTests.java
-git commit -m "feat: add Spring Boot backend skeleton"
+```bash
+ssh root@66.154.102.131
+cd /opt/rinana
+git pull --ff-only origin main
+docker compose -f deploy/docker-compose.yml up -d --build
+docker compose -f deploy/docker-compose.yml ps
 ```
 
-### Task 2: Add Core Enums and Visibility Policy
+服务器验证：
 
-**Files:**
-- Create: `backend/src/main/java/com/rinana/media/common/Role.java`
-- Create: `backend/src/main/java/com/rinana/media/common/MemberLevel.java`
-- Create: `backend/src/main/java/com/rinana/media/common/UserStatus.java`
-- Create: `backend/src/main/java/com/rinana/media/common/ContentVisibility.java`
-- Create: `backend/src/main/java/com/rinana/media/security/VisibilityPolicy.java`
-- Test: `backend/src/test/java/com/rinana/media/security/VisibilityPolicyTest.java`
-
-- [ ] **Step 1: Write failing visibility-policy tests**
-
-Create `backend/src/test/java/com/rinana/media/security/VisibilityPolicyTest.java`:
-
-```java
-package com.rinana.media.security;
-
-import com.rinana.media.common.ContentVisibility;
-import com.rinana.media.common.MemberLevel;
-import com.rinana.media.common.Role;
-import org.junit.jupiter.api.Test;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
-class VisibilityPolicyTest {
-  @Test
-  void adminRolesCanSeeEveryMembershipContent() {
-    assertThat(VisibilityPolicy.canView(Role.ADMIN, MemberLevel.NORMAL, ContentVisibility.DIAMOND)).isTrue();
-    assertThat(VisibilityPolicy.canView(Role.SUPER_ADMIN, MemberLevel.NORMAL, ContentVisibility.DIAMOND)).isTrue();
-  }
-
-  @Test
-  void diamondCanSeeDiamondGoldNormalAndPublicContent() {
-    assertThat(VisibilityPolicy.canView(Role.USER, MemberLevel.DIAMOND, ContentVisibility.DIAMOND)).isTrue();
-    assertThat(VisibilityPolicy.canView(Role.USER, MemberLevel.DIAMOND, ContentVisibility.GOLD)).isTrue();
-    assertThat(VisibilityPolicy.canView(Role.USER, MemberLevel.DIAMOND, ContentVisibility.NORMAL)).isTrue();
-    assertThat(VisibilityPolicy.canView(Role.USER, MemberLevel.DIAMOND, ContentVisibility.PUBLIC)).isTrue();
-  }
-
-  @Test
-  void normalCannotSeeGoldOrDiamondContent() {
-    assertThat(VisibilityPolicy.canView(Role.USER, MemberLevel.NORMAL, ContentVisibility.GOLD)).isFalse();
-    assertThat(VisibilityPolicy.canView(Role.USER, MemberLevel.NORMAL, ContentVisibility.DIAMOND)).isFalse();
-  }
-
-  @Test
-  void publicContentIsAlwaysVisible() {
-    assertThat(VisibilityPolicy.canView(Role.USER, MemberLevel.NORMAL, ContentVisibility.PUBLIC)).isTrue();
-  }
-}
+```bash
+curl -k https://127.0.0.1/zh
+curl http://127.0.0.1/api/content
 ```
 
-- [ ] **Step 2: Run test and verify it fails**
+## 5. 线上状态
 
-Run:
+当前线上主地址：
 
-```powershell
-cd backend
-mvn -Dtest=VisibilityPolicyTest test
+- `https://lingnaive520.uk/zh`
+
+管理员登录：
+
+- `https://lingnaive520.uk/zh/login`
+
+超级管理员账号由服务器环境变量控制：
+
+- `SUPER_ADMIN_USERNAME`
+- `SUPER_ADMIN_EMAIL`
+- `SUPER_ADMIN_PASSWORD`
+- `SUPER_ADMIN_DISPLAY_NAME`
+
+不要把真实密码写入文档或提交到 Git。
+
+## 6. 重要配置
+
+后端环境变量文件：
+
+```text
+/opt/rinana/deploy/env/backend.env
 ```
 
-Expected: FAIL because enums and `VisibilityPolicy` do not exist.
+关键项：
 
-- [ ] **Step 3: Add enums**
+- `DATABASE_URL`
+- `DATABASE_USERNAME`
+- `DATABASE_PASSWORD`
+- `SPRING_DATA_REDIS_HOST`
+- `MINIO_ENDPOINT`
+- `MINIO_PUBLIC_ENDPOINT`
+- `MINIO_ACCESS_KEY`
+- `MINIO_SECRET_KEY`
+- `JWT_SECRET`
+- `SUPER_ADMIN_*`
 
-Create `backend/src/main/java/com/rinana/media/common/Role.java`:
+当前域名部署下：
 
-```java
-package com.rinana.media.common;
-
-public enum Role {
-  USER,
-  ADMIN,
-  SUPER_ADMIN
-}
+```env
+MINIO_ENDPOINT=http://minio:9000
+MINIO_PUBLIC_ENDPOINT=https://lingnaive520.uk
 ```
 
-Create `backend/src/main/java/com/rinana/media/common/MemberLevel.java`:
-
-```java
-package com.rinana.media.common;
-
-public enum MemberLevel {
-  NORMAL,
-  GOLD,
-  DIAMOND
-}
-```
-
-Create `backend/src/main/java/com/rinana/media/common/UserStatus.java`:
-
-```java
-package com.rinana.media.common;
-
-public enum UserStatus {
-  ACTIVE,
-  DISABLED
-}
-```
-
-Create `backend/src/main/java/com/rinana/media/common/ContentVisibility.java`:
-
-```java
-package com.rinana.media.common;
-
-public enum ContentVisibility {
-  PUBLIC,
-  NORMAL,
-  GOLD,
-  DIAMOND
-}
-```
-
-- [ ] **Step 4: Add policy implementation**
-
-Create `backend/src/main/java/com/rinana/media/security/VisibilityPolicy.java`:
-
-```java
-package com.rinana.media.security;
-
-import com.rinana.media.common.ContentVisibility;
-import com.rinana.media.common.MemberLevel;
-import com.rinana.media.common.Role;
-
-public final class VisibilityPolicy {
-  private VisibilityPolicy() {
-  }
-
-  public static boolean canView(Role role, MemberLevel memberLevel, ContentVisibility visibility) {
-    if (visibility == ContentVisibility.PUBLIC) {
-      return true;
-    }
-    if (role == Role.ADMIN || role == Role.SUPER_ADMIN) {
-      return true;
-    }
-    return levelRank(memberLevel) >= visibilityRank(visibility);
-  }
-
-  private static int levelRank(MemberLevel level) {
-    return switch (level) {
-      case NORMAL -> 1;
-      case GOLD -> 2;
-      case DIAMOND -> 3;
-    };
-  }
-
-  private static int visibilityRank(ContentVisibility visibility) {
-    return switch (visibility) {
-      case PUBLIC -> 0;
-      case NORMAL -> 1;
-      case GOLD -> 2;
-      case DIAMOND -> 3;
-    };
-  }
-}
-```
-
-- [ ] **Step 5: Run test and verify it passes**
-
-Run:
-
-```powershell
-cd backend
-mvn -Dtest=VisibilityPolicyTest test
-```
-
-Expected: PASS.
-
-- [ ] **Step 6: Commit**
-
-```powershell
-git add backend/src/main/java/com/rinana/media/common backend/src/main/java/com/rinana/media/security/VisibilityPolicy.java backend/src/test/java/com/rinana/media/security/VisibilityPolicyTest.java
-git commit -m "feat: add membership visibility policy"
-```
-
-## Phase 2: Database Schema and User/Invite Persistence
-
-### Task 3: Add Flyway Schema for Users, Invites, Content, Media, Audit
-
-**Files:**
-- Create: `backend/src/main/resources/db/migration/V1__initial_schema.sql`
-- Create: `backend/src/test/java/com/rinana/media/schema/FlywaySchemaTest.java`
-
-- [ ] **Step 1: Write failing schema test**
-
-Create `backend/src/test/java/com/rinana/media/schema/FlywaySchemaTest.java`:
-
-```java
-package com.rinana.media.schema;
-
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.ActiveProfiles;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
-@SpringBootTest
-@ActiveProfiles("test")
-@AutoConfigureTestDatabase
-class FlywaySchemaTest {
-  @Autowired
-  JdbcTemplate jdbc;
-
-  @Test
-  void createsCoreTables() {
-    assertThat(tableExists("users")).isTrue();
-    assertThat(tableExists("invite_codes")).isTrue();
-    assertThat(tableExists("media_assets")).isTrue();
-    assertThat(tableExists("posts")).isTrue();
-    assertThat(tableExists("albums")).isTrue();
-    assertThat(tableExists("videos")).isTrue();
-    assertThat(tableExists("admin_audit_logs")).isTrue();
-  }
-
-  private boolean tableExists(String tableName) {
-    Integer count = jdbc.queryForObject(
-      "select count(*) from information_schema.tables where table_name = ?",
-      Integer.class,
-      tableName
-    );
-    return count != null && count > 0;
-  }
-}
-```
-
-- [ ] **Step 2: Run schema test and verify it fails**
-
-Run:
-
-```powershell
-cd backend
-mvn -Dtest=FlywaySchemaTest test
-```
-
-Expected: FAIL because migration does not exist.
-
-- [ ] **Step 3: Add Flyway migration**
-
-Create `backend/src/main/resources/db/migration/V1__initial_schema.sql` with all tables from the design:
-
-```sql
-create table users (
-  id uuid primary key,
-  username varchar(64) not null unique,
-  email varchar(255) not null unique,
-  password_hash varchar(255) not null,
-  display_name varchar(120) not null,
-  role varchar(32) not null,
-  member_level varchar(32) not null,
-  status varchar(32) not null,
-  avatar_url text,
-  created_at timestamptz not null,
-  updated_at timestamptz not null
-);
-
-create table invite_codes (
-  id uuid primary key,
-  code varchar(64) not null unique,
-  initial_level varchar(32) not null,
-  max_uses integer not null,
-  used_count integer not null default 0,
-  expires_at timestamptz,
-  status varchar(32) not null,
-  created_by uuid references users(id),
-  created_at timestamptz not null
-);
-
-create table media_assets (
-  id uuid primary key,
-  media_type varchar(32) not null,
-  bucket_name varchar(120) not null,
-  object_key text not null,
-  original_name text not null,
-  mime_type varchar(160) not null,
-  size_bytes bigint not null,
-  width integer,
-  height integer,
-  duration_seconds integer,
-  cover_object_key text,
-  uploaded_by uuid references users(id),
-  created_at timestamptz not null
-);
-
-create table posts (
-  id uuid primary key,
-  title varchar(240) not null,
-  content text not null,
-  visibility varchar(32) not null,
-  status varchar(32) not null,
-  is_pinned boolean not null default false,
-  author_id uuid not null references users(id),
-  published_at timestamptz,
-  created_at timestamptz not null,
-  updated_at timestamptz not null
-);
-
-create table post_media (
-  id uuid primary key,
-  post_id uuid not null references posts(id) on delete cascade,
-  media_asset_id uuid not null references media_assets(id),
-  sort_order integer not null
-);
-
-create table albums (
-  id uuid primary key,
-  title varchar(240) not null,
-  description text not null,
-  visibility varchar(32) not null,
-  cover_media_id uuid references media_assets(id),
-  status varchar(32) not null,
-  author_id uuid not null references users(id),
-  published_at timestamptz,
-  created_at timestamptz not null,
-  updated_at timestamptz not null
-);
-
-create table album_items (
-  id uuid primary key,
-  album_id uuid not null references albums(id) on delete cascade,
-  media_asset_id uuid not null references media_assets(id),
-  sort_order integer not null
-);
-
-create table videos (
-  id uuid primary key,
-  title varchar(240) not null,
-  description text not null,
-  visibility varchar(32) not null,
-  media_asset_id uuid not null references media_assets(id),
-  cover_media_id uuid references media_assets(id),
-  status varchar(32) not null,
-  author_id uuid not null references users(id),
-  published_at timestamptz,
-  created_at timestamptz not null,
-  updated_at timestamptz not null
-);
-
-create table admin_audit_logs (
-  id uuid primary key,
-  admin_user_id uuid not null references users(id),
-  action_type varchar(80) not null,
-  target_type varchar(80) not null,
-  target_id uuid,
-  detail_json text not null,
-  created_at timestamptz not null
-);
-
-create index idx_posts_feed on posts(status, visibility, published_at desc);
-create index idx_albums_feed on albums(status, visibility, published_at desc);
-create index idx_videos_feed on videos(status, visibility, published_at desc);
-create index idx_media_uploaded_by on media_assets(uploaded_by, created_at desc);
-create index idx_audit_admin_time on admin_audit_logs(admin_user_id, created_at desc);
-```
-
-- [ ] **Step 4: Add test profile config if needed**
-
-Create `backend/src/test/resources/application-test.yml`:
-
-```yaml
-spring:
-  datasource:
-    url: jdbc:h2:mem:rinana-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
-    username: sa
-    password:
-    driver-class-name: org.h2.Driver
-  jpa:
-    hibernate:
-      ddl-auto: validate
-  flyway:
-    enabled: true
-```
-
-- [ ] **Step 5: Run schema test and verify it passes**
-
-Run:
-
-```powershell
-cd backend
-mvn -Dtest=FlywaySchemaTest test
-```
-
-Expected: PASS.
-
-- [ ] **Step 6: Commit**
-
-```powershell
-git add backend/src/main/resources/db/migration/V1__initial_schema.sql backend/src/test/resources/application-test.yml backend/src/test/java/com/rinana/media/schema/FlywaySchemaTest.java
-git commit -m "feat: add initial database schema"
-```
-
-## Phase 3: Auth, Invites, and Super Admin
-
-### Task 4: Implement Super Admin Bootstrap
-
-**Files:**
-- Create: `backend/src/main/java/com/rinana/media/user/UserEntity.java`
-- Create: `backend/src/main/java/com/rinana/media/user/UserRepository.java`
-- Create: `backend/src/main/java/com/rinana/media/user/SuperAdminBootstrap.java`
-- Test: `backend/src/test/java/com/rinana/media/user/SuperAdminBootstrapTest.java`
-
-- [ ] **Step 1: Write failing bootstrap tests**
-
-Create tests proving:
-
-```java
-@Test
-void createsSuperAdminWhenNoneExists()
-```
-
-and:
-
-```java
-@Test
-void doesNotCreateDuplicateSuperAdmin()
-```
-
-Expected assertions:
-
-- One user exists with `role = SUPER_ADMIN`.
-- Existing super admin count remains `1` after running bootstrap twice.
-- Password is encoded, not stored as plain text.
-
-- [ ] **Step 2: Run test and verify it fails**
-
-Run:
-
-```powershell
-cd backend
-mvn -Dtest=SuperAdminBootstrapTest test
-```
-
-Expected: FAIL because repository and bootstrap do not exist.
-
-- [ ] **Step 3: Implement JPA user entity/repository and bootstrap**
-
-Implementation requirements:
-
-- Use `PasswordEncoder`.
-- Create user with `username`, `email`, `displayName` from properties.
-- Set `role = SUPER_ADMIN`, `memberLevel = DIAMOND`, `status = ACTIVE`.
-- Skip creation if any `SUPER_ADMIN` exists.
-
-- [ ] **Step 4: Run test and verify it passes**
-
-Run:
-
-```powershell
-cd backend
-mvn -Dtest=SuperAdminBootstrapTest test
-```
-
-Expected: PASS.
-
-- [ ] **Step 5: Commit**
-
-```powershell
-git add backend/src/main/java/com/rinana/media/user backend/src/test/java/com/rinana/media/user/SuperAdminBootstrapTest.java
-git commit -m "feat: bootstrap hidden super admin"
-```
-
-### Task 5: Implement Register/Login/Me APIs
-
-**Files:**
-- Create: `backend/src/main/java/com/rinana/media/auth/AuthController.java`
-- Create: `backend/src/main/java/com/rinana/media/auth/AuthService.java`
-- Create: `backend/src/main/java/com/rinana/media/auth/dto/*.java`
-- Create: `backend/src/main/java/com/rinana/media/security/*.java`
-- Test: `backend/src/test/java/com/rinana/media/auth/AuthControllerTest.java`
-
-- [ ] **Step 1: Write failing controller tests**
-
-Write `MockMvc` tests for:
-
-- `POST /api/auth/register` rejects missing/invalid invite.
-- `POST /api/auth/register` creates active user with invite initial level.
-- `POST /api/auth/login` accepts username or email plus password.
-- `GET /api/auth/me` returns role and member level after login.
-- Disabled users cannot log in.
-
-- [ ] **Step 2: Run test and verify it fails**
-
-Run:
-
-```powershell
-cd backend
-mvn -Dtest=AuthControllerTest test
-```
-
-Expected: FAIL because APIs do not exist.
-
-- [ ] **Step 3: Implement auth**
-
-Implementation requirements:
-
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `POST /api/auth/logout`
-- `GET /api/auth/me`
-- Access token HttpOnly cookie.
-- Refresh token HttpOnly cookie.
-- Refresh token hash stored in Redis.
-- Problem Details with `errorCode` for invalid credentials, invalid invite, disabled user.
-
-- [ ] **Step 4: Run auth tests**
-
-Run:
-
-```powershell
-cd backend
-mvn -Dtest=AuthControllerTest test
-```
-
-Expected: PASS.
-
-- [ ] **Step 5: Commit**
-
-```powershell
-git add backend/src/main/java/com/rinana/media/auth backend/src/main/java/com/rinana/media/security backend/src/test/java/com/rinana/media/auth/AuthControllerTest.java
-git commit -m "feat: add invite-based auth APIs"
-```
-
-## Phase 4: Content, Media, and Admin APIs
-
-### Task 6: Implement Invite Admin APIs
-
-Implement:
-
-- `POST /api/invites`
-- `GET /api/invites`
-- `DELETE /api/invites/{id}`
-
-Test:
-
-- Only `ADMIN` or `SUPER_ADMIN` can create/list/delete invites.
-- Created invite has selected initial level.
-- Used/disabled invite cannot be consumed.
-
-Commit:
-
-```powershell
-git commit -m "feat: add invite management APIs"
-```
-
-### Task 7: Implement Content APIs and Visibility Filtering
-
-Implement:
-
-- `GET /api/posts`
-- `POST /api/posts`
-- `PUT /api/posts/{id}`
-- `DELETE /api/posts/{id}`
-- `GET /api/albums`
-- `POST /api/albums`
-- `PUT /api/albums/{id}`
-- `DELETE /api/albums/{id}`
-- `GET /api/videos`
-- `POST /api/videos`
-- `PUT /api/videos/{id}`
-- `DELETE /api/videos/{id}`
-
-Test:
-
-- Visitors only see public content.
-- Normal users do not see gold/diamond content.
-- Gold users see public/normal/gold.
-- Diamond users see all membership content.
-- Admin and super admin can create/update/delete.
-
-Commit:
-
-```powershell
-git commit -m "feat: add content APIs with membership visibility"
-```
-
-### Task 8: Implement MinIO Media APIs
-
-Implement:
-
-- `POST /api/media/images`
-- `POST /api/media/videos`
-- `GET /api/media/{id}/access`
-
-Test:
-
-- Only `ADMIN` or `SUPER_ADMIN` can upload.
-- Video upload rejects non-video MIME types.
-- Media access checks linked content visibility before returning a presigned URL.
-- Response includes short-lived URL and expiration timestamp.
-
-Commit:
-
-```powershell
-git commit -m "feat: add MinIO media APIs"
-```
-
-## Phase 5: Frontend API Migration
-
-### Task 9: Add Java API Client
-
-**Files:**
-- Create: `src/services/java-api-client.ts`
-- Test: `src/services/java-api-client.test.ts`
-
-Implement client methods:
-
-- `login`
-- `register`
-- `logout`
-- `getMe`
-- `listContent`
-- `createInvite`
-- `deleteInvite`
-- `updateUser`
-- `uploadImage`
-- `uploadVideo`
-- `createPost`
-- `createAlbum`
-- `createVideo`
-
-Test:
-
-- Uses same-origin `/api/*` endpoints.
-- Sends credentials with `credentials: "include"`.
-- Parses Problem Details errors into user-facing errors.
-
-Run:
-
-```powershell
-$env:PATH='C:\Users\Yao\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin;'+$env:PATH
-& 'C:\Users\Yao\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' 'C:\Users\Yao\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\node_modules\pnpm\bin\pnpm.cjs' test
-```
-
-Commit:
-
-```powershell
-git commit -m "feat: add Spring Boot API client"
-```
-
-### Task 10: Replace Supabase/R2 Frontend Runtime
-
-Modify:
-
-- `src/state/AppStateProvider.tsx`
-- `src/services/content-client.ts`
-- `src/services/admin-upload-client.ts`
-- `src/components/LoginView.tsx`
-- `src/components/AdminPanel.tsx`
-
-Requirements:
-
-- Login/register uses Java backend.
-- Current user comes from `/api/auth/me`.
-- Admin actions use Java backend APIs.
-- Uploads use `/api/media/images` and `/api/media/videos`.
-- Remove runtime dependency on Supabase and Cloudflare R2 for production behavior.
-
-Tests:
-
-- Existing component tests updated to expect Java API calls.
-- Admin entry displays only for admin/super admin returned by `/api/auth/me`.
-
-Commit:
-
-```powershell
-git commit -m "feat: switch frontend to Spring Boot API"
-```
-
-## Phase 6: Docker Compose and Nginx
-
-### Task 11: Add Dockerfiles and Compose
-
-Create:
-
-- `Dockerfile.frontend`
-- `backend/Dockerfile`
-- `deploy/docker-compose.yml`
-- `deploy/nginx/site.conf`
-- `deploy/env/backend.env.example`
-- `deploy/env/postgres.env.example`
-- `deploy/env/minio.env.example`
-
-Compose services:
-
-- `nginx`
-- `frontend`
-- `backend`
-- `postgres`
-- `redis`
-- `minio`
-
-Nginx routes:
-
-- `/` to `frontend:3000`
-- `/api/` to `backend:8080`
-
-Set:
-
-- `client_max_body_size 512m`
-- JVM `JAVA_TOOL_OPTIONS=-Xms256m -Xmx768m`
-
-Local verification if Docker is available:
-
-```powershell
-docker compose -f deploy/docker-compose.yml up --build
-```
-
-If Docker is unavailable, verify YAML structure by review and run full compose on the server.
-
-Commit:
-
-```powershell
-git commit -m "feat: add Docker Compose deployment"
-```
-
-## Phase 7: End-to-End Verification
-
-### Task 12: Verify Full Product Flow
-
-Required checks:
-
-- Backend tests: `cd backend && mvn test`
-- Frontend tests: `pnpm test`
-- Frontend build: `pnpm build`
-- Docker deployment: `docker compose -f deploy/docker-compose.yml up --build`
-- Visit `/zh`
-- Login with super admin
-- Generate invite
-- Register a normal user with invite
-- Promote user to gold/diamond
-- Publish post, album, and video
-- Upload image and video
-- Confirm public/normal/gold/diamond visibility behavior
-- Confirm super admin is not visible on public pages
-
-Commit final docs update:
-
-```powershell
-git add README.md docs/production-setup.md docs/deploy-checklist.md
-git commit -m "docs: document self-hosted Java deployment"
-```
-
-## Self-Review
-
-Spec coverage:
-
-- Next.js frontend retained: Phase 5.
-- Spring Boot backend: Phases 1-4.
-- PostgreSQL schema: Phase 2.
-- Redis refresh token storage: Phase 3.
-- MinIO storage: Phase 4.
-- Nginx and Docker Compose: Phase 6.
-- Invite registration: Phase 3 and Phase 4.
-- Roles `USER`, `ADMIN`, `SUPER_ADMIN`: Phases 1-4.
-- Membership visibility: Phase 1 and Phase 4.
-- Media upload/access: Phase 4.
-- Frontend runtime migration: Phase 5.
-- Verification: Phase 7.
-
-Known environment constraint:
-
-- Docker is not available on this Windows machine at plan-writing time, so container verification must run after Docker is installed or on the target server.
+## 7. 已验证内容
+
+已完成过的验证包括：
+
+- 前端测试通过。
+- 后端 Maven 测试通过。
+- Next.js 生产构建通过。
+- Docker Compose 服务启动。
+- Nginx 80/443 可访问。
+- `/zh` 页面可访问。
+- `/api/content` 返回 200。
+- 管理员登录可用。
+- 邀请码注册可用。
+- GOLD/DIAMOND 可见性规则可用。
+- 图片上传可用。
+- 视频上传可用。
+- 头像上传小于 10MB 的限制可用。
+- 邮箱和密码修改可用。
+
+## 8. 后续建议
+
+- 给 PostgreSQL 和 MinIO 增加定时备份。
+- 收紧 MinIO 管理端口的公网访问。
+- 生成正确的 Cloudflare Origin Server Certificate 后，将 SSL/TLS 从 `Full` 切换为 `Full (strict)`。
+- 增加上传前视频格式提示。
+- 增加服务器磁盘占用监控。
+- 增加管理员审计日志查看页面。

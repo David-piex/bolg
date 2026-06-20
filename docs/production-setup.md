@@ -1,26 +1,26 @@
-# Production Setup
+# 生产环境配置
 
-The production target is a single Linux server running Docker Compose.
+生产环境目标是一台 Linux 服务器，通过 Docker Compose 运行完整服务。
 
-## Services
+## 服务
 
-- `nginx`: public entrypoint on port 80
-- `frontend`: Next.js app on port 3000 inside the Docker network
-- `backend`: Spring Boot API on port 8080 inside the Docker network
-- `postgres`: PostgreSQL 16 with a persistent volume
-- `redis`: Redis 7 with a persistent volume
-- `minio`: MinIO object storage with a persistent volume
+- `nginx`：公网入口，监听 `80` 和 `443`
+- `frontend`：Next.js 前端，容器网络内监听 `3000`
+- `backend`：Spring Boot API，容器网络内监听 `8080`
+- `postgres`：PostgreSQL 16，使用持久化卷
+- `redis`：Redis 7，使用持久化卷
+- `minio`：MinIO 对象存储，使用持久化卷
 
-## Required Files
+## 必要文件
 
-Copy and edit the env templates before deployment. Keep the `*.example` files as templates and put real production values in `*.env` files:
+部署前需要复制并编辑环境变量模板。保留 `*.example` 作为模板，真实生产值写入 `*.env` 文件：
 
 - `deploy/env/backend.env`
 - `deploy/env/frontend.env`
 - `deploy/env/postgres.env`
 - `deploy/env/minio.env`
 
-At minimum, change all default passwords and secrets:
+至少要修改这些默认密码和密钥：
 
 - `DATABASE_PASSWORD`
 - `MINIO_SECRET_KEY`
@@ -30,16 +30,16 @@ At minimum, change all default passwords and secrets:
 - `POSTGRES_PASSWORD`
 - `MINIO_ROOT_PASSWORD`
 
-## Deploy
+## 部署
 
-Fresh server helper:
+全新服务器部署：
 
 ```bash
 cd /opt/rinana
 bash deploy/server-deploy.sh
 ```
 
-Manual deployment:
+手动部署：
 
 ```bash
 cd deploy
@@ -47,46 +47,56 @@ docker compose up -d --build
 docker compose ps
 ```
 
-Check logs:
+查看日志：
 
 ```bash
 docker compose logs -f backend
 docker compose logs -f nginx
 ```
 
-Open:
+当前线上入口：
 
-- Site: `http://SERVER_IP/zh`
-- Admin login: `http://SERVER_IP/zh/login`
-- MinIO console: `http://SERVER_IP:9001`
+- 主站：`https://lingnaive520.uk/zh`
+- 管理员登录：`https://lingnaive520.uk/zh/login`
+- MinIO 控制台：`http://SERVER_IP:9001`
 
-Set `MINIO_PUBLIC_ENDPOINT` to an address the user's browser can reach. With the default compose ports this is usually `http://SERVER_IP:9000`. The backend still uses `MINIO_ENDPOINT=http://minio:9000` inside Docker.
+`MINIO_PUBLIC_ENDPOINT` 必须设置为用户浏览器能访问的地址。当前 Cloudflare 域名部署使用：
 
-The backend creates the MinIO bucket named by `MINIO_BUCKET` on first upload if it does not exist. The default bucket is `rinana-media`.
+```env
+MINIO_PUBLIC_ENDPOINT=https://lingnaive520.uk
+```
 
-## First Login
+后端容器内部仍然使用：
 
-Use the `SUPER_ADMIN_*` values from `deploy/env/backend.env` after editing them. The backend creates the first super admin only when the database has no existing `SUPER_ADMIN`.
+```env
+MINIO_ENDPOINT=http://minio:9000
+```
 
-## Verification
+后端会在第一次上传时创建 `MINIO_BUCKET` 指定的 bucket。默认 bucket 是 `rinana-media`。
 
-After deployment, verify:
+## 首次登录
 
-- `/zh` loads.
-- `/api/auth/login` works through Nginx.
-- Invite-only registration works.
-- Admin can create invite codes.
-- Admin can upload image and video media.
-- Admin can publish posts, albums, and videos.
-- NORMAL, GOLD, and DIAMOND accounts see only allowed content.
-- Media access returns a short-lived presigned MinIO URL only after authorization.
-- Images and videos embedded in pages use `/api/media/{id}/view`, which performs the same authorization and redirects to a short-lived MinIO URL.
+使用 `deploy/env/backend.env` 里的 `SUPER_ADMIN_*` 配置登录。后端只会在数据库中不存在 `SUPER_ADMIN` 时创建第一个超级管理员。
 
-## Backups
+## 验证
 
-Back up at least:
+部署完成后检查：
 
-- PostgreSQL volume `postgres-data`
-- MinIO volume `minio-data`
+- `/zh` 可以打开。
+- `/api/auth/login` 可以通过 Nginx 访问。
+- 邀请码注册可用。
+- 管理员可以创建邀请码。
+- 管理员可以上传图片和视频。
+- 管理员可以发布动态、相册和视频。
+- NORMAL、GOLD、DIAMOND 账号只能看到自己等级允许的内容。
+- 媒体访问必须先通过后端授权，再返回短时有效的 MinIO 预签名地址。
+- 页面内图片和视频通过 `/api/media/{id}/view` 加载，并同样经过权限判断。
 
-Redis is used for refresh tokens and short-lived state; persist or back it up only if preserving sessions across restarts matters.
+## 备份
+
+至少备份：
+
+- PostgreSQL 数据卷 `postgres-data`
+- MinIO 数据卷 `minio-data`
+
+Redis 用于刷新令牌和短期状态。如果需要在重启后保留登录会话，再考虑持久化或备份 Redis。

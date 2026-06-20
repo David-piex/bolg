@@ -1,19 +1,19 @@
-# Server Setup Worksheet
+# 服务器配置记录表
 
-Do not commit real passwords or secrets.
+不要把真实密码或密钥提交到 Git。
 
-## Domain And Server
+## 域名和服务器
 
-| Item | Value |
+| 项目 | 值 |
 | --- | --- |
-| Server IP | |
-| Domain | |
-| SSH user | |
-| Deploy path | |
+| 服务器 IP | |
+| 域名 | |
+| SSH 用户 | |
+| 部署路径 | |
 
-## Backend Secrets
+## 后端密钥
 
-| Variable | Value |
+| 变量 | 值 |
 | --- | --- |
 | `DATABASE_PASSWORD` | |
 | `JWT_SECRET` | |
@@ -24,7 +24,7 @@ Do not commit real passwords or secrets.
 
 ## MinIO
 
-| Variable | Value |
+| 变量 | 值 |
 | --- | --- |
 | `MINIO_ROOT_USER` | |
 | `MINIO_ROOT_PASSWORD` | |
@@ -32,7 +32,7 @@ Do not commit real passwords or secrets.
 | `MINIO_SECRET_KEY` | |
 | `MINIO_BUCKET` | `rinana-media` |
 
-## Commands
+## 常用命令
 
 ```bash
 cd deploy
