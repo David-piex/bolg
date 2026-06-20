@@ -340,11 +340,27 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }
 
     let cancelled = false;
+    const hadSavedAuthSession = Boolean(state.authSession);
     setAuthReady(false);
 
     void getCurrentSessionClient()
       .then((session) => {
-        if (cancelled || !session) {
+        if (cancelled) {
+          return;
+        }
+
+        if (!session) {
+          if (hadSavedAuthSession) {
+            setState((current) =>
+              current.authSession
+                ? {
+                    ...current,
+                    authSession: null,
+                    currentUserId: null
+                  }
+                : current
+            );
+          }
           return;
         }
 

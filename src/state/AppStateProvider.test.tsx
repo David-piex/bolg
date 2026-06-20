@@ -516,6 +516,72 @@ describe("AppStateProvider", () => {
     });
   });
 
+  it("clears saved user state when the Java session can no longer be restored", async () => {
+    window.localStorage.clear();
+    window.localStorage.setItem(
+      "media-gate-state-v1",
+      JSON.stringify({
+        users: [
+          {
+            disabled: false,
+            email: "admin@example.com",
+            id: "admin-1",
+            isAdmin: true,
+            level: "diamond",
+            name: "Admin"
+          }
+        ],
+        invites: [],
+        posts: [],
+        albums: [],
+        photos: [],
+        videoCollections: [],
+        videos: [],
+        currentUserId: "admin-1",
+        authSession: {
+          accessToken: "cookie-session",
+          expiresIn: 900,
+          refreshToken: "cookie-session"
+        }
+      })
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input) === "/api/auth/me") {
+          return {
+            ok: false,
+            status: 401,
+            json: async () => ({ errorCode: "UNAUTHENTICATED", message: "请先登录" })
+          };
+        }
+
+        return {
+          ok: true,
+          json: async () => ({})
+        };
+      }) as unknown as typeof fetch
+    );
+
+    render(
+      <AppStateProvider>
+        <CurrentIdentityProbe />
+        <AuthSessionProbe />
+      </AppStateProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("current identity")).toHaveTextContent("visitor:public");
+      expect(screen.getByLabelText("auth token")).toHaveTextContent("none");
+    });
+
+    await waitFor(() => {
+      const persisted = JSON.parse(window.localStorage.getItem("media-gate-state-v1") ?? "{}");
+      expect(persisted.currentUserId).toBeNull();
+      expect(persisted.authSession).toBeNull();
+    });
+  });
+
   it("loads remote Java content after hydration when content API is configured", async () => {
     window.localStorage.clear();
     vi.mocked(fetchRemoteContentDataset).mockResolvedValue({
