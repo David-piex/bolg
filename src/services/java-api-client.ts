@@ -63,6 +63,21 @@ export type JavaMediaAsset = {
   sizeBytes: number;
 };
 
+export type JavaMediaAssetPage = {
+  items: JavaMediaAsset[];
+  page: number;
+  size: number;
+  total: number;
+  totalPages: number;
+};
+
+export type ListMediaInput = {
+  mediaType?: JavaMediaType;
+  page?: number;
+  q?: string;
+  size?: number;
+};
+
 export type JavaMediaAccess = {
   expiresAt: string;
   url: string;
@@ -379,6 +394,24 @@ export async function completeDirectUpload(input: JavaCompleteDirectUploadReques
     body: JSON.stringify(input),
     method: "POST"
   });
+}
+
+export async function listMedia(input: ListMediaInput = {}): Promise<JavaMediaAssetPage> {
+  const params = new URLSearchParams();
+  if (input.mediaType) {
+    params.set("mediaType", input.mediaType);
+  }
+  if (input.page !== undefined) {
+    params.set("page", String(input.page));
+  }
+  if (input.size !== undefined) {
+    params.set("size", String(input.size));
+  }
+  if (input.q?.trim()) {
+    params.set("q", input.q.trim());
+  }
+  const query = params.toString();
+  return request<JavaMediaAssetPage>(`/api/media${query ? `?${query}` : ""}`, { method: "GET" });
 }
 
 export async function getMediaAccess(mediaId: string): Promise<JavaMediaAccess> {

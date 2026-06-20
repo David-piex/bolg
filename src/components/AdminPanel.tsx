@@ -24,12 +24,14 @@ import {
   type UploadedVideo,
   type UploadProgress
 } from "@/services/admin-upload-client";
+import { listMedia, type JavaMediaAsset, type JavaMediaType } from "@/services/java-api-client";
 import { useAppState } from "@/state/AppStateProvider";
 
 type Dictionary = ReturnType<typeof getDictionary>;
 type EditableLevel = Exclude<MembershipLevel, "public">;
 type ContentKind = "post" | "album" | "video";
 type UploadTarget = "image" | "video" | "cover";
+type MediaUseTarget = "image" | "video" | "cover";
 type EditingContent = {
   id: string;
   kind: ContentKind;
@@ -92,6 +94,40 @@ function memberPageSummary(template: string, input: { page: number; total: numbe
     .replace("{total}", String(input.total));
 }
 
+function mediaPageSummary(template: string, input: { page: number; total: number; totalPages: number }) {
+  return memberPageSummary(template, input);
+}
+
+function formatBytes(bytes: number) {
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  }
+
+  if (bytes >= 1024) {
+    return `${Math.round(bytes / 1024)} KB`;
+  }
+
+  return `${bytes} B`;
+}
+
+function normalizeMediaPage(page: unknown, fallbackSize: number) {
+  const candidate = page as Partial<{
+    items: JavaMediaAsset[];
+    page: number;
+    size: number;
+    total: number;
+    totalPages: number;
+  }>;
+
+  return {
+    items: Array.isArray(candidate.items) ? candidate.items : [],
+    page: typeof candidate.page === "number" ? candidate.page : 0,
+    size: typeof candidate.size === "number" ? candidate.size : fallbackSize,
+    total: typeof candidate.total === "number" ? candidate.total : 0,
+    totalPages: typeof candidate.totalPages === "number" ? candidate.totalPages : 1
+  };
+}
+
 function uploadPhaseLabel(progress: UploadProgress, dictionary: Dictionary) {
   if (progress.phase === "preparing") return dictionary.admin.uploadPreparing;
   if (progress.phase === "finalizing") return dictionary.admin.uploadFinalizing;
@@ -152,6 +188,17 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
   const [memberPageSize, setMemberPageSize] = useState(10);
   const [memberLoading, setMemberLoading] = useState(false);
   const [memberError, setMemberError] = useState<string | null>(null);
+  const [mediaQuery, setMediaQuery] = useState("");
+  const [mediaTypeFilter, setMediaTypeFilter] = useState<JavaMediaType | "ALL">("ALL");
+  const [mediaPage, setMediaPage] = useState({
+    items: [] as JavaMediaAsset[],
+    page: 0,
+    size: 8,
+    total: 0,
+    totalPages: 1
+  });
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const [mediaError, setMediaError] = useState<string | null>(null);
   const unusedInvites = invites.filter((invite) => !invite.usedByUserId);
   const contentTotal = posts.length + albums.length + videoCollections.length;
   const mediaTotal = photos.length + videos.length;
@@ -162,6 +209,13 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
     page: memberCurrentPage,
     total: adminUserPage.total,
     totalPages: memberTotalPages
+  });
+  const mediaCurrentPage = mediaPage.page + 1;
+  const mediaTotalPages = Math.max(1, mediaPage.totalPages);
+  const mediaSummary = mediaPageSummary(dictionary.admin.mediaPageSummary, {
+    page: mediaCurrentPage,
+    total: mediaPage.total,
+    totalPages: mediaTotalPages
   });
   const latestContentDate = latestPublishedAt(
     [...posts, ...albums, ...videoCollections],
@@ -196,6 +250,44 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
       window.clearTimeout(timer);
     };
   }, [authReady, authSession?.accessToken, memberPageSize, memberQuery]);
+
+  useEffect(() => {
+    if (!authReady || !authSession?.accessToken) {
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setMediaLoading(true);
+      setMediaError(null);
+      void listMedia({
+        mediaType: mediaTypeFilter === "ALL" ? undefined : mediaTypeFilter,
+        page: 0,
+        q: mediaQuery,
+        size: mediaPage.size
+      })
+        .then((page) => {
+          if (!cancelled) {
+            setMediaPage(normalizeMediaPage(page, mediaPage.size));
+          }
+        })
+        .catch((error) => {
+          if (!cancelled) {
+            setMediaError(error instanceof Error ? error.message : dictionary.admin.noMediaAssets);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setMediaLoading(false);
+          }
+        });
+    }, 260);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [authReady, authSession?.accessToken, mediaPage.size, mediaQuery, mediaTypeFilter]);
 
   if (!authReady) {
     return (
@@ -233,6 +325,30 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
       setMemberError(error instanceof Error ? error.message : dictionary.admin.noMembers);
     } finally {
       setMemberLoading(false);
+    }
+  }
+
+  async function onLoadMediaPage(page: number) {
+    if (!authSession?.accessToken) {
+      setMediaError(dictionary.admin.uploadNeedsLogin);
+      return;
+    }
+
+    setMediaLoading(true);
+    setMediaError(null);
+
+    try {
+      const nextPage = await listMedia({
+        mediaType: mediaTypeFilter === "ALL" ? undefined : mediaTypeFilter,
+        page,
+        q: mediaQuery,
+        size: mediaPage.size
+      });
+      setMediaPage(normalizeMediaPage(nextPage, mediaPage.size));
+    } catch (error) {
+      setMediaError(error instanceof Error ? error.message : dictionary.admin.noMediaAssets);
+    } finally {
+      setMediaLoading(false);
     }
   }
 
@@ -286,6 +402,50 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
     } finally {
       setUploadTarget(null);
     }
+  }
+
+  function onUseMedia(asset: JavaMediaAsset, target: MediaUseTarget) {
+    const publicUrl = `/api/media/${encodeURIComponent(asset.id)}/view`;
+
+    if (target === "cover") {
+      if (contentKind !== "video") {
+        setContentAsset(publicUrl);
+        setUploadedImageMeta({
+          mediaAssetId: asset.id,
+          path: asset.objectKey,
+          publicUrl
+        });
+        setUploadMessage(dictionary.admin.mediaLibraryCoverSelected);
+        return;
+      }
+
+      setUploadedVideoCoverMeta({
+        mediaAssetId: asset.id,
+        path: asset.objectKey,
+        publicUrl
+      });
+      setUploadMessage(dictionary.admin.mediaLibraryCoverSelected);
+      return;
+    }
+
+    if (target === "video") {
+      setContentAsset(publicUrl);
+      setUploadedVideoMeta({
+        mediaAssetId: asset.id,
+        playbackUrl: publicUrl,
+        thumbnailUrl: uploadedVideoCoverMeta?.publicUrl || ""
+      });
+      setUploadMessage(dictionary.admin.mediaLibraryVideoSelected);
+      return;
+    }
+
+    setContentAsset(publicUrl);
+    setUploadedImageMeta({
+      mediaAssetId: asset.id,
+      path: asset.objectKey,
+      publicUrl
+    });
+    setUploadMessage(dictionary.admin.mediaLibraryImageSelected);
   }
 
   async function onUploadVideoFile(file: File | undefined) {
@@ -411,7 +571,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           title: contentTitle,
           description: contentBody,
           defaultVisibility: contentVisibility,
-          coverImage: contentAsset
+          coverImage: contentAsset,
+          coverMediaId: uploadedImageMeta?.mediaAssetId
         });
       } else if (editingContent?.kind === "video") {
         await updateVideoCollection({
@@ -717,6 +878,102 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
               <span>{dictionary.admin.videoUploadRule}</span>
               <strong>{formatCount(videos.length, dictionary.content.videoUnit)}</strong>
               <small>{dictionary.admin.videoUploadHint}</small>
+            </div>
+          </div>
+          <div className="media-library-panel">
+            <div className="media-library-heading">
+              <div>
+                <strong>{dictionary.admin.mediaLibrary}</strong>
+                <span>{dictionary.admin.mediaLibraryHint}</span>
+              </div>
+            </div>
+            <div className="media-library-toolbar">
+              <label>
+                <span>{dictionary.admin.searchMedia}</span>
+                <span className="member-search-control">
+                  <Search size={16} />
+                  <input
+                    value={mediaQuery}
+                    onChange={(event) => setMediaQuery(event.target.value)}
+                    placeholder={dictionary.admin.mediaSearchPlaceholder}
+                  />
+                </span>
+              </label>
+              <label>
+                <span>{dictionary.admin.mediaTypeFilter}</span>
+                <select
+                  value={mediaTypeFilter}
+                  onChange={(event) => setMediaTypeFilter(event.target.value as JavaMediaType | "ALL")}
+                >
+                  <option value="ALL">{dictionary.admin.mediaTypeAll}</option>
+                  <option value="IMAGE">{dictionary.admin.mediaTypeImage}</option>
+                  <option value="VIDEO">{dictionary.admin.mediaTypeVideo}</option>
+                </select>
+              </label>
+            </div>
+            <div className="media-library-list" aria-live="polite">
+              {mediaPage.items.map((asset) => (
+                <div className="media-library-row" key={asset.id}>
+                  <div>
+                    <span className={`media-type-chip media-type-${asset.mediaType.toLowerCase()}`}>
+                      {asset.mediaType === "IMAGE" ? dictionary.admin.mediaTypeImage : dictionary.admin.mediaTypeVideo}
+                    </span>
+                    <strong title={asset.originalName}>{asset.originalName}</strong>
+                    <small>
+                      {formatBytes(asset.sizeBytes)}
+                      {dictionary.common.colon}
+                      {asset.objectKey}
+                    </small>
+                  </div>
+                  <div className="media-library-actions">
+                    {asset.mediaType === "IMAGE" ? (
+                      <>
+                        <button type="button" onClick={() => onUseMedia(asset, "image")}>
+                          {dictionary.admin.useAsImage}
+                        </button>
+                        {contentKind === "video" ? (
+                          <button type="button" onClick={() => onUseMedia(asset, "cover")}>
+                            {dictionary.admin.useAsCover}
+                          </button>
+                        ) : contentKind === "album" ? (
+                          <button type="button" onClick={() => onUseMedia(asset, "cover")}>
+                            {dictionary.admin.useAsCover}
+                          </button>
+                        ) : null}
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={contentKind !== "video"}
+                        onClick={() => onUseMedia(asset, "video")}
+                      >
+                        {dictionary.admin.useAsVideo}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {mediaPage.items.length === 0 ? <p className="muted">{dictionary.admin.noMediaAssets}</p> : null}
+            </div>
+            <div className="member-pagination media-library-pagination">
+              <span>{mediaLoading ? dictionary.admin.uploading : mediaSummary}</span>
+              {mediaError ? <strong>{mediaError}</strong> : null}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => void onLoadMediaPage(Math.max(mediaPage.page - 1, 0))}
+                  disabled={mediaLoading || mediaPage.page <= 0}
+                >
+                  {dictionary.admin.memberPrevious}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void onLoadMediaPage(mediaPage.page + 1)}
+                  disabled={mediaLoading || mediaCurrentPage >= mediaTotalPages}
+                >
+                  {dictionary.admin.memberNext}
+                </button>
+              </div>
             </div>
           </div>
           {uploadMessage ? <p className="admin-message">{uploadMessage}</p> : null}

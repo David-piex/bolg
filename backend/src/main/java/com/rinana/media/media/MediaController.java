@@ -12,6 +12,8 @@ import com.rinana.media.security.VisibilityPolicy;
 import com.rinana.media.user.UserEntity;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -117,6 +119,24 @@ public class MediaController {
     asset.setCreatedAt(Instant.now());
 
     return ResponseEntity.status(HttpStatus.CREATED).body(MediaAssetResponse.from(mediaAssetRepository.save(asset)));
+  }
+
+  @GetMapping
+  MediaAssetPageResponse listMedia(
+    @RequestParam(required = false) MediaType mediaType,
+    @RequestParam(required = false) String q,
+    @RequestParam(defaultValue = "0") int page,
+    @RequestParam(defaultValue = "18") int size,
+    HttpServletRequest request
+  ) {
+    requireAdmin(request);
+    int safePage = Math.max(page, 0);
+    int safeSize = Math.max(1, Math.min(size, 50));
+    String query = q == null || q.isBlank() ? null : q.trim();
+    var pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+    return MediaAssetPageResponse.from(
+      mediaAssetRepository.findLibraryAssets(mediaType, query, pageable).map(MediaAssetResponse::from)
+    );
   }
 
   @GetMapping("/{id}/access")

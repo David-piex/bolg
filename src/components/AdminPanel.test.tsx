@@ -115,7 +115,7 @@ describe("AdminPanel", () => {
     expect(screen.getByText("视频上传服务：MinIO")).toBeInTheDocument();
     expect(screen.getByText("搜索成员")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("昵称或邮箱")).toBeInTheDocument();
-    expect(screen.getByText(/第 1 \/ 1 页/)).toBeInTheDocument();
+    expect(screen.getByText(/第 1 \/ 1 页，共 4 人/)).toBeInTheDocument();
     expect(screen.getByText("标题")).toBeInTheDocument();
     expect(screen.getByText("正文")).toBeInTheDocument();
     expect(screen.getByText("媒体文件")).toBeInTheDocument();
@@ -295,7 +295,7 @@ describe("AdminPanel", () => {
     expect(progressbar).toHaveAttribute("aria-valuenow", "46");
     expect(screen.getAllByText("正在上传文件").length).toBeGreaterThan(0);
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "发布" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "发布", hidden: false })).toBeDisabled();
     });
 
     await waitFor(() => {

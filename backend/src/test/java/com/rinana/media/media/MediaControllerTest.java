@@ -136,6 +136,37 @@ class MediaControllerTest {
   }
 
   @Test
+  void adminCanListSearchAndFilterMediaAssets() throws Exception {
+    UserEntity admin = userRepository.findByUsername("admin").orElseThrow();
+    createMediaAsset(admin, "images/library-unique-cover.jpg", com.rinana.media.media.MediaType.IMAGE);
+    createMediaAsset(admin, "videos/search-trailer.mp4", com.rinana.media.media.MediaType.VIDEO);
+    Cookie adminCookie = login("admin", "admin123456");
+
+    mvc.perform(get("/api/media")
+        .cookie(adminCookie)
+        .param("mediaType", "IMAGE")
+        .param("q", "library-unique")
+        .param("page", "0")
+        .param("size", "10"))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.items.length()").value(1))
+      .andExpect(jsonPath("$.items[0].mediaType").value("IMAGE"))
+      .andExpect(jsonPath("$.items[0].originalName").value("images/library-unique-cover.jpg"))
+      .andExpect(jsonPath("$.page").value(0))
+      .andExpect(jsonPath("$.size").value(10))
+      .andExpect(jsonPath("$.total").value(1));
+  }
+
+  @Test
+  void normalUserCannotListMediaAssets() throws Exception {
+    Cookie userCookie = loginUser("normal-media-lister");
+
+    mvc.perform(get("/api/media").cookie(userCookie))
+      .andExpect(status().isForbidden())
+      .andExpect(jsonPath("$.errorCode").value("ADMIN_REQUIRED"));
+  }
+
+  @Test
   void adminCanCreateAndCompleteDirectImageUpload() throws Exception {
     Cookie adminCookie = login("admin", "admin123456");
     given(mediaStorageService.createUploadUrl(com.rinana.media.media.MediaType.IMAGE, "images", "cover.webp", "image/webp")).willReturn(

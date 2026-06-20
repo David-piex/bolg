@@ -160,6 +160,22 @@ type Dictionary = {
     memberPrevious: string;
     memberNext: string;
     noMembers: string;
+    mediaLibrary: string;
+    mediaLibraryHint: string;
+    searchMedia: string;
+    mediaSearchPlaceholder: string;
+    mediaTypeFilter: string;
+    mediaTypeAll: string;
+    mediaTypeImage: string;
+    mediaTypeVideo: string;
+    useAsImage: string;
+    useAsCover: string;
+    useAsVideo: string;
+    mediaPageSummary: string;
+    noMediaAssets: string;
+    mediaLibraryImageSelected: string;
+    mediaLibraryCoverSelected: string;
+    mediaLibraryVideoSelected: string;
   };
   membership: Record<MembershipLevel, string> & {
     visitor: string;
@@ -380,7 +396,23 @@ export const dictionaries: Record<Locale, Dictionary> = {
       memberPageSummary: "第 {page} / {totalPages} 页，共 {total} 人",
       memberPrevious: "上一页",
       memberNext: "下一页",
-      noMembers: "暂无成员"
+      noMembers: "暂无成员",
+      mediaLibrary: "素材库",
+      mediaLibraryHint: "复用已经上传过的图片和视频，避免重复上传。",
+      searchMedia: "搜索素材",
+      mediaSearchPlaceholder: "文件名或路径",
+      mediaTypeFilter: "素材类型",
+      mediaTypeAll: "全部",
+      mediaTypeImage: "图片",
+      mediaTypeVideo: "视频",
+      useAsImage: "用作图片",
+      useAsCover: "用作封面",
+      useAsVideo: "用作视频",
+      mediaPageSummary: "第 {page} / {totalPages} 页，共 {total} 个素材",
+      noMediaAssets: "暂无可复用素材",
+      mediaLibraryImageSelected: "已从素材库关联图片。",
+      mediaLibraryCoverSelected: "已从素材库关联视频封面。",
+      mediaLibraryVideoSelected: "已从素材库关联视频文件。"
     },
     membership: {
       public: "公开",
@@ -602,7 +634,23 @@ export const dictionaries: Record<Locale, Dictionary> = {
       memberPageSummary: "Page {page} of {totalPages}, {total} total",
       memberPrevious: "Previous",
       memberNext: "Next",
-      noMembers: "No members"
+      noMembers: "No members",
+      mediaLibrary: "Media library",
+      mediaLibraryHint: "Reuse uploaded images and videos instead of uploading duplicates.",
+      searchMedia: "Search media",
+      mediaSearchPlaceholder: "File name or path",
+      mediaTypeFilter: "Media type",
+      mediaTypeAll: "All",
+      mediaTypeImage: "Image",
+      mediaTypeVideo: "Video",
+      useAsImage: "Use as image",
+      useAsCover: "Use as cover",
+      useAsVideo: "Use as video",
+      mediaPageSummary: "Page {page} of {totalPages}, {total} media assets",
+      noMediaAssets: "No reusable media",
+      mediaLibraryImageSelected: "Image attached from the media library.",
+      mediaLibraryCoverSelected: "Video cover attached from the media library.",
+      mediaLibraryVideoSelected: "Video file attached from the media library."
     },
     membership: {
       public: "Public",

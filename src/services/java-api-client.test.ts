@@ -12,6 +12,7 @@ import {
   getMe,
   getPost,
   getVideo,
+  listMedia,
   listPosts,
   listAdminUsers,
   login,
@@ -147,6 +148,7 @@ describe("java api client", () => {
       originalName: "a.png",
       sizeBytes: 3
     });
+    await listMedia({ mediaType: "IMAGE", page: 1, q: "cover", size: 8 });
 
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/media/images", expect.objectContaining({
       credentials: "include",
@@ -163,6 +165,10 @@ describe("java api client", () => {
     expect(fetchMock).toHaveBeenNthCalledWith(4, "/api/media/direct-uploads/complete", expect.objectContaining({
       credentials: "include",
       method: "POST"
+    }));
+    expect(fetchMock).toHaveBeenNthCalledWith(5, "/api/media?mediaType=IMAGE&page=1&size=8&q=cover", expect.objectContaining({
+      credentials: "include",
+      method: "GET"
     }));
   });
 

@@ -145,6 +145,7 @@ type AppStateValue = {
     description: string;
     defaultVisibility: MembershipLevel;
     coverImage?: string;
+    coverMediaId?: string;
   }) => Promise<void>;
   updateVideoCollection: (input: {
     id: string;
@@ -985,7 +986,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         if (state.authSession?.accessToken) {
           await updateRemoteContent(state.authSession.accessToken, {
             coverImage: updatedAlbum.coverImage,
-            coverMediaId: mediaIdFromAccessUrl(updatedAlbum.coverImage),
+            coverMediaId: input.coverMediaId || mediaIdFromAccessUrl(updatedAlbum.coverImage),
             defaultVisibility: updatedAlbum.defaultVisibility,
             description: updatedAlbum.description,
             id: updatedAlbum.id,
