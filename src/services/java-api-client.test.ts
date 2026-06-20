@@ -8,7 +8,10 @@ import {
   createInvite,
   createPost,
   createVideo,
+  getAlbum,
   getMe,
+  getPost,
+  getVideo,
   listPosts,
   listAdminUsers,
   login,
@@ -178,6 +181,9 @@ describe("java api client", () => {
     await createAlbum({ coverMediaId: "media-image", description: "album", title: "album", visibility: "GOLD" });
     await createVideo({ description: "video", mediaAssetId: "media-video", title: "video", visibility: "DIAMOND" });
     await listPosts({ page: 2, size: 12 });
+    await getPost("post 1");
+    await getAlbum("album/1");
+    await getVideo("video-1");
 
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/content/posts", expect.objectContaining({
       credentials: "include",
@@ -192,6 +198,18 @@ describe("java api client", () => {
       method: "POST"
     }));
     expect(fetchMock).toHaveBeenNthCalledWith(4, "/api/content/posts?page=2&size=12", expect.objectContaining({
+      credentials: "include",
+      method: "GET"
+    }));
+    expect(fetchMock).toHaveBeenNthCalledWith(5, "/api/content/posts/post%201", expect.objectContaining({
+      credentials: "include",
+      method: "GET"
+    }));
+    expect(fetchMock).toHaveBeenNthCalledWith(6, "/api/content/albums/album%2F1", expect.objectContaining({
+      credentials: "include",
+      method: "GET"
+    }));
+    expect(fetchMock).toHaveBeenNthCalledWith(7, "/api/content/videos/video-1", expect.objectContaining({
       credentials: "include",
       method: "GET"
     }));

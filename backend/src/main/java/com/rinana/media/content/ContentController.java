@@ -87,6 +87,17 @@ public class ContentController {
     );
   }
 
+  @GetMapping("/posts/{id}")
+  @Transactional(readOnly = true)
+  PostResponse getPost(@PathVariable UUID id, HttpServletRequest request) {
+    UserEntity viewer = currentViewerOrVisitor(request);
+    return postRepository.findById(id)
+      .filter(post -> post.getStatus() == ContentStatus.PUBLISHED)
+      .filter(post -> visibleLevelsFor(viewer).contains(post.getVisibility()))
+      .map(PostResponse::from)
+      .orElseThrow(this::contentNotFound);
+  }
+
   @GetMapping("/albums")
   @Transactional(readOnly = true)
   ContentPageResponse<AlbumResponse> listAlbums(
@@ -102,6 +113,17 @@ public class ContentController {
     );
   }
 
+  @GetMapping("/albums/{id}")
+  @Transactional(readOnly = true)
+  AlbumResponse getAlbum(@PathVariable UUID id, HttpServletRequest request) {
+    UserEntity viewer = currentViewerOrVisitor(request);
+    return albumRepository.findById(id)
+      .filter(album -> album.getStatus() == ContentStatus.PUBLISHED)
+      .filter(album -> visibleLevelsFor(viewer).contains(album.getVisibility()))
+      .map(AlbumResponse::from)
+      .orElseThrow(this::contentNotFound);
+  }
+
   @GetMapping("/videos")
   @Transactional(readOnly = true)
   ContentPageResponse<VideoResponse> listVideos(
@@ -115,6 +137,17 @@ public class ContentController {
       videoRepository.findByStatusAndVisibilityIn(ContentStatus.PUBLISHED, visibleLevelsFor(viewer), pageable)
         .map(VideoResponse::from)
     );
+  }
+
+  @GetMapping("/videos/{id}")
+  @Transactional(readOnly = true)
+  VideoResponse getVideo(@PathVariable UUID id, HttpServletRequest request) {
+    UserEntity viewer = currentViewerOrVisitor(request);
+    return videoRepository.findById(id)
+      .filter(video -> video.getStatus() == ContentStatus.PUBLISHED)
+      .filter(video -> visibleLevelsFor(viewer).contains(video.getVisibility()))
+      .map(VideoResponse::from)
+      .orElseThrow(this::contentNotFound);
   }
 
   @PostMapping("/posts")
@@ -287,6 +320,10 @@ public class ContentController {
 
   private int safeSize(int size) {
     return Math.max(1, Math.min(size, 36));
+  }
+
+  private ApiException contentNotFound() {
+    return new ApiException(HttpStatus.NOT_FOUND, "CONTENT_NOT_FOUND", "Content not found");
   }
 
   private MediaAssetEntity requireMedia(java.util.UUID id) {

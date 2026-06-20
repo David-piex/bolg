@@ -277,6 +277,18 @@ export async function listVideos(input: ListContentPageInput = {}): Promise<Java
   return request<JavaContentPage<JavaVideo>>(contentPagePath("/api/content/videos", input), { method: "GET" });
 }
 
+export async function getPost(postId: string): Promise<JavaPost> {
+  return request<JavaPost>(`/api/content/posts/${encodeURIComponent(postId)}`, { method: "GET" });
+}
+
+export async function getAlbum(albumId: string): Promise<JavaAlbum> {
+  return request<JavaAlbum>(`/api/content/albums/${encodeURIComponent(albumId)}`, { method: "GET" });
+}
+
+export async function getVideo(videoId: string): Promise<JavaVideo> {
+  return request<JavaVideo>(`/api/content/videos/${encodeURIComponent(videoId)}`, { method: "GET" });
+}
+
 export async function createPost(input: CreatePostInput): Promise<JavaPost> {
   return request<JavaPost>("/api/content/posts", {
     body: JSON.stringify(input),

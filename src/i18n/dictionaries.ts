@@ -191,6 +191,8 @@ type Dictionary = {
     emptyHint: string;
     detailNotFoundTitle: string;
     detailNotFoundHint: string;
+    detailLoadingTitle: string;
+    detailLoadingHint: string;
     backToList: string;
     openDetail: string;
     pageSummary: string;
@@ -414,6 +416,8 @@ export const dictionaries: Record<Locale, Dictionary> = {
       emptyHint: "发布公开内容后，这里会自动展示。会员内容会按登录等级开放。",
       detailNotFoundTitle: "没有找到这条内容",
       detailNotFoundHint: "内容可能已删除、未发布，或当前账号等级还不能访问。",
+      detailLoadingTitle: "正在读取内容",
+      detailLoadingHint: "正在同步最新发布内容，请稍候。",
       backToList: "返回列表",
       openDetail: "查看详情",
       pageSummary: "第 {page} / {totalPages} 页，共 {total} 条",
@@ -634,6 +638,8 @@ export const dictionaries: Record<Locale, Dictionary> = {
       emptyHint: "Published public content will appear here. Member-only content opens by login tier.",
       detailNotFoundTitle: "Content not found",
       detailNotFoundHint: "It may be deleted, unpublished, or unavailable to the current member tier.",
+      detailLoadingTitle: "Loading content",
+      detailLoadingHint: "Syncing the latest published content.",
       backToList: "Back to list",
       openDetail: "View details",
       pageSummary: "Page {page} of {totalPages}, {total} total",

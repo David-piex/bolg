@@ -172,6 +172,50 @@ class ContentControllerTest {
   }
 
   @Test
+  void contentDetailEndpointsRespectMembershipVisibility() throws Exception {
+    Cookie adminCookie = login("admin", "admin123456");
+    String publicPostId = createPostAndReturnId(adminCookie, "public detail", "PUBLIC");
+    String goldPostId = createPostAndReturnId(adminCookie, "gold detail", "GOLD");
+
+    mvc.perform(get("/api/content/posts/" + publicPostId))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.title").value("public detail"));
+
+    mvc.perform(get("/api/content/posts/" + goldPostId))
+      .andExpect(status().isNotFound())
+      .andExpect(jsonPath("$.errorCode").value("CONTENT_NOT_FOUND"));
+
+    Cookie goldCookie = loginUser("gold-detail-reader", MemberLevel.GOLD);
+    mvc.perform(get("/api/content/posts/" + goldPostId).cookie(goldCookie))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.title").value("gold detail"));
+  }
+
+  @Test
+  void albumAndVideoDetailEndpointsReturnVisibleItems() throws Exception {
+    Cookie adminCookie = login("admin", "admin123456");
+    MediaAssetEntity image = createMediaAsset("images/detail-cover.jpg", com.rinana.media.media.MediaType.IMAGE);
+    MediaAssetEntity videoAsset = createMediaAsset("videos/detail.mp4", com.rinana.media.media.MediaType.VIDEO);
+    String albumId = createAlbumAndReturnId(adminCookie, "album detail", "PUBLIC", image.getId());
+    String videoId = createVideoAndReturnId(adminCookie, "video detail", "NORMAL", videoAsset.getId().toString(), image.getId());
+
+    mvc.perform(get("/api/content/albums/" + albumId))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.title").value("album detail"))
+      .andExpect(jsonPath("$.coverMediaId").value(image.getId().toString()));
+
+    mvc.perform(get("/api/content/videos/" + videoId))
+      .andExpect(status().isNotFound());
+
+    Cookie normalCookie = loginUser("normal-detail-reader", MemberLevel.NORMAL);
+    mvc.perform(get("/api/content/videos/" + videoId).cookie(normalCookie))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.title").value("video detail"))
+      .andExpect(jsonPath("$.mediaAssetId").value(videoAsset.getId().toString()))
+      .andExpect(jsonPath("$.coverMediaId").value(image.getId().toString()));
+  }
+
+  @Test
   void adminCanPublishAlbumsAndVideosAndFeedFiltersThemByMembership() throws Exception {
     Cookie adminCookie = login("admin", "admin123456");
     MediaAssetEntity image = createMediaAsset("images/album.jpg", com.rinana.media.media.MediaType.IMAGE);

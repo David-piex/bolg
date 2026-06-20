@@ -8,6 +8,9 @@ import {
   deleteAlbum,
   deletePost,
   deleteVideo,
+  getAlbum,
+  getPost,
+  getVideo,
   listAlbums,
   listContent,
   listPosts,
@@ -111,6 +114,11 @@ export type RemoteContentPage<T> = {
   total: number;
   totalPages: number;
 };
+
+export type RemoteDetail =
+  | { kind: "post"; post: PostRecord }
+  | { album: AlbumRecord; kind: "album"; photos: PhotoRecord[] }
+  | { collection: VideoCollectionRecord; kind: "video"; videos: VideoRecord[] };
 
 async function readJson<T>(response: Response, fallback: string): Promise<T> {
   const body = (await response.json().catch(() => ({}))) as T | ErrorBody;
@@ -221,6 +229,42 @@ export async function fetchRemoteVideosPage(
   }));
 }
 
+export async function fetchRemotePostDetail(id: string): Promise<RemoteDetail> {
+  return {
+    kind: "post",
+    post: postFromJava(await getPost(id))
+  };
+}
+
+export async function fetchRemoteAlbumDetail(id: string): Promise<RemoteDetail> {
+  const album = await getAlbum(id);
+  return {
+    album: albumFromJava(album),
+    kind: "album",
+    photos: album.coverMediaId
+      ? [
+          {
+            albumId: album.id,
+            id: `${album.id}-cover`,
+            imageUrl: mediaViewUrl(album.coverMediaId),
+            sortOrder: 1,
+            title: album.title,
+            visibilityOverride: null
+          }
+        ]
+      : []
+  };
+}
+
+export async function fetchRemoteVideoDetail(id: string): Promise<RemoteDetail> {
+  const video = await getVideo(javaVideoIdFromCollectionId(id));
+  return {
+    collection: videoCollectionFromJava(video),
+    kind: "video",
+    videos: [videoFromJava(video)]
+  };
+}
+
 export async function publishRemoteContent(
   accessToken: string,
   input: RemotePublishInput
@@ -314,7 +358,7 @@ export async function deleteRemoteContent(accessToken: string, input: RemoteDele
   await deleteVideo(javaVideoIdFromCollectionId(input.id));
 }
 
-function javaVideoIdFromCollectionId(id: string): string {
+export function javaVideoIdFromCollectionId(id: string): string {
   return id.startsWith("collection-") ? id.slice("collection-".length) : id;
 }
 
