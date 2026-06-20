@@ -4,12 +4,13 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEPLOY_DIR="$PROJECT_ROOT/deploy"
 ENV_DIR="$DEPLOY_DIR/env"
+CERT_DIR="$DEPLOY_DIR/certs"
 
 server_ip="${SERVER_IP:-$(hostname -I 2>/dev/null | awk '{print $1}')}"
 if [ -z "${server_ip}" ]; then
   server_ip="127.0.0.1"
 fi
-site_domain="${SITE_DOMAIN:-}"
+site_domain="${SITE_DOMAIN:-lingnaive520.uk}"
 media_domain="${MEDIA_DOMAIN:-}"
 minio_public_endpoint="${MINIO_PUBLIC_ENDPOINT:-http://${server_ip}:9000}"
 if [ -n "$site_domain" ]; then
@@ -48,6 +49,40 @@ write_backend_env_if_missing() {
   fi
 }
 
+generate_origin_certificate_if_missing() {
+  local cert_path="$CERT_DIR/origin.crt"
+  local key_path="$CERT_DIR/origin.key"
+  local openssl_config="$CERT_DIR/openssl-origin.cnf"
+  local primary_name="${site_domain:-$server_ip}"
+
+  mkdir -p "$CERT_DIR"
+  chmod 700 "$CERT_DIR"
+
+  if [ -f "$cert_path" ] && [ -f "$key_path" ]; then
+    return
+  fi
+
+  cat > "$openssl_config" <<EOF
+[req]
+distinguished_name = req_distinguished_name
+x509_extensions = v3_req
+prompt = no
+
+[req_distinguished_name]
+CN = ${primary_name}
+
+[v3_req]
+subjectAltName = DNS:${primary_name},DNS:www.${primary_name},DNS:media.${primary_name},IP:${server_ip}
+EOF
+
+  openssl req -x509 -nodes -newkey rsa:2048 -days 3650 \
+    -keyout "$key_path" \
+    -out "$cert_path" \
+    -config "$openssl_config"
+
+  chmod 600 "$cert_path" "$key_path" "$openssl_config"
+}
+
 install_docker_if_missing() {
   if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
     return
@@ -73,6 +108,7 @@ install_docker_if_missing() {
 }
 
 mkdir -p "$ENV_DIR"
+generate_origin_certificate_if_missing
 
 postgres_password="$(random_password)"
 minio_secret="$(random_password)"
