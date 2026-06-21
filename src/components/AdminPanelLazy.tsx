@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import type { getDictionary } from "@/i18n/dictionaries";
+import type { Locale } from "@/i18n/routing";
 
 type Dictionary = ReturnType<typeof getDictionary>;
 
@@ -11,7 +12,7 @@ const DynamicAdminPanel = dynamic(
     loading: () => (
       <section className="locked-state">
         <div>
-          <h2>正在加载后台</h2>
+          <h2>正在加载内容管理</h2>
         </div>
       </section>
     ),
@@ -19,6 +20,6 @@ const DynamicAdminPanel = dynamic(
   }
 );
 
-export function AdminPanelLazy({ dictionary }: { dictionary: Dictionary }) {
-  return <DynamicAdminPanel dictionary={dictionary} />;
+export function AdminPanelLazy({ dictionary, locale }: { dictionary: Dictionary; locale: Locale }) {
+  return <DynamicAdminPanel dictionary={dictionary} locale={locale} />;
 }

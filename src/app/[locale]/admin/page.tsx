@@ -49,7 +49,7 @@ export default async function AdminPage({
           </div>
         </div>
       </section>
-      <AdminPanelLazy dictionary={dictionary} />
+      <AdminPanelLazy dictionary={dictionary} locale={locale} />
     </div>
   );
 }

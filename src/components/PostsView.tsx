@@ -105,6 +105,7 @@ export function PostsView({ dictionary, locale }: { dictionary: Dictionary; loca
         category={category}
         categoryOptions={categoryOptions}
         dictionary={dictionary}
+        locale={locale}
         query={query}
         setCategory={updateCategory}
         setQuery={updateQuery}

@@ -54,7 +54,7 @@ describe("admin pages", () => {
     const page = await AdminPage({ params: Promise.resolve({ locale: "zh" }) });
     render(page);
 
-    expect(screen.getByRole("heading", { name: "管理员后台" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "内容管理" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /操作记录/ })).toHaveAttribute("href", "/zh/admin/audit");
   });
 

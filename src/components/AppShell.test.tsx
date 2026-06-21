@@ -49,7 +49,7 @@ describe("AppShell", () => {
     );
 
     expect(screen.getByRole("link", { name: /登录/ })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /后台/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /管理/ })).not.toBeInTheDocument();
   });
 
   it("shows the admin link after an admin signs in", () => {
@@ -73,6 +73,6 @@ describe("AppShell", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "admin login" }));
 
-    expect(screen.getByRole("link", { name: /后台/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /管理/ })).toBeInTheDocument();
   });
 });

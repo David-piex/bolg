@@ -1,6 +1,8 @@
 "use client";
 
 import type { getDictionary } from "@/i18n/dictionaries";
+import { formatCategoryLabel } from "@/i18n/category-labels";
+import type { Locale } from "@/i18n/routing";
 
 type Dictionary = ReturnType<typeof getDictionary>;
 
@@ -11,6 +13,7 @@ type ContentDiscoveryToolbarProps = {
   categoryOptions: string[];
   dictionary: Dictionary;
   query: string;
+  locale: Locale;
   setCategory: (value: string) => void;
   setQuery: (value: string) => void;
   setSort: (value: ContentSort) => void;
@@ -25,6 +28,7 @@ export function ContentDiscoveryToolbar({
   categoryOptions,
   dictionary,
   query,
+  locale,
   setCategory,
   setQuery,
   setSort,
@@ -50,7 +54,7 @@ export function ContentDiscoveryToolbar({
           <option value="">{dictionary.content.categoryAll}</option>
           {categoryOptions.map((option) => (
             <option key={option} value={option}>
-              {option}
+              {formatCategoryLabel(option, locale)}
             </option>
           ))}
         </select>

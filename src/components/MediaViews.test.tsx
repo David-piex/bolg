@@ -27,7 +27,7 @@ describe("media collection views", () => {
 
     expect(screen.getByText("视频按会员等级开放，普通、黄金、钻石用户会看到不同内容。")).toBeInTheDocument();
     expect(screen.getByText("1个视频")).toBeInTheDocument();
-    expect(screen.queryByText("视频上传服务：MinIO")).not.toBeInTheDocument();
+    expect(screen.queryByText("视频素材上传")).not.toBeInTheDocument();
     expect(screen.queryByText("1 个视频")).not.toBeInTheDocument();
   });
 });

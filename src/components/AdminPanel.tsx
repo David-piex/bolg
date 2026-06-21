@@ -18,7 +18,9 @@ import {
   Video
 } from "lucide-react";
 import { canManage, type MembershipLevel } from "@/domain/membership";
+import { formatCategoryLabel } from "@/i18n/category-labels";
 import type { getDictionary } from "@/i18n/dictionaries";
+import type { Locale } from "@/i18n/routing";
 import {
   uploadImageFile,
   uploadVideoFile,
@@ -256,7 +258,7 @@ function formatScheduledPreview(value: string) {
   return date.toLocaleString();
 }
 
-export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
+export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictionary; locale?: Locale }) {
   const {
     users,
     adminUserPage,
@@ -1144,7 +1146,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
               {dictionary.content.videos}
             </button>
           </div>
-          <div className="admin-form-grid admin-editor-grid">
+          <div className="admin-form-grid admin-editor-grid admin-workbench-grid">
             <label>
               <span>{dictionary.admin.contentType}</span>
               <select
@@ -1262,8 +1264,12 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
                 </button>
               ) : null}
             </div>
+            <div className="content-workbench-note">
+              <strong>{dictionary.admin.contentPreview}</strong>
+              <span>{dictionary.admin.contentPreviewHint}</span>
+            </div>
           </div>
-          <div className="content-preview-panel" aria-label={dictionary.admin.contentPreview}>
+          <div className="content-preview-panel content-preview-inline" aria-label={dictionary.admin.contentPreview}>
             <div className="content-preview-header">
               <div>
                 <span className="eyebrow">{dictionary.admin.contentPreview}</span>
@@ -1281,7 +1287,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
               )}
               <div className="content-preview-meta">
                 <span>{contentKindLabel(contentKind, dictionary)}</span>
-                <span>{contentPreview.category}</span>
+                <span>{formatCategoryLabel(contentPreview.category, locale)}</span>
               </div>
             </div>
             <p className="content-preview-body">{contentPreview.body}</p>
@@ -1638,7 +1644,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
                     {contentStatusLabel(row.status, dictionary)}
                   </span>
                   <span className={`tier-badge tier-${row.level}`}>{dictionary.membership[row.level]}</span>
-                  {row.category ? <span className="taxonomy-badge">{row.category}</span> : null}
+                  {row.category ? <span className="taxonomy-badge">{formatCategoryLabel(row.category, locale)}</span> : null}
                   {row.tags.map((tag) => (
                     <span key={tag} className="taxonomy-tag">
                       #{tag}

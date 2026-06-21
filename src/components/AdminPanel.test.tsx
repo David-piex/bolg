@@ -99,7 +99,7 @@ describe("AdminPanel", () => {
     render(
       <AppStateProvider>
         <AdminLoginProbe />
-        <AdminPanel dictionary={dictionary} />
+        <AdminPanel dictionary={dictionary} locale="zh" />
       </AppStateProvider>
     );
 
@@ -107,12 +107,14 @@ describe("AdminPanel", () => {
       expect(screen.getByText("内容管理")).toBeInTheDocument();
     });
 
-    expect(screen.getByText("当前管理员")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("当前管理员")).toBeInTheDocument();
+    });
     expect(screen.getByText("已发布内容")).toBeInTheDocument();
     expect(screen.getByText("图片存储")).toBeInTheDocument();
     expect(screen.getByText("视频存储")).toBeInTheDocument();
-    expect(screen.getByText("图片上传服务：MinIO")).toBeInTheDocument();
-    expect(screen.getByText("视频上传服务：MinIO")).toBeInTheDocument();
+    expect(screen.getByText("图片素材上传")).toBeInTheDocument();
+    expect(screen.getByText("视频素材上传")).toBeInTheDocument();
     expect(screen.getByText("搜索成员")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("昵称或邮箱")).toBeInTheDocument();
     expect(screen.getByText(/第 1 \/ 1 页，共 4 人/)).toBeInTheDocument();
@@ -124,7 +126,7 @@ describe("AdminPanel", () => {
     expect(screen.getByText("会员等级")).toBeInTheDocument();
     expect(screen.getByText(/显示 8 \/ 8 条/)).toBeInTheDocument();
     expect(screen.getByText("内容状态")).toBeInTheDocument();
-    expect(screen.getByText("内容预览")).toBeInTheDocument();
+    expect(screen.getAllByText("实时预览").length).toBeGreaterThan(0);
     expect(screen.getAllByText("已发布").length).toBeGreaterThan(0);
     expect(screen.getByText("标题")).toBeInTheDocument();
     expect(screen.getAllByText("正文").length).toBeGreaterThan(0);
@@ -136,7 +138,7 @@ describe("AdminPanel", () => {
     expect(screen.getAllByText("编辑").length).toBeGreaterThan(0);
     expect(screen.getAllByText("删除").length).toBeGreaterThan(0);
 
-    fireEvent.change(screen.getByLabelText("内容类型"), { target: { value: "video" } });
+    fireEvent.change(screen.getByLabelText("发布类型"), { target: { value: "video" } });
     expect(screen.getByText("视频简介")).toBeInTheDocument();
     expect(screen.getByText("封面图片")).toBeInTheDocument();
     expect(screen.getByText("上传视频封面")).toBeInTheDocument();
@@ -158,7 +160,7 @@ describe("AdminPanel", () => {
     render(
       <AppStateProvider>
         <AdminLoginProbe />
-        <AdminPanel dictionary={dictionary} />
+        <AdminPanel dictionary={dictionary} locale="zh" />
       </AppStateProvider>
     );
 
@@ -172,9 +174,9 @@ describe("AdminPanel", () => {
     fireEvent.change(screen.getByLabelText("内容状态"), { target: { value: "scheduled" } });
     fireEvent.change(screen.getByLabelText("定时发布时间"), { target: { value: "2026-06-21T18:30" } });
 
-    expect(screen.getByText("内容预览")).toBeInTheDocument();
+    expect(screen.getAllByText("实时预览").length).toBeGreaterThan(0);
     expect(screen.getByText("粉色预览标题")).toBeInTheDocument();
-    expect(screen.getByText("日常")).toBeInTheDocument();
+    expect(screen.getAllByText("日常").length).toBeGreaterThan(0);
     expect(screen.getByText("#pink #girl")).toBeInTheDocument();
     expect(screen.getAllByText("定时").length).toBeGreaterThan(0);
     expect(screen.getByText("2026/6/21 18:30:00")).toBeInTheDocument();
@@ -187,7 +189,7 @@ describe("AdminPanel", () => {
     render(
       <AppStateProvider>
         <AdminLoginProbe />
-        <AdminPanel dictionary={dictionary} />
+        <AdminPanel dictionary={dictionary} locale="zh" />
       </AppStateProvider>
     );
 
@@ -215,7 +217,7 @@ describe("AdminPanel", () => {
     render(
       <AppStateProvider>
         <AdminLoginProbe />
-        <AdminPanel dictionary={dictionary} />
+        <AdminPanel dictionary={dictionary} locale="zh" />
       </AppStateProvider>
     );
 
@@ -245,7 +247,7 @@ describe("AdminPanel", () => {
     render(
       <AppStateProvider>
         <AdminLoginProbe />
-        <AdminPanel dictionary={dictionary} />
+        <AdminPanel dictionary={dictionary} locale="zh" />
       </AppStateProvider>
     );
 
@@ -277,7 +279,7 @@ describe("AdminPanel", () => {
     render(
       <AppStateProvider>
         <AdminLoginProbe />
-        <AdminPanel dictionary={dictionary} />
+        <AdminPanel dictionary={dictionary} locale="zh" />
       </AppStateProvider>
     );
 
@@ -303,7 +305,7 @@ describe("AdminPanel", () => {
     render(
       <AppStateProvider>
         <AdminLoginProbe remote />
-        <AdminPanel dictionary={dictionary} />
+        <AdminPanel dictionary={dictionary} locale="zh" />
       </AppStateProvider>
     );
 
@@ -328,7 +330,7 @@ describe("AdminPanel", () => {
     render(
       <AppStateProvider>
         <AdminLoginProbe remote />
-        <AdminPanel dictionary={dictionary} />
+        <AdminPanel dictionary={dictionary} locale="zh" />
       </AppStateProvider>
     );
 
@@ -361,7 +363,7 @@ describe("AdminPanel", () => {
 
     render(
       <AppStateProvider>
-        <AdminPanel dictionary={dictionary} />
+        <AdminPanel dictionary={dictionary} locale="zh" />
       </AppStateProvider>
     );
 
@@ -374,7 +376,7 @@ describe("AdminPanel", () => {
     expect(screen.queryByText("权限不足")).not.toBeInTheDocument();
   });
 
-  it("uploads selected videos with MinIO without exposing the media access URL", async () => {
+  it("uploads selected videos without exposing the media access URL", async () => {
     window.localStorage.clear();
     mockRemoteAdminLogin();
     vi.mocked(uploadVideoFile).mockResolvedValue({
@@ -387,7 +389,7 @@ describe("AdminPanel", () => {
     render(
       <AppStateProvider>
         <AdminLoginProbe remote />
-        <AdminPanel dictionary={dictionary} />
+        <AdminPanel dictionary={dictionary} locale="zh" />
       </AppStateProvider>
     );
 
@@ -395,7 +397,7 @@ describe("AdminPanel", () => {
       expect(screen.getByText("内容管理")).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByLabelText("内容类型"), { target: { value: "video" } });
+    fireEvent.change(screen.getByLabelText("发布类型"), { target: { value: "video" } });
     const file = new File(["video-bytes"], "trailer.mp4", { type: "video/mp4" });
     fireEvent.change(screen.getByLabelText("上传视频文件"), {
       target: { files: [file] }
@@ -437,7 +439,7 @@ describe("AdminPanel", () => {
     render(
       <AppStateProvider>
         <AdminLoginProbe remote />
-        <AdminPanel dictionary={dictionary} />
+        <AdminPanel dictionary={dictionary} locale="zh" />
       </AppStateProvider>
     );
 
@@ -478,7 +480,7 @@ describe("AdminPanel", () => {
     render(
       <AppStateProvider>
         <AdminLoginProbe remote />
-        <AdminPanel dictionary={dictionary} />
+        <AdminPanel dictionary={dictionary} locale="zh" />
       </AppStateProvider>
     );
 
@@ -486,7 +488,7 @@ describe("AdminPanel", () => {
       expect(screen.getByText("内容管理")).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByLabelText("内容类型"), { target: { value: "video" } });
+    fireEvent.change(screen.getByLabelText("发布类型"), { target: { value: "video" } });
     const file = new File(["cover-bytes"], "video-cover.webp", { type: "image/webp" });
     fireEvent.change(screen.getByLabelText("上传视频封面"), {
       target: { files: [file] }
@@ -513,7 +515,7 @@ describe("AdminPanel", () => {
     render(
       <AppStateProvider>
         <AdminLoginProbe remote />
-        <AdminPanel dictionary={dictionary} />
+        <AdminPanel dictionary={dictionary} locale="zh" />
       </AppStateProvider>
     );
 

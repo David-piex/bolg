@@ -100,6 +100,7 @@ export function AlbumsView({ dictionary, locale }: { dictionary: Dictionary; loc
         category={category}
         categoryOptions={categoryOptions}
         dictionary={dictionary}
+        locale={locale}
         query={query}
         setCategory={updateCategory}
         setQuery={updateQuery}
