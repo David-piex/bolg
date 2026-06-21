@@ -12,6 +12,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.Instant;
 
 public interface PostRepository extends JpaRepository<PostEntity, UUID> {
   List<PostEntity> findByStatusOrderByPublishedAtDesc(ContentStatus status);
@@ -37,6 +38,8 @@ public interface PostRepository extends JpaRepository<PostEntity, UUID> {
     Collection<ContentStatus> statuses,
     Sort sort
   );
+
+  List<PostEntity> findByStatusAndScheduledAtLessThanEqual(ContentStatus status, Instant scheduledAt);
 
   @Query("""
     select post from PostEntity post

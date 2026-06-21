@@ -318,6 +318,49 @@ describe("content client", () => {
     });
   });
 
+  it("sends scheduled content timestamps to the Java content API", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        content: "Body",
+        id: "post-1",
+        mediaAssetIds: [],
+        pinned: false,
+        publishedAt: null,
+        scheduledAt: "2026-06-30T08:00:00Z",
+        status: "SCHEDULED",
+        title: "Post title",
+        visibility: "GOLD"
+      })
+    }));
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    await expect(
+      publishRemoteContent("admin-token", {
+        body: "Body",
+        kind: "post",
+        scheduledAt: "2026-06-30T08:00:00Z",
+        title: "Post title",
+        visibility: "gold"
+      })
+    ).resolves.toMatchObject({
+      post: { id: "post-1", status: "scheduled" }
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/content/posts", {
+      body: JSON.stringify({
+        content: "Body",
+        scheduledAt: "2026-06-30T08:00:00Z",
+        status: "PUBLISHED",
+        title: "Post title",
+        visibility: "GOLD"
+      }),
+      credentials: "include",
+      headers: expect.any(Headers),
+      method: "POST"
+    });
+  });
+
   it("publishes albums with uploaded image media ids as Java cover media", async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,

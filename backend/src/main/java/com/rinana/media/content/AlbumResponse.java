@@ -15,7 +15,8 @@ public record AlbumResponse(
   ContentVisibility visibility,
   ContentStatus status,
   UUID coverMediaId,
-  Instant publishedAt
+  Instant publishedAt,
+  Instant scheduledAt
 ) {
   static AlbumResponse from(AlbumEntity album) {
     return new AlbumResponse(
@@ -27,7 +28,8 @@ public record AlbumResponse(
       album.getVisibility(),
       album.getStatus(),
       album.getCoverMedia() == null ? null : album.getCoverMedia().getId(),
-      album.getPublishedAt()
+      album.getPublishedAt(),
+      album.getScheduledAt()
     );
   }
 }

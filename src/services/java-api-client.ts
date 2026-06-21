@@ -3,7 +3,7 @@ export type JavaMemberLevel = "NORMAL" | "GOLD" | "DIAMOND";
 export type JavaUserStatus = "ACTIVE" | "DISABLED";
 export type JavaInviteStatus = "ACTIVE" | "DISABLED";
 export type JavaContentVisibility = "PUBLIC" | "NORMAL" | "GOLD" | "DIAMOND";
-export type JavaContentStatus = "PUBLISHED" | "DRAFT";
+export type JavaContentStatus = "PUBLISHED" | "DRAFT" | "SCHEDULED";
 export type JavaMediaType = "IMAGE" | "VIDEO";
 
 export class JavaApiError extends Error {
@@ -137,6 +137,7 @@ export type JavaPost = {
   mediaAssetIds: string[];
   pinned: boolean;
   publishedAt: string | null;
+  scheduledAt: string | null;
   status: JavaContentStatus;
   tags: string[];
   title: string;
@@ -149,6 +150,7 @@ export type JavaAlbum = {
   description: string;
   id: string;
   publishedAt: string | null;
+  scheduledAt: string | null;
   status: JavaContentStatus;
   tags: string[];
   title: string;
@@ -162,6 +164,7 @@ export type JavaVideo = {
   id: string;
   mediaAssetId: string;
   publishedAt: string | null;
+  scheduledAt: string | null;
   status: JavaContentStatus;
   tags: string[];
   title: string;
@@ -221,6 +224,7 @@ export type CreatePostInput = {
   mediaAssetIds?: string[];
   pinned?: boolean;
   status?: JavaContentStatus;
+  scheduledAt?: string | null;
   tags?: string[];
   title: string;
   visibility: JavaContentVisibility;
@@ -231,6 +235,7 @@ export type CreateAlbumInput = {
   coverMediaId?: string;
   description: string;
   status?: JavaContentStatus;
+  scheduledAt?: string | null;
   tags?: string[];
   title: string;
   visibility: JavaContentVisibility;
@@ -242,6 +247,7 @@ export type CreateVideoInput = {
   description: string;
   mediaAssetId: string;
   status?: JavaContentStatus;
+  scheduledAt?: string | null;
   tags?: string[];
   title: string;
   visibility: JavaContentVisibility;
@@ -262,6 +268,7 @@ export type UpdateVideoInput = {
   id: string;
   mediaAssetId?: string;
   status?: JavaContentStatus;
+  scheduledAt?: string | null;
   tags?: string[];
   title: string;
   visibility: JavaContentVisibility;
@@ -398,6 +405,7 @@ export async function updatePost(input: UpdatePostInput): Promise<JavaPost> {
       mediaAssetIds: input.mediaAssetIds,
       pinned: input.pinned,
       status: input.status,
+      scheduledAt: input.scheduledAt,
       tags: input.tags,
       title: input.title,
       visibility: input.visibility
@@ -413,6 +421,7 @@ export async function updateAlbum(input: UpdateAlbumInput): Promise<JavaAlbum> {
       coverMediaId: input.coverMediaId,
       description: input.description,
       status: input.status,
+      scheduledAt: input.scheduledAt,
       tags: input.tags,
       title: input.title,
       visibility: input.visibility
@@ -429,6 +438,7 @@ export async function updateVideo(input: UpdateVideoInput): Promise<JavaVideo> {
       description: input.description,
       mediaAssetId: input.mediaAssetId,
       status: input.status,
+      scheduledAt: input.scheduledAt,
       tags: input.tags,
       title: input.title,
       visibility: input.visibility

@@ -118,6 +118,10 @@ type Dictionary = {
     contentTagsHint: string;
     publishedContent: string;
     draftContent: string;
+    scheduledContent: string;
+    scheduledAt: string;
+    scheduleContent: string;
+    scheduleTimeRequired: string;
     saveDraft: string;
     draftSaved: string;
     publishChanges: string;
@@ -404,6 +408,10 @@ export const dictionaries: Record<Locale, Dictionary> = {
       contentTagsHint: "标签会用于前台筛选和后台搜索。",
       publishedContent: "已发布",
       draftContent: "草稿",
+      scheduledContent: "定时",
+      scheduledAt: "定时发布时间",
+      scheduleContent: "定时发布",
+      scheduleTimeRequired: "请先选择定时发布时间。",
       saveDraft: "保存草稿",
       draftSaved: "草稿已保存。",
       publishChanges: "发布修改",
@@ -691,6 +699,10 @@ export const dictionaries: Record<Locale, Dictionary> = {
       contentTagsHint: "Tags power public filters and admin search.",
       publishedContent: "Published",
       draftContent: "Draft",
+      scheduledContent: "Scheduled",
+      scheduledAt: "Scheduled time",
+      scheduleContent: "Schedule",
+      scheduleTimeRequired: "Choose a scheduled time first.",
       saveDraft: "Save draft",
       draftSaved: "Draft saved.",
       publishChanges: "Publish changes",

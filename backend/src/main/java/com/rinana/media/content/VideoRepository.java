@@ -12,6 +12,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.Instant;
 
 public interface VideoRepository extends JpaRepository<VideoEntity, UUID> {
   List<VideoEntity> findByStatusOrderByPublishedAtDesc(ContentStatus status);
@@ -31,6 +32,8 @@ public interface VideoRepository extends JpaRepository<VideoEntity, UUID> {
     Collection<ContentStatus> statuses,
     Sort sort
   );
+
+  List<VideoEntity> findByStatusAndScheduledAtLessThanEqual(ContentStatus status, Instant scheduledAt);
 
   @Query("""
     select video from VideoEntity video

@@ -16,7 +16,8 @@ public record VideoResponse(
   ContentStatus status,
   UUID mediaAssetId,
   UUID coverMediaId,
-  Instant publishedAt
+  Instant publishedAt,
+  Instant scheduledAt
 ) {
   static VideoResponse from(VideoEntity video) {
     return new VideoResponse(
@@ -29,7 +30,8 @@ public record VideoResponse(
       video.getStatus(),
       video.getMediaAsset().getId(),
       video.getCoverMedia() == null ? null : video.getCoverMedia().getId(),
-      video.getPublishedAt()
+      video.getPublishedAt(),
+      video.getScheduledAt()
     );
   }
 }

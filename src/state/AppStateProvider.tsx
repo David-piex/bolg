@@ -115,6 +115,7 @@ type AppStateValue = {
     tags?: string[];
     visibility: MembershipLevel;
     status?: ContentRecordStatus;
+    scheduledAt?: string;
     coverImage?: string;
     mediaAssetId?: string;
     pinned?: boolean;
@@ -127,6 +128,7 @@ type AppStateValue = {
     visibility: MembershipLevel;
     photoTitle: string;
     status?: ContentRecordStatus;
+    scheduledAt?: string;
     imageUrl?: string;
     mediaAssetId?: string;
   }) => Promise<void>;
@@ -138,6 +140,7 @@ type AppStateValue = {
     visibility: MembershipLevel;
     videoTitle: string;
     status?: ContentRecordStatus;
+    scheduledAt?: string;
     playbackUrl?: string;
     mediaAssetId?: string;
     coverMediaId?: string;
@@ -151,6 +154,7 @@ type AppStateValue = {
     tags?: string[];
     visibility: MembershipLevel;
     status?: ContentRecordStatus;
+    scheduledAt?: string;
     coverImage?: string;
     mediaAssetId?: string;
     pinned?: boolean;
@@ -163,6 +167,7 @@ type AppStateValue = {
     tags?: string[];
     defaultVisibility: MembershipLevel;
     status?: ContentRecordStatus;
+    scheduledAt?: string;
     coverImage?: string;
     coverMediaId?: string;
   }) => Promise<void>;
@@ -174,6 +179,7 @@ type AppStateValue = {
     tags?: string[];
     defaultVisibility: MembershipLevel;
     status?: ContentRecordStatus;
+    scheduledAt?: string;
     coverImage?: string;
     coverMediaId?: string;
   }) => Promise<void>;
@@ -319,11 +325,15 @@ function todayDate(): string {
 }
 
 function publishedDateFor(status: ContentRecordStatus, current?: string): string {
-  if (status === "draft") {
+  if (status === "draft" || status === "scheduled") {
     return "";
   }
 
   return current || todayDate();
+}
+
+function scheduledDateFor(status: ContentRecordStatus, scheduledAt?: string): string {
+  return status === "scheduled" ? (scheduledAt || todayDate()) : "";
 }
 
 function isPublishedContent(record: { status?: ContentRecordStatus }): boolean {
@@ -907,6 +917,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&q=80",
           pinned: Boolean(input.pinned),
           status: nextStatus,
+          scheduledAt: scheduledDateFor(nextStatus, input.scheduledAt),
           tags: normalizeTags(input.tags),
           visibility: input.visibility,
           publishedAt: publishedDateFor(nextStatus)
@@ -921,6 +932,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             mediaAssetId: input.mediaAssetId || mediaIdFromAccessUrl(post.coverImage),
             pinned: post.pinned,
             status: post.status,
+            scheduledAt: post.scheduledAt,
             tags: post.tags,
             title: post.title,
             visibility: post.visibility
@@ -950,6 +962,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80",
           defaultVisibility: input.visibility,
           status: nextStatus,
+          scheduledAt: scheduledDateFor(nextStatus, input.scheduledAt),
           tags: normalizeTags(input.tags),
           publishedAt: publishedDateFor(nextStatus)
         };
@@ -971,6 +984,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             mediaAssetId: input.mediaAssetId,
             photoTitle: photo.title,
             status: album.status,
+            scheduledAt: album.scheduledAt,
             tags: album.tags,
             title: album.title,
             visibility: album.defaultVisibility
@@ -1009,6 +1023,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           coverImage: thumbnailUrl,
           defaultVisibility: input.visibility,
           status: nextStatus,
+          scheduledAt: scheduledDateFor(nextStatus, input.scheduledAt),
           tags: normalizeTags(input.tags),
           publishedAt: publishedDateFor(nextStatus)
         };
@@ -1035,6 +1050,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             coverMediaId: input.coverMediaId,
             thumbnailUrl: video.thumbnailUrl,
             status: collection.status,
+            scheduledAt: collection.scheduledAt,
             tags: collection.tags,
             title: collection.title,
             videoTitle: video.title,
@@ -1073,6 +1089,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           id: input.id,
           ...(input.pinned !== undefined ? { pinned: input.pinned } : {}),
           publishedAt: publishedDateFor(nextStatus, existingPost?.publishedAt),
+          scheduledAt: scheduledDateFor(nextStatus, input.scheduledAt ?? existingPost?.scheduledAt),
           status: nextStatus,
           tags: normalizeTags(input.tags ?? existingPost?.tags),
           title: input.title.trim() || "未命名动态",
@@ -1094,6 +1111,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             mediaAssetId: input.mediaAssetId || mediaIdFromAccessUrl(updatedPost.coverImage),
             pinned: input.pinned,
             status: updatedPost.status,
+            scheduledAt: updatedPost.scheduledAt,
             tags: updatedPost.tags,
             title: updatedPost.title,
             visibility: updatedPost.visibility
@@ -1114,6 +1132,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           description: input.description,
           id: input.id,
           publishedAt: publishedDateFor(nextStatus, existingAlbum?.publishedAt),
+          scheduledAt: scheduledDateFor(nextStatus, input.scheduledAt ?? existingAlbum?.scheduledAt),
           status: nextStatus,
           tags: normalizeTags(input.tags ?? existingAlbum?.tags),
           title: input.title.trim() || "未命名相册"
@@ -1134,6 +1153,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             id: updatedAlbum.id,
             kind: "album",
             status: updatedAlbum.status,
+            scheduledAt: updatedAlbum.scheduledAt,
             tags: updatedAlbum.tags,
             title: updatedAlbum.title
           });
@@ -1155,6 +1175,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           description: input.description,
           id: input.id,
           publishedAt: publishedDateFor(nextStatus, existingCollection?.publishedAt),
+          scheduledAt: scheduledDateFor(nextStatus, input.scheduledAt ?? existingCollection?.scheduledAt),
           status: nextStatus,
           tags: normalizeTags(input.tags ?? existingCollection?.tags),
           title: input.title.trim() || "未命名视频"
@@ -1177,6 +1198,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             id: updatedCollection.id,
             kind: "video",
             status: updatedCollection.status,
+            scheduledAt: updatedCollection.scheduledAt,
             tags: updatedCollection.tags,
             title: updatedCollection.title
           });

@@ -202,6 +202,7 @@ describe("java api client", () => {
       body: JSON.stringify({
         content: "body",
         pinned: true,
+        scheduledAt: undefined,
         title: "title",
         visibility: "GOLD"
       }),

@@ -16,6 +16,7 @@ public record PostResponse(
   ContentStatus status,
   boolean pinned,
   Instant publishedAt,
+  Instant scheduledAt,
   List<UUID> mediaAssetIds
 ) {
   static PostResponse from(PostEntity post) {
@@ -29,6 +30,7 @@ public record PostResponse(
       post.getStatus(),
       post.isPinned(),
       post.getPublishedAt(),
+      post.getScheduledAt(),
       post.getMediaItems().stream()
         .map(item -> item.getMediaAsset().getId())
         .toList()

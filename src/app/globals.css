@@ -2246,6 +2246,11 @@ main {
   color: #b92f6a;
 }
 
+.status-scheduled {
+  background: rgba(246, 239, 255, 0.94);
+  color: #7a55c4;
+}
+
 .taxonomy-badge,
 .taxonomy-tag {
   display: inline-flex;

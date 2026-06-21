@@ -24,6 +24,9 @@ class FlywaySchemaTest {
     assertThat(tableExists("albums")).isTrue();
     assertThat(tableExists("album_items")).isTrue();
     assertThat(tableExists("videos")).isTrue();
+    assertThat(columnExists("posts", "scheduled_at")).isTrue();
+    assertThat(columnExists("albums", "scheduled_at")).isTrue();
+    assertThat(columnExists("videos", "scheduled_at")).isTrue();
     assertThat(tableExists("admin_audit_logs")).isTrue();
   }
 
@@ -32,6 +35,16 @@ class FlywaySchemaTest {
       "select count(*) from information_schema.tables where table_name = ?",
       Integer.class,
       tableName
+    );
+    return count != null && count > 0;
+  }
+
+  private boolean columnExists(String tableName, String columnName) {
+    Integer count = jdbc.queryForObject(
+      "select count(*) from information_schema.columns where table_name = ? and column_name = ?",
+      Integer.class,
+      tableName,
+      columnName
     );
     return count != null && count > 0;
   }

@@ -10,6 +10,7 @@ import {
   videoCollections,
   videos,
   type AlbumRecord,
+  type ContentRecordStatus,
   type PhotoRecord,
   type PostRecord,
   type VideoCollectionRecord,
@@ -65,7 +66,7 @@ function resolveDataset(dataset: ContentDataset = {}) {
   };
 }
 
-function isPublished(record: { status?: "published" | "draft" }): boolean {
+function isPublished(record: { status?: ContentRecordStatus }): boolean {
   return (record.status ?? "published") === "published";
 }
 

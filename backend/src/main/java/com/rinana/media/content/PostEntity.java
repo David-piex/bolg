@@ -62,6 +62,9 @@ public class PostEntity {
   @Column(name = "published_at")
   private Instant publishedAt;
 
+  @Column(name = "scheduled_at")
+  private Instant scheduledAt;
+
   @Column(name = "created_at", nullable = false)
   private Instant createdAt;
 
@@ -154,6 +157,14 @@ public class PostEntity {
 
   public void setPublishedAt(Instant publishedAt) {
     this.publishedAt = publishedAt;
+  }
+
+  public Instant getScheduledAt() {
+    return scheduledAt;
+  }
+
+  public void setScheduledAt(Instant scheduledAt) {
+    this.scheduledAt = scheduledAt;
   }
 
   public Instant getCreatedAt() {

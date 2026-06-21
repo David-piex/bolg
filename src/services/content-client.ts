@@ -56,6 +56,7 @@ export type RemotePublishInput =
       mediaAssetId?: string;
       pinned?: boolean;
       status?: ContentRecordStatus;
+      scheduledAt?: string;
       tags?: string[];
       title: string;
       visibility: MembershipLevel;
@@ -68,6 +69,7 @@ export type RemotePublishInput =
       mediaAssetId?: string;
       photoTitle: string;
       status?: ContentRecordStatus;
+      scheduledAt?: string;
       tags?: string[];
       title: string;
       visibility: MembershipLevel;
@@ -82,6 +84,7 @@ export type RemotePublishInput =
       thumbnailUrl?: string;
       title: string;
       status?: ContentRecordStatus;
+      scheduledAt?: string;
       tags?: string[];
       videoTitle: string;
       visibility: MembershipLevel;
@@ -97,6 +100,7 @@ export type RemoteUpdateInput =
       mediaAssetId?: string;
       pinned?: boolean;
       status?: ContentRecordStatus;
+      scheduledAt?: string;
       tags?: string[];
       title: string;
       visibility: MembershipLevel;
@@ -110,6 +114,7 @@ export type RemoteUpdateInput =
       id: string;
       kind: "album";
       status?: ContentRecordStatus;
+      scheduledAt?: string;
       tags?: string[];
       title: string;
     }
@@ -122,6 +127,7 @@ export type RemoteUpdateInput =
       id: string;
       kind: "video";
       status?: ContentRecordStatus;
+      scheduledAt?: string;
       tags?: string[];
       title: string;
     };
@@ -174,7 +180,9 @@ function toJavaStatus(status: ContentRecordStatus | undefined): JavaContentStatu
 }
 
 function fromJavaStatus(status: JavaContentStatus | undefined): ContentRecordStatus {
-  return status === "DRAFT" ? "draft" : "published";
+  if (status === "DRAFT") return "draft";
+  if (status === "SCHEDULED") return "scheduled";
+  return "published";
 }
 
 function dateOnly(value: string | null | undefined): string {
@@ -203,6 +211,7 @@ function postFromJava(post: JavaPost): PostRecord {
     id: post.id,
     pinned: Boolean(post.pinned),
     publishedAt: dateOnly(post.publishedAt),
+    scheduledAt: dateOnly(post.scheduledAt),
     status: fromJavaStatus(post.status),
     tags: taxonomyTags(post.tags),
     title: post.title,
@@ -219,6 +228,7 @@ function albumFromJava(album: JavaAlbum): AlbumRecord {
     description: album.description,
     id: album.id,
     publishedAt: dateOnly(album.publishedAt),
+    scheduledAt: dateOnly(album.scheduledAt),
     status: fromJavaStatus(album.status),
     tags: taxonomyTags(album.tags),
     title: album.title
@@ -233,6 +243,7 @@ function videoCollectionFromJava(video: JavaVideo): VideoCollectionRecord {
     description: video.description,
     id: `collection-${video.id}`,
     publishedAt: dateOnly(video.publishedAt),
+    scheduledAt: dateOnly(video.scheduledAt),
     status: fromJavaStatus(video.status),
     tags: taxonomyTags(video.tags),
     title: video.title
@@ -339,6 +350,7 @@ export async function publishRemoteContent(
       mediaAssetIds: input.mediaAssetId ? [input.mediaAssetId] : undefined,
       pinned: Boolean(input.pinned),
       status: toJavaStatus(input.status),
+      scheduledAt: input.scheduledAt,
       tags: input.tags,
       title: input.title,
       visibility: toJavaVisibility(input.visibility)
@@ -352,6 +364,7 @@ export async function publishRemoteContent(
       coverMediaId: input.mediaAssetId,
       description: input.description,
       status: toJavaStatus(input.status),
+      scheduledAt: input.scheduledAt,
       tags: input.tags,
       title: input.title,
       visibility: toJavaVisibility(input.visibility)
@@ -375,6 +388,7 @@ export async function publishRemoteContent(
     description: input.description,
     mediaAssetId: input.mediaAssetId || input.playbackUrl || "",
     status: toJavaStatus(input.status),
+    scheduledAt: input.scheduledAt,
     tags: input.tags,
     title: input.videoTitle || input.title,
     visibility: toJavaVisibility(input.visibility)
@@ -394,6 +408,7 @@ export async function updateRemoteContent(accessToken: string, input: RemoteUpda
       mediaAssetIds: input.mediaAssetId ? [input.mediaAssetId] : undefined,
       pinned: input.pinned,
       status: toJavaStatus(input.status),
+      scheduledAt: input.scheduledAt,
       tags: input.tags,
       title: input.title,
       visibility: toJavaVisibility(input.visibility)
@@ -408,6 +423,7 @@ export async function updateRemoteContent(accessToken: string, input: RemoteUpda
       description: input.description,
       id: input.id,
       status: toJavaStatus(input.status),
+      scheduledAt: input.scheduledAt,
       tags: input.tags,
       title: input.title,
       visibility: toJavaVisibility(input.defaultVisibility)
@@ -421,6 +437,7 @@ export async function updateRemoteContent(accessToken: string, input: RemoteUpda
     description: input.description,
     id: javaVideoIdFromCollectionId(input.id),
     status: toJavaStatus(input.status),
+    scheduledAt: input.scheduledAt,
     tags: input.tags,
     title: input.title,
     visibility: toJavaVisibility(input.defaultVisibility)

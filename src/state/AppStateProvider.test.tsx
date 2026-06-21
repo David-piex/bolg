@@ -141,6 +141,38 @@ function RemotePublishProbe() {
     publishPost({
       body: "Remote body",
       coverImage: "https://images.example/remote.jpg",
+      scheduledAt: "2026-06-30",
+      status: "scheduled",
+      title: "Remote post",
+      visibility: "gold"
+    });
+  }, [authSession, loginWithPassword, publishPost]);
+
+  return <output aria-label="latest post">{posts[0]?.id ?? "none"}</output>;
+}
+
+function ScheduledRemotePublishProbe() {
+  const { authSession, loginWithPassword, posts, publishPost } = useAppState();
+  const didLogin = useRef(false);
+  const didPublish = useRef(false);
+
+  useEffect(() => {
+    if (!didLogin.current) {
+      didLogin.current = true;
+      void loginWithPassword({ email: "admin@example.com", password: "secret-password" });
+      return;
+    }
+
+    if (!authSession || didPublish.current) {
+      return;
+    }
+
+    didPublish.current = true;
+    publishPost({
+      body: "Remote body",
+      coverImage: "https://images.example/remote.jpg",
+      scheduledAt: "2026-06-30",
+      status: "scheduled",
       title: "Remote post",
       visibility: "gold"
     });
@@ -317,6 +349,7 @@ function RemoteViewMediaUpdateProbe() {
 describe("AppStateProvider", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.clearAllMocks();
     vi.unstubAllEnvs();
     vi.mocked(fetchRemoteContentDataset).mockRejectedValue(new Error("Java content API is not configured"));
     vi.mocked(publishRemoteContent).mockRejectedValue(new Error("Java content API is not configured"));
@@ -736,6 +769,72 @@ describe("AppStateProvider", () => {
         visibility: "gold"
       })
     );
+  });
+
+  it("keeps scheduled timestamps when publishing remote posts through the Java API", async () => {
+    window.localStorage.clear();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({ displayName: "Admin", email: "admin@example.com", id: "admin-1", memberLevel: "DIAMOND", role: "ADMIN", username: "admin" })
+      })) as unknown as typeof fetch
+    );
+    let scheduledRequest: unknown = null;
+    vi.mocked(publishRemoteContent).mockResolvedValue({
+      post: {
+        body: "Remote body",
+        category: "remote",
+        coverImage: "https://images.example/remote.jpg",
+        excerpt: "Remote body",
+        id: "remote-post",
+        pinned: true,
+        publishedAt: "",
+        scheduledAt: "2026-06-30",
+        status: "scheduled",
+        tags: ["sync"],
+        title: "Remote post",
+        type: "post",
+        visibility: "gold"
+      }
+    });
+    vi.mocked(publishRemoteContent).mockImplementation(async (token, input) => {
+      if (input.kind === "post" && input.scheduledAt === "2026-06-30") {
+        scheduledRequest = input;
+      }
+
+      return {
+        post: {
+          body: "Remote body",
+          category: "remote",
+          coverImage: "https://images.example/remote.jpg",
+          excerpt: "Remote body",
+          id: "remote-post",
+          pinned: true,
+          publishedAt: "",
+          scheduledAt: "2026-06-30",
+          status: "scheduled",
+          tags: ["sync"],
+          title: "Remote post",
+          type: "post",
+          visibility: "gold"
+        }
+      };
+    });
+
+    render(
+      <AppStateProvider>
+        <ScheduledRemotePublishProbe />
+      </AppStateProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("latest post")).toHaveTextContent("remote-post");
+    });
+    expect(scheduledRequest).toMatchObject({
+      scheduledAt: "2026-06-30",
+      status: "scheduled"
+    });
   });
 
   it("keeps uploaded Java media metadata when creating local video records", async () => {

@@ -112,7 +112,9 @@ function latestPublishedAt(items: Array<{ publishedAt?: string }>, fallback: str
 }
 
 function contentStatusLabel(status: ContentRecordStatus, dictionary: Dictionary) {
-  return status === "draft" ? dictionary.admin.draftContent : dictionary.admin.publishedContent;
+  if (status === "draft") return dictionary.admin.draftContent;
+  if (status === "scheduled") return dictionary.admin.scheduledContent;
+  return dictionary.admin.publishedContent;
 }
 
 function memberPageSummary(template: string, input: { page: number; total: number; totalPages: number }) {
@@ -276,6 +278,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
   const [contentTags, setContentTags] = useState("");
   const [contentVisibility, setContentVisibility] = useState<MembershipLevel>("gold");
   const [contentStatus, setContentStatus] = useState<ContentRecordStatus>("published");
+  const [contentScheduledAt, setContentScheduledAt] = useState("");
   const [contentPinned, setContentPinned] = useState(false);
   const [contentAsset, setContentAsset] = useState("");
   const [publishMessage, setPublishMessage] = useState<string | null>(null);
@@ -322,7 +325,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
     ...posts.map((post) => ({
       body: post.body,
       category: post.category,
-      date: post.publishedAt,
+      date: post.status === "scheduled" ? post.scheduledAt ?? post.publishedAt : post.publishedAt,
       id: post.id,
       kind: "post" as const,
       level: post.visibility,
@@ -334,7 +337,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
     ...albums.map((album) => ({
       body: album.description,
       category: album.category,
-      date: album.publishedAt,
+      date: album.status === "scheduled" ? album.scheduledAt ?? album.publishedAt : album.publishedAt,
       id: album.id,
       kind: "album" as const,
       level: album.defaultVisibility,
@@ -345,7 +348,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
     ...videoCollections.map((collection) => ({
       body: collection.description,
       category: collection.category,
-      date: collection.publishedAt,
+      date: collection.status === "scheduled" ? collection.scheduledAt ?? collection.publishedAt : collection.publishedAt,
       id: collection.id,
       kind: "video" as const,
       level: collection.defaultVisibility,
@@ -426,6 +429,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
   const primaryContentActionLabel =
     contentStatus === "draft"
       ? dictionary.admin.saveDraft
+      : contentStatus === "scheduled"
+        ? dictionary.admin.scheduleContent
       : editingContent
         ? dictionary.common.save
         : dictionary.common.publish;
@@ -765,6 +770,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
     setUploadedVideoMeta(null);
     setContentPinned(false);
     setContentStatus("published");
+    setContentScheduledAt("");
     setUploadMessage(null);
     setUploadProgress(null);
     setUploadTarget(null);
@@ -794,6 +800,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
         setContentAsset(post.coverImage);
         setContentPinned(post.pinned);
         setContentStatus(post.status);
+        setContentScheduledAt(post.scheduledAt ?? "");
       }
       return;
     }
@@ -809,6 +816,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
         setContentVisibility(album.defaultVisibility);
         setContentAsset(album.coverImage);
         setContentStatus(album.status);
+        setContentScheduledAt(album.scheduledAt ?? "");
       }
       return;
     }
@@ -823,6 +831,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
       setContentVisibility(collection.defaultVisibility);
       setContentAsset(collection.coverImage);
       setContentStatus(collection.status);
+      setContentScheduledAt(collection.scheduledAt ?? "");
     }
   }
 
@@ -934,6 +943,11 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
       return;
     }
 
+    if (nextStatus === "scheduled" && !contentScheduledAt.trim()) {
+      setPublishMessage(dictionary.admin.scheduleTimeRequired);
+      return;
+    }
+
     setPublishMessage(null);
 
     try {
@@ -948,6 +962,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           coverImage: contentAsset,
           mediaAssetId: uploadedImageMeta?.mediaAssetId,
           pinned: contentPinned,
+          scheduledAt: contentScheduledAt ? new Date(contentScheduledAt).toISOString() : undefined,
           status: nextStatus
         });
       } else if (editingContent?.kind === "album") {
@@ -960,6 +975,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           defaultVisibility: contentVisibility,
           coverImage: contentAsset,
           coverMediaId: uploadedImageMeta?.mediaAssetId,
+          scheduledAt: contentScheduledAt ? new Date(contentScheduledAt).toISOString() : undefined,
           status: nextStatus
         });
       } else if (editingContent?.kind === "video") {
@@ -972,6 +988,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           defaultVisibility: contentVisibility,
           coverImage: uploadedVideoCoverMeta?.publicUrl || contentAsset,
           coverMediaId: uploadedVideoCoverMeta?.mediaAssetId,
+          scheduledAt: contentScheduledAt ? new Date(contentScheduledAt).toISOString() : undefined,
           status: nextStatus
         });
       } else if (contentKind === "post") {
@@ -984,6 +1001,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           coverImage: contentAsset,
           mediaAssetId: uploadedImageMeta?.mediaAssetId,
           pinned: contentPinned,
+          scheduledAt: contentScheduledAt ? new Date(contentScheduledAt).toISOString() : undefined,
           status: nextStatus
         });
       } else if (contentKind === "album") {
@@ -996,6 +1014,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           photoTitle: contentTitle,
           imageUrl: contentAsset,
           mediaAssetId: uploadedImageMeta?.mediaAssetId,
+          scheduledAt: contentScheduledAt ? new Date(contentScheduledAt).toISOString() : undefined,
           status: nextStatus
         });
       } else if (contentKind === "video") {
@@ -1010,6 +1029,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           mediaAssetId: uploadedVideoMeta?.mediaAssetId,
           coverMediaId: uploadedVideoCoverMeta?.mediaAssetId,
           thumbnailUrl: uploadedVideoCoverMeta?.publicUrl || uploadedVideoMeta?.thumbnailUrl,
+          scheduledAt: contentScheduledAt ? new Date(contentScheduledAt).toISOString() : undefined,
           status: nextStatus
         });
       }
@@ -1136,8 +1156,20 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
               >
                 <option value="published">{dictionary.admin.publishedContent}</option>
                 <option value="draft">{dictionary.admin.draftContent}</option>
+                <option value="scheduled">{dictionary.admin.scheduledContent}</option>
               </select>
             </label>
+            {contentStatus === "scheduled" ? (
+              <label>
+                <span>{dictionary.admin.scheduledAt}</span>
+                <input
+                  type="datetime-local"
+                  value={contentScheduledAt}
+                  onChange={(event) => setContentScheduledAt(event.target.value)}
+                  disabled={isUploading}
+                />
+              </label>
+            ) : null}
             <label className="full-row">
               <span>{dictionary.admin.titleLabel}</span>
               <input

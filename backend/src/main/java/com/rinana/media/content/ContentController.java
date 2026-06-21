@@ -59,13 +59,13 @@ public class ContentController {
   ContentFeedResponse listContent(HttpServletRequest request) {
     UserEntity viewer = currentViewerOrVisitor(request);
     if (canManageContent(viewer)) {
-      var posts = postRepository.findByStatusIn(List.of(ContentStatus.PUBLISHED, ContentStatus.DRAFT), postSort("latest")).stream()
+      var posts = postRepository.findByStatusIn(List.of(ContentStatus.PUBLISHED, ContentStatus.DRAFT, ContentStatus.SCHEDULED), postSort("latest")).stream()
         .map(PostResponse::from)
         .toList();
-      var albums = albumRepository.findByStatusIn(List.of(ContentStatus.PUBLISHED, ContentStatus.DRAFT), contentSort("latest")).stream()
+      var albums = albumRepository.findByStatusIn(List.of(ContentStatus.PUBLISHED, ContentStatus.DRAFT, ContentStatus.SCHEDULED), contentSort("latest")).stream()
         .map(AlbumResponse::from)
         .toList();
-      var videos = videoRepository.findByStatusIn(List.of(ContentStatus.PUBLISHED, ContentStatus.DRAFT), contentSort("latest")).stream()
+      var videos = videoRepository.findByStatusIn(List.of(ContentStatus.PUBLISHED, ContentStatus.DRAFT, ContentStatus.SCHEDULED), contentSort("latest")).stream()
         .map(VideoResponse::from)
         .toList();
       return new ContentFeedResponse(posts, albums, videos);
@@ -207,12 +207,9 @@ public class ContentController {
     post.setCategory(ContentTaxonomy.normalizeCategory(request.category()));
     post.setTags(ContentTaxonomy.serializeTags(request.tags()));
     post.setVisibility(request.visibility());
-    post.setStatus(writeableStatus(request.status()));
+    applyCreateStatus(post, request.status(), request.scheduledAt(), now);
     post.setPinned(Boolean.TRUE.equals(request.pinned()));
     post.setAuthor(author);
-    if (post.getStatus() == ContentStatus.PUBLISHED) {
-      post.setPublishedAt(now);
-    }
     post.setCreatedAt(now);
     post.setUpdatedAt(now);
     replacePostMedia(post, request.mediaAssetIds());
@@ -234,11 +231,8 @@ public class ContentController {
     album.setTags(ContentTaxonomy.serializeTags(request.tags()));
     album.setVisibility(request.visibility());
     album.setCoverMedia(request.coverMediaId() == null ? null : requireMedia(request.coverMediaId()));
-    album.setStatus(writeableStatus(request.status()));
+    applyCreateStatus(album, request.status(), request.scheduledAt(), now);
     album.setAuthor(author);
-    if (album.getStatus() == ContentStatus.PUBLISHED) {
-      album.setPublishedAt(now);
-    }
     album.setCreatedAt(now);
     album.setUpdatedAt(now);
     return ResponseEntity.status(HttpStatus.CREATED).body(AlbumResponse.from(albumRepository.save(album)));
@@ -260,11 +254,8 @@ public class ContentController {
     video.setVisibility(request.visibility());
     video.setMediaAsset(requireMedia(request.mediaAssetId()));
     video.setCoverMedia(request.coverMediaId() == null ? null : requireMedia(request.coverMediaId()));
-    video.setStatus(writeableStatus(request.status()));
+    applyCreateStatus(video, request.status(), request.scheduledAt(), now);
     video.setAuthor(author);
-    if (video.getStatus() == ContentStatus.PUBLISHED) {
-      video.setPublishedAt(now);
-    }
     video.setCreatedAt(now);
     video.setUpdatedAt(now);
     return ResponseEntity.status(HttpStatus.CREATED).body(VideoResponse.from(videoRepository.save(video)));
@@ -285,7 +276,7 @@ public class ContentController {
     post.setCategory(ContentTaxonomy.normalizeCategory(request.category()));
     post.setTags(ContentTaxonomy.serializeTags(request.tags()));
     post.setVisibility(request.visibility());
-    applyStatus(post, request.status());
+    applyUpdateStatus(post, request.status(), request.scheduledAt(), Instant.now());
     if (request.pinned() != null) {
       post.setPinned(request.pinned());
     }
@@ -309,7 +300,7 @@ public class ContentController {
     album.setCategory(ContentTaxonomy.normalizeCategory(request.category()));
     album.setTags(ContentTaxonomy.serializeTags(request.tags()));
     album.setVisibility(request.visibility());
-    applyStatus(album, request.status());
+    applyUpdateStatus(album, request.status(), request.scheduledAt(), Instant.now());
     album.setCoverMedia(request.coverMediaId() == null ? null : requireMedia(request.coverMediaId()));
     album.setUpdatedAt(Instant.now());
     return AlbumResponse.from(albumRepository.save(album));
@@ -330,7 +321,7 @@ public class ContentController {
     video.setCategory(ContentTaxonomy.normalizeCategory(request.category()));
     video.setTags(ContentTaxonomy.serializeTags(request.tags()));
     video.setVisibility(request.visibility());
-    applyStatus(video, request.status());
+    applyUpdateStatus(video, request.status(), request.scheduledAt(), Instant.now());
     if (request.mediaAssetId() != null) {
       video.setMediaAsset(requireMedia(request.mediaAssetId()));
     }
@@ -439,40 +430,95 @@ public class ContentController {
     return status;
   }
 
-  private void applyStatus(PostEntity post, ContentStatus status) {
-    if (status == null) {
-      return;
-    }
-
-    ContentStatus nextStatus = writeableStatus(status);
-    if (post.getStatus() != ContentStatus.PUBLISHED && nextStatus == ContentStatus.PUBLISHED && post.getPublishedAt() == null) {
-      post.setPublishedAt(Instant.now());
-    }
+  private void applyCreateStatus(PostEntity post, ContentStatus status, Instant scheduledAt, Instant now) {
+    ContentStatus nextStatus = resolveStatus(status, scheduledAt, now);
     post.setStatus(nextStatus);
+    post.setScheduledAt(nextStatus == ContentStatus.SCHEDULED ? scheduledAt : null);
+    post.setPublishedAt(nextStatus == ContentStatus.PUBLISHED ? now : null);
+    if (nextStatus == ContentStatus.SCHEDULED) {
+      post.setPublishedAt(null);
+    }
   }
 
-  private void applyStatus(AlbumEntity album, ContentStatus status) {
-    if (status == null) {
-      return;
-    }
-
-    ContentStatus nextStatus = writeableStatus(status);
-    if (album.getStatus() != ContentStatus.PUBLISHED && nextStatus == ContentStatus.PUBLISHED && album.getPublishedAt() == null) {
-      album.setPublishedAt(Instant.now());
-    }
+  private void applyCreateStatus(AlbumEntity album, ContentStatus status, Instant scheduledAt, Instant now) {
+    ContentStatus nextStatus = resolveStatus(status, scheduledAt, now);
     album.setStatus(nextStatus);
+    album.setScheduledAt(nextStatus == ContentStatus.SCHEDULED ? scheduledAt : null);
+    album.setPublishedAt(nextStatus == ContentStatus.PUBLISHED ? now : null);
+    if (nextStatus == ContentStatus.SCHEDULED) {
+      album.setPublishedAt(null);
+    }
   }
 
-  private void applyStatus(VideoEntity video, ContentStatus status) {
-    if (status == null) {
+  private void applyCreateStatus(VideoEntity video, ContentStatus status, Instant scheduledAt, Instant now) {
+    ContentStatus nextStatus = resolveStatus(status, scheduledAt, now);
+    video.setStatus(nextStatus);
+    video.setScheduledAt(nextStatus == ContentStatus.SCHEDULED ? scheduledAt : null);
+    video.setPublishedAt(nextStatus == ContentStatus.PUBLISHED ? now : null);
+    if (nextStatus == ContentStatus.SCHEDULED) {
+      video.setPublishedAt(null);
+    }
+  }
+
+  private void applyUpdateStatus(PostEntity post, ContentStatus status, Instant scheduledAt, Instant now) {
+    if (status == null && scheduledAt == null) {
       return;
     }
 
-    ContentStatus nextStatus = writeableStatus(status);
-    if (video.getStatus() != ContentStatus.PUBLISHED && nextStatus == ContentStatus.PUBLISHED && video.getPublishedAt() == null) {
-      video.setPublishedAt(Instant.now());
+    ContentStatus nextStatus = resolveStatus(status == null ? post.getStatus() : status, scheduledAt, now);
+    post.setStatus(nextStatus);
+    post.setScheduledAt(nextStatus == ContentStatus.SCHEDULED ? scheduledAt : null);
+    if (nextStatus == ContentStatus.PUBLISHED && post.getPublishedAt() == null) {
+      post.setPublishedAt(now);
     }
+    if (nextStatus == ContentStatus.SCHEDULED) {
+      post.setPublishedAt(null);
+    }
+  }
+
+  private void applyUpdateStatus(AlbumEntity album, ContentStatus status, Instant scheduledAt, Instant now) {
+    if (status == null && scheduledAt == null) {
+      return;
+    }
+
+    ContentStatus nextStatus = resolveStatus(status == null ? album.getStatus() : status, scheduledAt, now);
+    album.setStatus(nextStatus);
+    album.setScheduledAt(nextStatus == ContentStatus.SCHEDULED ? scheduledAt : null);
+    if (nextStatus == ContentStatus.PUBLISHED && album.getPublishedAt() == null) {
+      album.setPublishedAt(now);
+    }
+    if (nextStatus == ContentStatus.SCHEDULED) {
+      album.setPublishedAt(null);
+    }
+  }
+
+  private void applyUpdateStatus(VideoEntity video, ContentStatus status, Instant scheduledAt, Instant now) {
+    if (status == null && scheduledAt == null) {
+      return;
+    }
+
+    ContentStatus nextStatus = resolveStatus(status == null ? video.getStatus() : status, scheduledAt, now);
     video.setStatus(nextStatus);
+    video.setScheduledAt(nextStatus == ContentStatus.SCHEDULED ? scheduledAt : null);
+    if (nextStatus == ContentStatus.PUBLISHED && video.getPublishedAt() == null) {
+      video.setPublishedAt(now);
+    }
+    if (nextStatus == ContentStatus.SCHEDULED) {
+      video.setPublishedAt(null);
+    }
+  }
+
+  private ContentStatus resolveStatus(ContentStatus requestedStatus, Instant scheduledAt, Instant now) {
+    ContentStatus nextStatus = writeableStatus(requestedStatus);
+    if (nextStatus != ContentStatus.SCHEDULED) {
+      return nextStatus;
+    }
+
+    if (scheduledAt == null) {
+      throw new ApiException(HttpStatus.BAD_REQUEST, "SCHEDULED_AT_REQUIRED", "Scheduled publish time is required");
+    }
+
+    return scheduledAt.isAfter(now) ? ContentStatus.SCHEDULED : ContentStatus.PUBLISHED;
   }
 
   private MediaAssetEntity requireMedia(java.util.UUID id) {

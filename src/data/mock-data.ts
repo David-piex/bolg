@@ -1,7 +1,7 @@
 import type { InviteCode } from "@/domain/invites";
 import type { MembershipLevel, Viewer } from "@/domain/membership";
 
-export type ContentRecordStatus = "published" | "draft";
+export type ContentRecordStatus = "published" | "draft" | "scheduled";
 
 export type UserProfile = {
   id: string;
@@ -25,6 +25,7 @@ export type PostRecord = {
   status: ContentRecordStatus;
   visibility: MembershipLevel;
   publishedAt: string;
+  scheduledAt?: string;
 };
 
 export type AlbumRecord = {
@@ -37,6 +38,7 @@ export type AlbumRecord = {
   defaultVisibility: MembershipLevel;
   status: ContentRecordStatus;
   publishedAt: string;
+  scheduledAt?: string;
 };
 
 export type PhotoRecord = {
@@ -58,6 +60,7 @@ export type VideoCollectionRecord = {
   defaultVisibility: MembershipLevel;
   status: ContentRecordStatus;
   publishedAt: string;
+  scheduledAt?: string;
 };
 
 export type VideoRecord = {
