@@ -192,7 +192,7 @@ describe("java api client", () => {
     await createPost({ content: "body", title: "title", visibility: "GOLD" });
     await createAlbum({ coverMediaId: "media-image", description: "album", title: "album", visibility: "GOLD" });
     await createVideo({ description: "video", mediaAssetId: "media-video", title: "video", visibility: "DIAMOND" });
-    await listPosts({ page: 2, size: 12 });
+    await listPosts({ page: 2, q: "summer notes", size: 12, sort: "title" });
     await getPost("post 1");
     await getAlbum("album/1");
     await getVideo("video-1");
@@ -209,7 +209,7 @@ describe("java api client", () => {
       credentials: "include",
       method: "POST"
     }));
-    expect(fetchMock).toHaveBeenNthCalledWith(4, "/api/content/posts?page=2&size=12", expect.objectContaining({
+    expect(fetchMock).toHaveBeenNthCalledWith(4, "/api/content/posts?page=2&size=12&q=summer+notes&sort=title", expect.objectContaining({
       credentials: "include",
       method: "GET"
     }));

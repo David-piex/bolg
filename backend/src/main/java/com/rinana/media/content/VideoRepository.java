@@ -29,6 +29,23 @@ public interface VideoRepository extends JpaRepository<VideoEntity, UUID> {
   @Query("""
     select video from VideoEntity video
     where video.status = :status
+      and video.visibility in :visibilities
+      and (
+        :query = ''
+        or lower(video.title) like lower(concat('%', :query, '%'))
+        or lower(video.description) like lower(concat('%', :query, '%'))
+      )
+    """)
+  Page<VideoEntity> searchPublished(
+    @Param("status") ContentStatus status,
+    @Param("visibilities") Collection<ContentVisibility> visibilities,
+    @Param("query") String query,
+    Pageable pageable
+  );
+
+  @Query("""
+    select video from VideoEntity video
+    where video.status = :status
       and (video.mediaAsset.id = :mediaAssetId or video.coverMedia.id = :mediaAssetId)
     """)
   Optional<VideoEntity> findPublishedByMediaAssetId(

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ContentCard } from "@/components/ContentCard";
+import { ContentDiscoveryToolbar, type ContentSort } from "@/components/ContentDiscoveryToolbar";
 import { EmptyContentState } from "@/components/EmptyContentState";
 import { getAlbums } from "@/data/repository";
 import type { getDictionary } from "@/i18n/dictionaries";
@@ -31,15 +32,27 @@ export function AlbumsView({ dictionary, locale }: { dictionary: Dictionary; loc
   const visibleAlbums = getAlbums(viewer, { albums: stateAlbums, photos });
   const [page, setPage] = useState(0);
   const [pagedAlbums, setPagedAlbums] = useState(visibleAlbums.slice(0, pageSize));
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<ContentSort>("latest");
   const [total, setTotal] = useState(visibleAlbums.length);
   const [totalPages, setTotalPages] = useState(Math.max(1, Math.ceil(visibleAlbums.length / pageSize)));
   const [loading, setLoading] = useState(false);
+
+  function updateQuery(value: string) {
+    setQuery(value);
+    setPage(0);
+  }
+
+  function updateSort(value: ContentSort) {
+    setSort(value);
+    setPage(0);
+  }
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
 
-    void loadAlbumsPage({ page, size: pageSize })
+    void loadAlbumsPage({ page, q: query, size: pageSize, sort })
       .then((result) => {
         if (cancelled) return;
         setPagedAlbums(getAlbums(viewer, { albums: result.items, photos }));
@@ -53,7 +66,7 @@ export function AlbumsView({ dictionary, locale }: { dictionary: Dictionary; loc
     return () => {
       cancelled = true;
     };
-  }, [loadAlbumsPage, page, photos, viewer]);
+  }, [loadAlbumsPage, page, photos, query, sort, viewer]);
 
   return (
     <div className="page">
@@ -62,6 +75,13 @@ export function AlbumsView({ dictionary, locale }: { dictionary: Dictionary; loc
         <h1>{dictionary.nav.albums}</h1>
         <p>{dictionary.content.albumsDescription}</p>
       </section>
+      <ContentDiscoveryToolbar
+        dictionary={dictionary}
+        query={query}
+        setQuery={updateQuery}
+        setSort={updateSort}
+        sort={sort}
+      />
       <div className="media-grid">
         {pagedAlbums.map((album) => (
           <ContentCard

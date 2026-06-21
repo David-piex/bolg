@@ -29,6 +29,23 @@ public interface AlbumRepository extends JpaRepository<AlbumEntity, UUID> {
   @Query("""
     select album from AlbumEntity album
     where album.status = :status
+      and album.visibility in :visibilities
+      and (
+        :query = ''
+        or lower(album.title) like lower(concat('%', :query, '%'))
+        or lower(album.description) like lower(concat('%', :query, '%'))
+      )
+    """)
+  Page<AlbumEntity> searchPublished(
+    @Param("status") ContentStatus status,
+    @Param("visibilities") Collection<ContentVisibility> visibilities,
+    @Param("query") String query,
+    Pageable pageable
+  );
+
+  @Query("""
+    select album from AlbumEntity album
+    where album.status = :status
       and album.coverMedia.id = :mediaAssetId
     """)
   Optional<AlbumEntity> findPublishedByCoverMediaId(

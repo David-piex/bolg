@@ -172,6 +172,38 @@ class ContentControllerTest {
   }
 
   @Test
+  void contentListEndpointsSupportSearchAndSort() throws Exception {
+    Cookie adminCookie = login("admin", "admin123456");
+    String zetaPostId = createPostAndReturnId(adminCookie, "zeta notes", "PUBLIC", "summer body");
+    String alphaPostId = createPostAndReturnId(adminCookie, "alpha journal", "PUBLIC", "winter body");
+    createPost(adminCookie, "hidden summer", "GOLD", "summer member body");
+    setPostPublishedAt(zetaPostId, "2026-06-01T00:00:00Z");
+    setPostPublishedAt(alphaPostId, "2026-06-02T00:00:00Z");
+
+    mvc.perform(get("/api/content/posts")
+        .queryParam("q", "summer")
+        .queryParam("sort", "title"))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.items", hasSize(1)))
+      .andExpect(jsonPath("$.items[0].title").value("zeta notes"))
+      .andExpect(jsonPath("$.total").value(1));
+
+    mvc.perform(get("/api/content/posts")
+        .queryParam("sort", "oldest"))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.items", hasSize(2)))
+      .andExpect(jsonPath("$.items[0].title").value("zeta notes"))
+      .andExpect(jsonPath("$.items[1].title").value("alpha journal"));
+
+    mvc.perform(get("/api/content/posts")
+        .queryParam("sort", "title"))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.items", hasSize(2)))
+      .andExpect(jsonPath("$.items[0].title").value("alpha journal"))
+      .andExpect(jsonPath("$.items[1].title").value("zeta notes"));
+  }
+
+  @Test
   void contentDetailEndpointsRespectMembershipVisibility() throws Exception {
     Cookie adminCookie = login("admin", "admin123456");
     String publicPostId = createPostAndReturnId(adminCookie, "public detail", "PUBLIC");
@@ -328,24 +360,32 @@ class ContentControllerTest {
   }
 
   private void createPost(Cookie adminCookie, String title, String visibility) throws Exception {
+    createPost(adminCookie, title, visibility, "body");
+  }
+
+  private void createPost(Cookie adminCookie, String title, String visibility, String content) throws Exception {
     mvc.perform(post("/api/content/posts")
         .cookie(adminCookie)
         .contentType(MediaType.APPLICATION_JSON)
         .content(json(Map.of(
           "title", title,
-          "content", "body",
+          "content", content,
           "visibility", visibility
         ))))
       .andExpect(status().isCreated());
   }
 
   private String createPostAndReturnId(Cookie adminCookie, String title, String visibility) throws Exception {
+    return createPostAndReturnId(adminCookie, title, visibility, "body");
+  }
+
+  private String createPostAndReturnId(Cookie adminCookie, String title, String visibility, String content) throws Exception {
     return mvc.perform(post("/api/content/posts")
         .cookie(adminCookie)
         .contentType(MediaType.APPLICATION_JSON)
         .content(json(Map.of(
           "title", title,
-          "content", "body",
+          "content", content,
           "visibility", visibility
         ))))
       .andExpect(status().isCreated())
@@ -353,6 +393,12 @@ class ContentControllerTest {
       .getResponse()
       .getContentAsString()
       .replaceAll("(?s).*\"id\":\"([^\"]+)\".*", "$1");
+  }
+
+  private void setPostPublishedAt(String postId, String publishedAt) {
+    PostEntity post = postRepository.findById(UUID.fromString(postId)).orElseThrow();
+    post.setPublishedAt(Instant.parse(publishedAt));
+    postRepository.save(post);
   }
 
   private String createAlbumAndReturnId(Cookie adminCookie, String title, String visibility, UUID coverMediaId) throws Exception {

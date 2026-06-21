@@ -447,6 +447,63 @@ main {
   gap: 16px;
 }
 
+.content-discovery-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(168px, 220px);
+  gap: 12px;
+  align-items: end;
+  padding: 14px;
+  border: 1px solid rgba(215, 66, 125, 0.16);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(135deg, rgba(255, 235, 245, 0.72), rgba(255, 255, 255, 0.86)),
+    var(--panel);
+  box-shadow: 0 12px 32px rgba(111, 38, 74, 0.08);
+}
+
+.content-search-control,
+.content-sort-control {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.content-search-control input,
+.content-sort-control select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid rgba(116, 45, 78, 0.16);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 800;
+  outline: none;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+}
+
+.content-search-control input {
+  padding: 0 13px;
+}
+
+.content-sort-control select {
+  padding: 0 36px 0 12px;
+}
+
+.content-search-control input:focus,
+.content-sort-control select:focus {
+  border-color: rgba(215, 66, 125, 0.55);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(215, 66, 125, 0.12);
+}
+
 .content-card {
   display: grid;
   content-visibility: auto;
@@ -2236,6 +2293,11 @@ main {
 
   .hero {
     padding: 18px;
+  }
+
+  .content-discovery-toolbar {
+    grid-template-columns: 1fr;
+    padding: 12px;
   }
 
   .archive-hero {

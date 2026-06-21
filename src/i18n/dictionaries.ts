@@ -221,6 +221,12 @@ type Dictionary = {
     pageSummary: string;
     previousPage: string;
     nextPage: string;
+    searchLabel: string;
+    searchPlaceholder: string;
+    sortLabel: string;
+    sortLatest: string;
+    sortOldest: string;
+    sortTitle: string;
     imageUrl: string;
     videoUrl: string;
     noCover: string;
@@ -469,6 +475,12 @@ export const dictionaries: Record<Locale, Dictionary> = {
       pageSummary: "第 {page} / {totalPages} 页，共 {total} 条",
       previousPage: "上一页",
       nextPage: "下一页",
+      searchLabel: "搜索内容",
+      searchPlaceholder: "输入标题或描述",
+      sortLabel: "排序",
+      sortLatest: "最新发布",
+      sortOldest: "最早发布",
+      sortTitle: "标题 A-Z",
       imageUrl: "图片地址",
       videoUrl: "视频地址",
       noCover: "暂无封面",
@@ -714,6 +726,12 @@ export const dictionaries: Record<Locale, Dictionary> = {
       pageSummary: "Page {page} of {totalPages}, {total} total",
       previousPage: "Previous",
       nextPage: "Next",
+      searchLabel: "Search content",
+      searchPlaceholder: "Search title or description",
+      sortLabel: "Sort",
+      sortLatest: "Newest",
+      sortOldest: "Oldest",
+      sortTitle: "Title A-Z",
       imageUrl: "Image URL",
       videoUrl: "Video URL",
       noCover: "No cover",

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ContentCard } from "@/components/ContentCard";
+import { ContentDiscoveryToolbar, type ContentSort } from "@/components/ContentDiscoveryToolbar";
 import { EmptyContentState } from "@/components/EmptyContentState";
 import { getPosts } from "@/data/repository";
 import type { getDictionary } from "@/i18n/dictionaries";
@@ -32,15 +33,27 @@ export function PostsView({ dictionary, locale }: { dictionary: Dictionary; loca
   const visiblePosts = getPosts(viewer, { posts: statePosts });
   const [page, setPage] = useState(0);
   const [pagedPosts, setPagedPosts] = useState(visiblePosts.slice(0, pageSize));
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<ContentSort>("latest");
   const [total, setTotal] = useState(visiblePosts.length);
   const [totalPages, setTotalPages] = useState(Math.max(1, Math.ceil(visiblePosts.length / pageSize)));
   const [loading, setLoading] = useState(false);
+
+  function updateQuery(value: string) {
+    setQuery(value);
+    setPage(0);
+  }
+
+  function updateSort(value: ContentSort) {
+    setSort(value);
+    setPage(0);
+  }
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
 
-    void loadPostsPage({ page, size: pageSize })
+    void loadPostsPage({ page, q: query, size: pageSize, sort })
       .then((result) => {
         if (cancelled) return;
         setPagedPosts(getPosts(viewer, { posts: result.items }));
@@ -54,7 +67,7 @@ export function PostsView({ dictionary, locale }: { dictionary: Dictionary; loca
     return () => {
       cancelled = true;
     };
-  }, [loadPostsPage, page, viewer]);
+  }, [loadPostsPage, page, query, sort, viewer]);
 
   return (
     <div className="page">
@@ -67,6 +80,13 @@ export function PostsView({ dictionary, locale }: { dictionary: Dictionary; loca
           {formatVisibilityLevels(dictionary)}
         </p>
       </section>
+      <ContentDiscoveryToolbar
+        dictionary={dictionary}
+        query={query}
+        setQuery={updateQuery}
+        setSort={updateSort}
+        sort={sort}
+      />
       <div className="feed-grid">
         {pagedPosts.map((post) => (
           <ContentCard

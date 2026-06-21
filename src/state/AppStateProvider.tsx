@@ -16,7 +16,8 @@ import {
   fetchRemoteVideosPage,
   publishRemoteContent,
   updateRemoteContent,
-  type RemoteContentPage
+  type RemoteContentPage,
+  type RemoteContentPageInput
 } from "@/services/content-client";
 import {
   createRemoteInvite,
@@ -96,10 +97,10 @@ type AppStateValue = {
   loginWithPassword: (input: { email: string; password: string }) => Promise<RemoteAuthResult>;
   loginAs: (userId: string | null) => void;
   logout: () => Promise<void>;
-  loadAlbumsPage: (input: { page?: number; size?: number }) => Promise<RemoteContentPage<AlbumRecord>>;
+  loadAlbumsPage: (input: RemoteContentPageInput) => Promise<RemoteContentPage<AlbumRecord>>;
   loadAdminUsersPage: (input: { page?: number; q?: string; size?: number }) => Promise<void>;
-  loadPostsPage: (input: { page?: number; size?: number }) => Promise<RemoteContentPage<PostRecord>>;
-  loadVideosPage: (input: { page?: number; size?: number }) => Promise<
+  loadPostsPage: (input: RemoteContentPageInput) => Promise<RemoteContentPage<PostRecord>>;
+  loadVideosPage: (input: RemoteContentPageInput) => Promise<
     RemoteContentPage<{ collection: VideoCollectionRecord; video: VideoRecord }>
   >;
   updateUserLevel: (userId: string, level: Exclude<MembershipLevel, "public">) => void;
@@ -324,6 +325,49 @@ function mergeRemoteUsers(currentUsers: UserProfile[], remoteUsers: UserProfile[
 function mergeById<T extends { id: string }>(currentItems: T[], incomingItems: T[]): T[] {
   const incomingIds = new Set(incomingItems.map((item) => item.id));
   return [...incomingItems, ...currentItems.filter((item) => !incomingIds.has(item.id))];
+}
+
+function makeLocalContentPage<T>(
+  items: T[],
+  input: RemoteContentPageInput,
+  searchableText: (item: T) => string
+): RemoteContentPage<T> {
+  const pageSize = Math.max(1, input.size ?? 12);
+  const query = input.q?.trim().toLowerCase() ?? "";
+  const filteredItems = query
+    ? items.filter((item) => searchableText(item).toLowerCase().includes(query))
+    : items;
+  const sortedItems = [...filteredItems].sort((left, right) => compareContentItems(left, right, input.sort));
+  const total = sortedItems.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const pageNumber = Math.min(Math.max(input.page ?? 0, 0), totalPages - 1);
+  const start = pageNumber * pageSize;
+
+  return {
+    items: sortedItems.slice(start, start + pageSize),
+    page: pageNumber,
+    size: pageSize,
+    total,
+    totalPages
+  };
+}
+
+function compareContentItems<T>(left: T, right: T, sort: RemoteContentPageInput["sort"]): number {
+  const leftRecord = left as { publishedAt?: string; title?: string };
+  const rightRecord = right as { publishedAt?: string; title?: string };
+
+  if (sort === "oldest") {
+    return (leftRecord.publishedAt ?? "").localeCompare(rightRecord.publishedAt ?? "")
+      || (leftRecord.title ?? "").localeCompare(rightRecord.title ?? "");
+  }
+
+  if (sort === "title") {
+    return (leftRecord.title ?? "").localeCompare(rightRecord.title ?? "")
+      || (rightRecord.publishedAt ?? "").localeCompare(leftRecord.publishedAt ?? "");
+  }
+
+  return (rightRecord.publishedAt ?? "").localeCompare(leftRecord.publishedAt ?? "")
+    || (leftRecord.title ?? "").localeCompare(rightRecord.title ?? "");
 }
 
 function makeLocalAdminUserPage(users: UserProfile[], page = 0, size = defaultAdminUserPageSize): AdminUserPage {
@@ -611,16 +655,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           }));
           return page;
         } catch {
-          const pageNumber = input.page ?? 0;
-          const pageSize = input.size ?? 12;
-          const items = content.posts.slice(pageNumber * pageSize, pageNumber * pageSize + pageSize);
-          return {
-            items,
-            page: pageNumber,
-            size: pageSize,
-            total: content.posts.length,
-            totalPages: Math.max(1, Math.ceil(content.posts.length / pageSize))
-          };
+          return makeLocalContentPage(content.posts, input, (post) => `${post.title} ${post.excerpt} ${post.body}`);
         }
       },
       async loadAlbumsPage(input) {
@@ -632,16 +667,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           }));
           return page;
         } catch {
-          const pageNumber = input.page ?? 0;
-          const pageSize = input.size ?? 12;
-          const items = content.albums.slice(pageNumber * pageSize, pageNumber * pageSize + pageSize);
-          return {
-            items,
-            page: pageNumber,
-            size: pageSize,
-            total: content.albums.length,
-            totalPages: Math.max(1, Math.ceil(content.albums.length / pageSize))
-          };
+          return makeLocalContentPage(content.albums, input, (album) => `${album.title} ${album.description}`);
         }
       },
       async loadVideosPage(input) {
@@ -654,10 +680,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           }));
           return page;
         } catch {
-          const pageNumber = input.page ?? 0;
-          const pageSize = input.size ?? 12;
-          const items = content.videoCollections
-            .slice(pageNumber * pageSize, pageNumber * pageSize + pageSize)
+          const page = makeLocalContentPage(
+            content.videoCollections,
+            input,
+            (collection) => `${collection.title} ${collection.description}`
+          );
+          const items = page.items
             .map((collection) => ({
               collection,
               video: content.videos.find((video) => video.collectionId === collection.id) ?? {
@@ -675,10 +703,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             }));
           return {
             items,
-            page: pageNumber,
-            size: pageSize,
-            total: content.videoCollections.length,
-            totalPages: Math.max(1, Math.ceil(content.videoCollections.length / pageSize))
+            page: page.page,
+            size: page.size,
+            total: page.total,
+            totalPages: page.totalPages
           };
         }
       },

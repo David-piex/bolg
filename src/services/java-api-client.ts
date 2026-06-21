@@ -173,7 +173,9 @@ export type JavaContentPage<T> = {
 
 export type ListContentPageInput = {
   page?: number;
+  q?: string;
   size?: number;
+  sort?: "latest" | "oldest" | "title";
 };
 
 export type LoginInput = {
@@ -471,6 +473,12 @@ function contentPagePath(path: string, input: ListContentPageInput): string {
   }
   if (input.size !== undefined) {
     params.set("size", String(input.size));
+  }
+  if (input.q?.trim()) {
+    params.set("q", input.q.trim());
+  }
+  if (input.sort) {
+    params.set("sort", input.sort);
   }
   const query = params.toString();
   return `${path}${query ? `?${query}` : ""}`;

@@ -77,12 +77,14 @@ public class ContentController {
   ContentPageResponse<PostResponse> listPosts(
     @RequestParam(defaultValue = "0") int page,
     @RequestParam(defaultValue = "12") int size,
+    @RequestParam(defaultValue = "") String q,
+    @RequestParam(defaultValue = "latest") String sort,
     HttpServletRequest request
   ) {
     UserEntity viewer = currentViewerOrVisitor(request);
-    var pageable = PageRequest.of(safePage(page), safeSize(size), Sort.by(Sort.Direction.DESC, "publishedAt"));
+    var pageable = PageRequest.of(safePage(page), safeSize(size), contentSort(sort));
     return ContentPageResponse.from(
-      postRepository.findByStatusAndVisibilityIn(ContentStatus.PUBLISHED, visibleLevelsFor(viewer), pageable)
+      postRepository.searchPublished(ContentStatus.PUBLISHED, visibleLevelsFor(viewer), normalizedQuery(q), pageable)
         .map(PostResponse::from)
     );
   }
@@ -103,12 +105,14 @@ public class ContentController {
   ContentPageResponse<AlbumResponse> listAlbums(
     @RequestParam(defaultValue = "0") int page,
     @RequestParam(defaultValue = "12") int size,
+    @RequestParam(defaultValue = "") String q,
+    @RequestParam(defaultValue = "latest") String sort,
     HttpServletRequest request
   ) {
     UserEntity viewer = currentViewerOrVisitor(request);
-    var pageable = PageRequest.of(safePage(page), safeSize(size), Sort.by(Sort.Direction.DESC, "publishedAt"));
+    var pageable = PageRequest.of(safePage(page), safeSize(size), contentSort(sort));
     return ContentPageResponse.from(
-      albumRepository.findByStatusAndVisibilityIn(ContentStatus.PUBLISHED, visibleLevelsFor(viewer), pageable)
+      albumRepository.searchPublished(ContentStatus.PUBLISHED, visibleLevelsFor(viewer), normalizedQuery(q), pageable)
         .map(AlbumResponse::from)
     );
   }
@@ -129,12 +133,14 @@ public class ContentController {
   ContentPageResponse<VideoResponse> listVideos(
     @RequestParam(defaultValue = "0") int page,
     @RequestParam(defaultValue = "12") int size,
+    @RequestParam(defaultValue = "") String q,
+    @RequestParam(defaultValue = "latest") String sort,
     HttpServletRequest request
   ) {
     UserEntity viewer = currentViewerOrVisitor(request);
-    var pageable = PageRequest.of(safePage(page), safeSize(size), Sort.by(Sort.Direction.DESC, "publishedAt"));
+    var pageable = PageRequest.of(safePage(page), safeSize(size), contentSort(sort));
     return ContentPageResponse.from(
-      videoRepository.findByStatusAndVisibilityIn(ContentStatus.PUBLISHED, visibleLevelsFor(viewer), pageable)
+      videoRepository.searchPublished(ContentStatus.PUBLISHED, visibleLevelsFor(viewer), normalizedQuery(q), pageable)
         .map(VideoResponse::from)
     );
   }
@@ -320,6 +326,18 @@ public class ContentController {
 
   private int safeSize(int size) {
     return Math.max(1, Math.min(size, 36));
+  }
+
+  private String normalizedQuery(String query) {
+    return query == null ? "" : query.trim();
+  }
+
+  private Sort contentSort(String sort) {
+    return switch (sort == null ? "latest" : sort.trim().toLowerCase()) {
+      case "oldest" -> Sort.by(Sort.Direction.ASC, "publishedAt").and(Sort.by(Sort.Direction.ASC, "id"));
+      case "title" -> Sort.by(Sort.Direction.ASC, "title").and(Sort.by(Sort.Direction.DESC, "publishedAt"));
+      default -> Sort.by(Sort.Direction.DESC, "publishedAt").and(Sort.by(Sort.Direction.ASC, "id"));
+    };
   }
 
   private ApiException contentNotFound() {

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ContentCard } from "@/components/ContentCard";
+import { ContentDiscoveryToolbar, type ContentSort } from "@/components/ContentDiscoveryToolbar";
 import { EmptyContentState } from "@/components/EmptyContentState";
 import { getVideoCollections } from "@/data/repository";
 import type { getDictionary } from "@/i18n/dictionaries";
@@ -31,15 +32,27 @@ export function VideosView({ dictionary, locale }: { dictionary: Dictionary; loc
   const visibleCollections = getVideoCollections(viewer, { videoCollections, videos });
   const [page, setPage] = useState(0);
   const [pagedCollections, setPagedCollections] = useState(visibleCollections.slice(0, pageSize));
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<ContentSort>("latest");
   const [total, setTotal] = useState(visibleCollections.length);
   const [totalPages, setTotalPages] = useState(Math.max(1, Math.ceil(visibleCollections.length / pageSize)));
   const [loading, setLoading] = useState(false);
+
+  function updateQuery(value: string) {
+    setQuery(value);
+    setPage(0);
+  }
+
+  function updateSort(value: ContentSort) {
+    setSort(value);
+    setPage(0);
+  }
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
 
-    void loadVideosPage({ page, size: pageSize })
+    void loadVideosPage({ page, q: query, size: pageSize, sort })
       .then((result) => {
         if (cancelled) return;
         setPagedCollections(
@@ -58,7 +71,7 @@ export function VideosView({ dictionary, locale }: { dictionary: Dictionary; loc
     return () => {
       cancelled = true;
     };
-  }, [loadVideosPage, page, viewer]);
+  }, [loadVideosPage, page, query, sort, viewer]);
 
   return (
     <div className="page">
@@ -67,6 +80,13 @@ export function VideosView({ dictionary, locale }: { dictionary: Dictionary; loc
         <h1>{dictionary.nav.videos}</h1>
         <p>{dictionary.content.videosDescription}</p>
       </section>
+      <ContentDiscoveryToolbar
+        dictionary={dictionary}
+        query={query}
+        setQuery={updateQuery}
+        setSort={updateSort}
+        sort={sort}
+      />
       <div className="media-grid">
         {pagedCollections.map((collection) => (
           <ContentCard

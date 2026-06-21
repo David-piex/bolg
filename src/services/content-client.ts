@@ -18,6 +18,7 @@ import {
   type JavaAlbum,
   type JavaContentPage,
   type JavaContentVisibility,
+  type ListContentPageInput,
   type JavaPost,
   type JavaVideo,
   updateAlbum,
@@ -114,6 +115,8 @@ export type RemoteContentPage<T> = {
   total: number;
   totalPages: number;
 };
+
+export type RemoteContentPageInput = ListContentPageInput;
 
 export type RemoteDetail =
   | { kind: "post"; post: PostRecord }
@@ -246,16 +249,16 @@ export function detailFromJavaVideo(video: JavaVideo): RemoteDetail {
   };
 }
 
-export async function fetchRemotePostsPage(input: { page?: number; size?: number } = {}): Promise<RemoteContentPage<PostRecord>> {
+export async function fetchRemotePostsPage(input: RemoteContentPageInput = {}): Promise<RemoteContentPage<PostRecord>> {
   return contentPageFromJava(await listPosts(input), postFromJava);
 }
 
-export async function fetchRemoteAlbumsPage(input: { page?: number; size?: number } = {}): Promise<RemoteContentPage<AlbumRecord>> {
+export async function fetchRemoteAlbumsPage(input: RemoteContentPageInput = {}): Promise<RemoteContentPage<AlbumRecord>> {
   return contentPageFromJava(await listAlbums(input), albumFromJava);
 }
 
 export async function fetchRemoteVideosPage(
-  input: { page?: number; size?: number } = {}
+  input: RemoteContentPageInput = {}
 ): Promise<RemoteContentPage<{ collection: VideoCollectionRecord; video: VideoRecord }>> {
   return contentPageFromJava(await listVideos(input), (video) => ({
     collection: videoCollectionFromJava(video),
