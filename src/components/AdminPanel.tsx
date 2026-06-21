@@ -217,6 +217,14 @@ function contentLibrarySummary(template: string, input: { shown: number; total: 
     .replace("{total}", String(input.total));
 }
 
+function contentBulkSummary(template: string, input: { count: number }) {
+  return template.replace("{count}", String(input.count));
+}
+
+function contentLibraryRowKey(row: Pick<ContentLibraryRow, "id" | "kind">) {
+  return `${row.kind}:${row.id}`;
+}
+
 export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
   const {
     users,
@@ -266,6 +274,9 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
   const [contentLibraryQuery, setContentLibraryQuery] = useState("");
   const [contentLibraryKindFilter, setContentLibraryKindFilter] = useState<ContentLibraryKindFilter>("ALL");
   const [contentLibraryLevelFilter, setContentLibraryLevelFilter] = useState<ContentLibraryLevelFilter>("ALL");
+  const [selectedContentKeys, setSelectedContentKeys] = useState<string[]>([]);
+  const [bulkContentVisibility, setBulkContentVisibility] = useState<MembershipLevel>("gold");
+  const [contentLibraryMessage, setContentLibraryMessage] = useState<string | null>(null);
   const [mediaQuery, setMediaQuery] = useState("");
   const [mediaTypeFilter, setMediaTypeFilter] = useState<JavaMediaType | "ALL">("ALL");
   const [mediaPage, setMediaPage] = useState({
@@ -342,6 +353,16 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
   const contentLibraryFilteredSummary = contentLibrarySummary(dictionary.admin.contentFilterSummary, {
     shown: filteredContentLibraryRows.length,
     total: contentLibraryRows.length
+  });
+  const visibleContentKeys = filteredContentLibraryRows.map(contentLibraryRowKey);
+  const selectedContentRows = contentLibraryRows.filter((row) =>
+    selectedContentKeys.includes(contentLibraryRowKey(row))
+  );
+  const selectedContentCount = selectedContentRows.length;
+  const allVisibleContentSelected =
+    visibleContentKeys.length > 0 && visibleContentKeys.every((key) => selectedContentKeys.includes(key));
+  const contentSelectionSummary = contentBulkSummary(dictionary.admin.selectedContent, {
+    count: selectedContentCount
   });
   const mediaTotal = photos.length + videos.length;
   const memberRows = adminUserPage.users;
@@ -745,6 +766,99 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
       setContentBody(collection.description);
       setContentVisibility(collection.defaultVisibility);
       setContentAsset(collection.coverImage);
+    }
+  }
+
+  function onToggleContentRow(row: ContentLibraryRow) {
+    const key = contentLibraryRowKey(row);
+    setSelectedContentKeys((current) =>
+      current.includes(key) ? current.filter((currentKey) => currentKey !== key) : [...current, key]
+    );
+  }
+
+  function onToggleVisibleContentRows() {
+    setSelectedContentKeys((current) => {
+      if (allVisibleContentSelected) {
+        return current.filter((key) => !visibleContentKeys.includes(key));
+      }
+
+      return Array.from(new Set([...current, ...visibleContentKeys]));
+    });
+  }
+
+  async function onBulkUpdateContentVisibility() {
+    if (selectedContentRows.length === 0) return;
+
+    setContentLibraryMessage(null);
+
+    try {
+      for (const row of selectedContentRows) {
+        if (row.kind === "post") {
+          const post = posts.find((candidate) => candidate.id === row.id);
+          if (!post) continue;
+
+          await updatePost({
+            id: post.id,
+            title: post.title,
+            body: post.body,
+            visibility: bulkContentVisibility,
+            coverImage: post.coverImage,
+            pinned: post.pinned
+          });
+          continue;
+        }
+
+        if (row.kind === "album") {
+          const album = albums.find((candidate) => candidate.id === row.id);
+          if (!album) continue;
+
+          await updateAlbum({
+            id: album.id,
+            title: album.title,
+            description: album.description,
+            defaultVisibility: bulkContentVisibility,
+            coverImage: album.coverImage
+          });
+          continue;
+        }
+
+        const collection = videoCollections.find((candidate) => candidate.id === row.id);
+        if (!collection) continue;
+
+        await updateVideoCollection({
+          id: collection.id,
+          title: collection.title,
+          description: collection.description,
+          defaultVisibility: bulkContentVisibility,
+          coverImage: collection.coverImage
+        });
+      }
+
+      setContentLibraryMessage(contentBulkSummary(dictionary.admin.bulkActionComplete, {
+        count: selectedContentRows.length
+      }));
+      setSelectedContentKeys([]);
+    } catch (error) {
+      setContentLibraryMessage(uploadErrorMessage(error, dictionary.admin.bulkActionFailed));
+    }
+  }
+
+  async function onBulkDeleteContent() {
+    if (selectedContentRows.length === 0) return;
+
+    setContentLibraryMessage(null);
+
+    try {
+      for (const row of selectedContentRows) {
+        await deleteContent({ id: row.id, kind: row.kind });
+      }
+
+      setContentLibraryMessage(contentBulkSummary(dictionary.admin.bulkDeleteComplete, {
+        count: selectedContentRows.length
+      }));
+      setSelectedContentKeys([]);
+    } catch (error) {
+      setContentLibraryMessage(uploadErrorMessage(error, dictionary.admin.bulkActionFailed));
     }
   }
 
@@ -1211,6 +1325,15 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           <span>{formatCount(videoCollections.length, dictionary.content.videoCollectionUnit)}</span>
         </div>
         <div className="content-library-toolbar">
+          <button
+            type="button"
+            className="select-visible-content"
+            onClick={onToggleVisibleContentRows}
+            disabled={filteredContentLibraryRows.length === 0}
+            aria-pressed={allVisibleContentSelected}
+          >
+            {allVisibleContentSelected ? dictionary.admin.clearVisibleContent : dictionary.admin.selectVisibleContent}
+          </button>
           <label>
             <span>{dictionary.admin.searchContent}</span>
             <span className="member-search-control">
@@ -1249,10 +1372,49 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           </label>
           <span className="content-library-filter-summary">{contentLibraryFilteredSummary}</span>
         </div>
+        {selectedContentCount > 0 ? (
+          <div className="content-bulk-toolbar" aria-live="polite">
+            <span className="content-bulk-count">{contentSelectionSummary}</span>
+            <label>
+              <span>{dictionary.admin.bulkVisibility}</span>
+              <select
+                value={bulkContentVisibility}
+                onChange={(event) => setBulkContentVisibility(event.target.value as MembershipLevel)}
+              >
+                <option value="public">{dictionary.membership.public}</option>
+                <option value="normal">{dictionary.membership.normal}</option>
+                <option value="gold">{dictionary.membership.gold}</option>
+                <option value="diamond">{dictionary.membership.diamond}</option>
+              </select>
+            </label>
+            <button type="button" onClick={() => void onBulkUpdateContentVisibility()}>
+              {dictionary.admin.applyBulkVisibility}
+            </button>
+            <button type="button" className="danger-button" onClick={() => void onBulkDeleteContent()}>
+              <Trash2 size={16} />
+              <span>{dictionary.admin.bulkDeleteContent}</span>
+            </button>
+            <button type="button" className="ghost-button" onClick={() => setSelectedContentKeys([])}>
+              {dictionary.admin.clearSelection}
+            </button>
+          </div>
+        ) : null}
+        {contentLibraryMessage ? <p className="admin-message">{contentLibraryMessage}</p> : null}
         <div className="admin-content-list">
           {filteredContentLibraryRows.map((row) => (
-            <div key={`${row.kind}-${row.id}`} className="admin-content-row">
-              <div>
+            <div
+              key={`${row.kind}-${row.id}`}
+              className={`admin-content-row${selectedContentKeys.includes(contentLibraryRowKey(row)) ? " admin-content-row-selected" : ""}`}
+            >
+              <label className="content-row-select">
+                <input
+                  type="checkbox"
+                  checked={selectedContentKeys.includes(contentLibraryRowKey(row))}
+                  onChange={() => onToggleContentRow(row)}
+                  aria-label={`${dictionary.admin.selectContent}: ${row.title}`}
+                />
+              </label>
+              <div className="admin-content-main">
                 <span className="admin-content-meta">{contentKindLabel(row.kind, dictionary)}</span>
                 <strong>{row.title}</strong>
                 <div className="admin-row-meta">
@@ -1271,7 +1433,15 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
                   <Pencil size={16} />
                   <span>{dictionary.common.edit}</span>
                 </button>
-                <button type="button" onClick={() => deleteContent({ id: row.id, kind: row.kind })}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedContentKeys((current) =>
+                      current.filter((key) => key !== contentLibraryRowKey(row))
+                    );
+                    void deleteContent({ id: row.id, kind: row.kind });
+                  }}
+                >
                   <Trash2 size={16} />
                   <span>{dictionary.common.delete}</span>
                 </button>

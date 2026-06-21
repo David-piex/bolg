@@ -178,6 +178,63 @@ describe("AdminPanel", () => {
     expect(screen.getByText("还没有内容")).toBeInTheDocument();
   });
 
+  it("updates selected content visibility from the content library", async () => {
+    window.localStorage.clear();
+    const dictionary = getDictionary("zh");
+
+    render(
+      <AppStateProvider>
+        <AdminLoginProbe />
+        <AdminPanel dictionary={dictionary} />
+      </AppStateProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("内容管理")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText("选择内容: 公开更新：六月片场手记"));
+    expect(screen.getByText("已选择 1 条内容")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("批量可见等级"), { target: { value: "diamond" } });
+    fireEvent.click(screen.getByRole("button", { name: "批量改等级" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("已更新 1 条内容。")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText("会员等级"), { target: { value: "diamond" } });
+
+    await waitFor(() => {
+      expect(screen.getByText("公开更新：六月片场手记")).toBeInTheDocument();
+    });
+  });
+
+  it("deletes selected content from the content library", async () => {
+    window.localStorage.clear();
+    const dictionary = getDictionary("zh");
+
+    render(
+      <AppStateProvider>
+        <AdminLoginProbe />
+        <AdminPanel dictionary={dictionary} />
+      </AppStateProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("内容管理")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText("选择内容: 公开更新：六月片场手记"));
+    fireEvent.click(screen.getByRole("button", { name: "批量删除" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("已删除 1 条内容。")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("公开更新：六月片场手记")).not.toBeInTheDocument();
+    expect(screen.getByText(/显示 7 \/ 7 条/)).toBeInTheDocument();
+  });
+
   it("falls back from broken question-mark profile names in admin surfaces", async () => {
     window.localStorage.clear();
     mockRemoteAdminLoginWithBrokenName();

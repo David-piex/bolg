@@ -186,6 +186,17 @@ type Dictionary = {
     contentLevelFilter: string;
     contentLevelAll: string;
     contentFilterSummary: string;
+    selectContent: string;
+    selectVisibleContent: string;
+    clearVisibleContent: string;
+    selectedContent: string;
+    bulkVisibility: string;
+    applyBulkVisibility: string;
+    bulkDeleteContent: string;
+    clearSelection: string;
+    bulkActionComplete: string;
+    bulkDeleteComplete: string;
+    bulkActionFailed: string;
     auditLogs: string;
     auditLogsHint: string;
     auditActor: string;
@@ -446,6 +457,17 @@ export const dictionaries: Record<Locale, Dictionary> = {
       contentLevelFilter: "会员等级",
       contentLevelAll: "全部等级",
       contentFilterSummary: "显示 {shown} / {total} 条",
+      selectContent: "选择内容",
+      selectVisibleContent: "全选当前列表",
+      clearVisibleContent: "取消当前列表",
+      selectedContent: "已选择 {count} 条内容",
+      bulkVisibility: "批量可见等级",
+      applyBulkVisibility: "批量改等级",
+      bulkDeleteContent: "批量删除",
+      clearSelection: "清空选择",
+      bulkActionComplete: "已更新 {count} 条内容。",
+      bulkDeleteComplete: "已删除 {count} 条内容。",
+      bulkActionFailed: "批量操作失败，请检查服务配置后重试。",
       auditLogs: "操作记录",
       auditLogsHint: "查看管理员对邀请码和成员账号的关键操作，方便追踪问题。",
       auditActor: "操作人",
@@ -707,6 +729,17 @@ export const dictionaries: Record<Locale, Dictionary> = {
       contentLevelFilter: "Member tier",
       contentLevelAll: "All tiers",
       contentFilterSummary: "Showing {shown} of {total}",
+      selectContent: "Select content",
+      selectVisibleContent: "Select visible",
+      clearVisibleContent: "Clear visible",
+      selectedContent: "{count} content items selected",
+      bulkVisibility: "Bulk visibility",
+      applyBulkVisibility: "Update tier",
+      bulkDeleteContent: "Delete selected",
+      clearSelection: "Clear selection",
+      bulkActionComplete: "Updated {count} content items.",
+      bulkDeleteComplete: "Deleted {count} content items.",
+      bulkActionFailed: "Bulk action failed. Check service configuration and try again.",
       auditLogs: "Audit log",
       auditLogsHint: "Review key admin actions on invite codes and member accounts.",
       auditActor: "Actor",
