@@ -1,6 +1,7 @@
 .env.local
 .env*.local
 deploy/env/*.env
+deploy/backups/
 
 node_modules/
 .next/
