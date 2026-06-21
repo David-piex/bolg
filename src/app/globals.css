@@ -449,7 +449,7 @@ main {
 
 .content-discovery-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(168px, 220px);
+  grid-template-columns: minmax(220px, 1fr) minmax(136px, 0.35fr) minmax(136px, 0.35fr) minmax(168px, 220px);
   gap: 12px;
   align-items: end;
   padding: 14px;
@@ -462,6 +462,7 @@ main {
 }
 
 .content-search-control,
+.content-filter-control,
 .content-sort-control {
   display: grid;
   min-width: 0;
@@ -472,6 +473,7 @@ main {
 }
 
 .content-search-control input,
+.content-filter-control select,
 .content-sort-control select {
   width: 100%;
   min-height: 44px;
@@ -498,6 +500,7 @@ main {
 }
 
 .content-search-control input:focus,
+.content-filter-control select:focus,
 .content-sort-control select:focus {
   border-color: rgba(215, 66, 125, 0.55);
   background: #fff;
@@ -2241,6 +2244,29 @@ main {
 .status-draft {
   background: rgba(255, 238, 248, 0.94);
   color: #b92f6a;
+}
+
+.taxonomy-badge,
+.taxonomy-tag {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.taxonomy-badge {
+  border: 1px solid rgba(105, 41, 72, 0.13);
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--ink);
+}
+
+.taxonomy-tag {
+  border: 1px solid rgba(215, 66, 125, 0.16);
+  background: rgba(255, 243, 249, 0.9);
+  color: var(--accent-strong);
 }
 
 .audit-section {

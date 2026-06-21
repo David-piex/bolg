@@ -40,12 +40,18 @@ public interface VideoRepository extends JpaRepository<VideoEntity, UUID> {
         :query = ''
         or lower(video.title) like lower(concat('%', :query, '%'))
         or lower(video.description) like lower(concat('%', :query, '%'))
+        or lower(coalesce(video.category, '')) like lower(concat('%', :query, '%'))
+        or lower(coalesce(video.tags, '')) like lower(concat('%', :query, '%'))
       )
+      and (:category = '' or lower(coalesce(video.category, '')) = lower(:category))
+      and (:tag = '' or lower(coalesce(video.tags, '')) like lower(concat('%', :tag, '%')))
     """)
   Page<VideoEntity> searchPublished(
     @Param("status") ContentStatus status,
     @Param("visibilities") Collection<ContentVisibility> visibilities,
     @Param("query") String query,
+    @Param("category") String category,
+    @Param("tag") String tag,
     Pageable pageable
   );
 

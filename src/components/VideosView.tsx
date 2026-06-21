@@ -12,6 +12,12 @@ import { useAppState } from "@/state/AppStateProvider";
 type Dictionary = ReturnType<typeof getDictionary>;
 const pageSize = 12;
 
+function uniqueSorted(values: string[]): string[] {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).sort((left, right) =>
+    left.localeCompare(right)
+  );
+}
+
 function formatCount(count: number, unit: string) {
   if (/[\u4e00-\u9fff]/.test(unit)) {
     return `${count}${unit}`;
@@ -33,6 +39,8 @@ export function VideosView({ dictionary, locale }: { dictionary: Dictionary; loc
   const [page, setPage] = useState(0);
   const [pagedCollections, setPagedCollections] = useState(visibleCollections.slice(0, pageSize));
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("");
+  const [tag, setTag] = useState("");
   const [sort, setSort] = useState<ContentSort>("latest");
   const [total, setTotal] = useState(visibleCollections.length);
   const [totalPages, setTotalPages] = useState(Math.max(1, Math.ceil(visibleCollections.length / pageSize)));
@@ -48,11 +56,24 @@ export function VideosView({ dictionary, locale }: { dictionary: Dictionary; loc
     setPage(0);
   }
 
+  function updateCategory(value: string) {
+    setCategory(value);
+    setPage(0);
+  }
+
+  function updateTag(value: string) {
+    setTag(value);
+    setPage(0);
+  }
+
+  const categoryOptions = uniqueSorted(visibleCollections.map((collection) => collection.category));
+  const tagOptions = uniqueSorted(visibleCollections.flatMap((collection) => collection.tags));
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
 
-    void loadVideosPage({ page, q: query, size: pageSize, sort })
+    void loadVideosPage({ category, page, q: query, size: pageSize, sort, tag })
       .then((result) => {
         if (cancelled) return;
         setPagedCollections(
@@ -71,7 +92,7 @@ export function VideosView({ dictionary, locale }: { dictionary: Dictionary; loc
     return () => {
       cancelled = true;
     };
-  }, [loadVideosPage, page, query, sort, viewer]);
+  }, [category, loadVideosPage, page, query, sort, tag, viewer]);
 
   return (
     <div className="page">
@@ -81,11 +102,17 @@ export function VideosView({ dictionary, locale }: { dictionary: Dictionary; loc
         <p>{dictionary.content.videosDescription}</p>
       </section>
       <ContentDiscoveryToolbar
+        category={category}
+        categoryOptions={categoryOptions}
         dictionary={dictionary}
         query={query}
+        setCategory={updateCategory}
         setQuery={updateQuery}
         setSort={updateSort}
+        setTag={updateTag}
         sort={sort}
+        tag={tag}
+        tagOptions={tagOptions}
       />
       <div className="media-grid">
         {pagedCollections.map((collection) => (

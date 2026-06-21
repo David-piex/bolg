@@ -111,6 +111,11 @@ type Dictionary = {
     videoStorage: string;
     contentType: string;
     contentStatus: string;
+    contentCategory: string;
+    contentCategoryPlaceholder: string;
+    contentTags: string;
+    contentTagsPlaceholder: string;
+    contentTagsHint: string;
     publishedContent: string;
     draftContent: string;
     saveDraft: string;
@@ -250,6 +255,10 @@ type Dictionary = {
     nextPage: string;
     searchLabel: string;
     searchPlaceholder: string;
+    categoryLabel: string;
+    categoryAll: string;
+    tagLabel: string;
+    tagAll: string;
     sortLabel: string;
     sortLatest: string;
     sortOldest: string;
@@ -388,6 +397,11 @@ export const dictionaries: Record<Locale, Dictionary> = {
       videoStorage: "视频存储",
       contentType: "内容类型",
       contentStatus: "内容状态",
+      contentCategory: "内容分类",
+      contentCategoryPlaceholder: "例如 studio / member / trailer",
+      contentTags: "内容标签",
+      contentTagsPlaceholder: "用英文逗号分隔，例如 preview, gold",
+      contentTagsHint: "标签会用于前台筛选和后台搜索。",
       publishedContent: "已发布",
       draftContent: "草稿",
       saveDraft: "保存草稿",
@@ -531,6 +545,10 @@ export const dictionaries: Record<Locale, Dictionary> = {
       nextPage: "下一页",
       searchLabel: "搜索内容",
       searchPlaceholder: "输入标题或描述",
+      categoryLabel: "分类",
+      categoryAll: "全部分类",
+      tagLabel: "标签",
+      tagAll: "全部标签",
       sortLabel: "排序",
       sortLatest: "最新发布",
       sortOldest: "最早发布",
@@ -666,6 +684,11 @@ export const dictionaries: Record<Locale, Dictionary> = {
       videoStorage: "Video storage",
       contentType: "Content type",
       contentStatus: "Content status",
+      contentCategory: "Category",
+      contentCategoryPlaceholder: "e.g. studio / member / trailer",
+      contentTags: "Tags",
+      contentTagsPlaceholder: "Comma separated, e.g. preview, gold",
+      contentTagsHint: "Tags power public filters and admin search.",
       publishedContent: "Published",
       draftContent: "Draft",
       saveDraft: "Save draft",
@@ -809,6 +832,10 @@ export const dictionaries: Record<Locale, Dictionary> = {
       nextPage: "Next",
       searchLabel: "Search content",
       searchPlaceholder: "Search title or description",
+      categoryLabel: "Category",
+      categoryAll: "All categories",
+      tagLabel: "Tag",
+      tagAll: "All tags",
       sortLabel: "Sort",
       sortLatest: "Newest",
       sortOldest: "Oldest",

@@ -50,12 +50,14 @@ type EditingContent = {
 
 type ContentLibraryRow = {
   body: string;
+  category: string;
   date: string;
   id: string;
   kind: ContentKind;
   level: MembershipLevel;
   pinned?: boolean;
   status: ContentRecordStatus;
+  tags: string[];
   title: string;
 };
 
@@ -231,6 +233,14 @@ function contentLibraryRowKey(row: Pick<ContentLibraryRow, "id" | "kind">) {
   return `${row.kind}:${row.id}`;
 }
 
+function parseTagInput(value: string): string[] {
+  return Array.from(new Set(value.split(",").map((tag) => tag.trim().toLowerCase()).filter(Boolean)));
+}
+
+function formatTags(tags: string[]) {
+  return tags.join(", ");
+}
+
 export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
   const {
     users,
@@ -262,6 +272,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
   const [contentKind, setContentKind] = useState<ContentKind>("post");
   const [contentTitle, setContentTitle] = useState("");
   const [contentBody, setContentBody] = useState("");
+  const [contentCategory, setContentCategory] = useState("");
+  const [contentTags, setContentTags] = useState("");
   const [contentVisibility, setContentVisibility] = useState<MembershipLevel>("gold");
   const [contentStatus, setContentStatus] = useState<ContentRecordStatus>("published");
   const [contentPinned, setContentPinned] = useState(false);
@@ -309,30 +321,36 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
   const contentLibraryRows: ContentLibraryRow[] = [
     ...posts.map((post) => ({
       body: post.body,
+      category: post.category,
       date: post.publishedAt,
       id: post.id,
       kind: "post" as const,
       level: post.visibility,
       pinned: post.pinned,
       status: post.status,
+      tags: post.tags,
       title: post.title
     })),
     ...albums.map((album) => ({
       body: album.description,
+      category: album.category,
       date: album.publishedAt,
       id: album.id,
       kind: "album" as const,
       level: album.defaultVisibility,
       status: album.status,
+      tags: album.tags,
       title: album.title
     })),
     ...videoCollections.map((collection) => ({
       body: collection.description,
+      category: collection.category,
       date: collection.publishedAt,
       id: collection.id,
       kind: "video" as const,
       level: collection.defaultVisibility,
       status: collection.status,
+      tags: collection.tags,
       title: collection.title
     }))
   ];
@@ -346,6 +364,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
       return [
         row.title,
         row.body,
+        row.category,
+        row.tags.join(" "),
         row.date,
         contentKindLabel(row.kind, dictionary),
         contentStatusLabel(row.status, dictionary),
@@ -737,6 +757,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
   function resetContentForm() {
     setContentTitle("");
     setContentBody("");
+    setContentCategory("");
+    setContentTags("");
     setContentAsset("");
     setUploadedImageMeta(null);
     setUploadedVideoCoverMeta(null);
@@ -766,6 +788,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
       if (post) {
         setContentTitle(post.title);
         setContentBody(post.body);
+        setContentCategory(post.category);
+        setContentTags(formatTags(post.tags));
         setContentVisibility(post.visibility);
         setContentAsset(post.coverImage);
         setContentPinned(post.pinned);
@@ -780,6 +804,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
       if (album) {
         setContentTitle(album.title);
         setContentBody(album.description);
+        setContentCategory(album.category);
+        setContentTags(formatTags(album.tags));
         setContentVisibility(album.defaultVisibility);
         setContentAsset(album.coverImage);
         setContentStatus(album.status);
@@ -792,6 +818,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
     if (collection) {
       setContentTitle(collection.title);
       setContentBody(collection.description);
+      setContentCategory(collection.category);
+      setContentTags(formatTags(collection.tags));
       setContentVisibility(collection.defaultVisibility);
       setContentAsset(collection.coverImage);
       setContentStatus(collection.status);
@@ -830,6 +858,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
             id: post.id,
             title: post.title,
             body: post.body,
+            category: post.category,
+            tags: post.tags,
             visibility: bulkContentVisibility,
             coverImage: post.coverImage,
             pinned: post.pinned,
@@ -846,6 +876,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
             id: album.id,
             title: album.title,
             description: album.description,
+            category: album.category,
+            tags: album.tags,
             defaultVisibility: bulkContentVisibility,
             coverImage: album.coverImage,
             status: album.status
@@ -860,6 +892,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           id: collection.id,
           title: collection.title,
           description: collection.description,
+          category: collection.category,
+          tags: collection.tags,
           defaultVisibility: bulkContentVisibility,
           coverImage: collection.coverImage,
           status: collection.status
@@ -908,6 +942,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           id: editingContent.id,
           title: contentTitle,
           body: contentBody,
+          category: contentCategory,
+          tags: parseTagInput(contentTags),
           visibility: contentVisibility,
           coverImage: contentAsset,
           mediaAssetId: uploadedImageMeta?.mediaAssetId,
@@ -919,6 +955,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           id: editingContent.id,
           title: contentTitle,
           description: contentBody,
+          category: contentCategory,
+          tags: parseTagInput(contentTags),
           defaultVisibility: contentVisibility,
           coverImage: contentAsset,
           coverMediaId: uploadedImageMeta?.mediaAssetId,
@@ -929,6 +967,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           id: editingContent.id,
           title: contentTitle,
           description: contentBody,
+          category: contentCategory,
+          tags: parseTagInput(contentTags),
           defaultVisibility: contentVisibility,
           coverImage: uploadedVideoCoverMeta?.publicUrl || contentAsset,
           coverMediaId: uploadedVideoCoverMeta?.mediaAssetId,
@@ -938,6 +978,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
         await publishPost({
           title: contentTitle,
           body: contentBody,
+          category: contentCategory,
+          tags: parseTagInput(contentTags),
           visibility: contentVisibility,
           coverImage: contentAsset,
           mediaAssetId: uploadedImageMeta?.mediaAssetId,
@@ -948,6 +990,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
         await createAlbumWithPhoto({
           title: contentTitle,
           description: contentBody,
+          category: contentCategory,
+          tags: parseTagInput(contentTags),
           visibility: contentVisibility,
           photoTitle: contentTitle,
           imageUrl: contentAsset,
@@ -958,6 +1002,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
         await createVideoCollectionWithVideo({
           title: contentTitle,
           description: contentBody,
+          category: contentCategory,
+          tags: parseTagInput(contentTags),
           visibility: contentVisibility,
           videoTitle: contentTitle,
           playbackUrl: contentAsset,
@@ -1099,6 +1145,23 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
                 onChange={(event) => setContentTitle(event.target.value)}
                 placeholder={titlePlaceholderFor(contentKind, dictionary)}
               />
+            </label>
+            <label>
+              <span>{dictionary.admin.contentCategory}</span>
+              <input
+                value={contentCategory}
+                onChange={(event) => setContentCategory(event.target.value)}
+                placeholder={dictionary.admin.contentCategoryPlaceholder}
+              />
+            </label>
+            <label>
+              <span>{dictionary.admin.contentTags}</span>
+              <input
+                value={contentTags}
+                onChange={(event) => setContentTags(event.target.value)}
+                placeholder={dictionary.admin.contentTagsPlaceholder}
+              />
+              <small className="form-hint">{dictionary.admin.contentTagsHint}</small>
             </label>
             <label className="full-row">
               <span>{bodyLabelFor(contentKind, dictionary)}</span>
@@ -1486,6 +1549,12 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
                     {contentStatusLabel(row.status, dictionary)}
                   </span>
                   <span className={`tier-badge tier-${row.level}`}>{dictionary.membership[row.level]}</span>
+                  {row.category ? <span className="taxonomy-badge">{row.category}</span> : null}
+                  {row.tags.map((tag) => (
+                    <span key={tag} className="taxonomy-tag">
+                      #{tag}
+                    </span>
+                  ))}
                   <span>{row.date || dictionary.admin.noDate}</span>
                 </div>
               </div>

@@ -206,6 +206,85 @@ class ContentControllerTest {
   }
 
   @Test
+  void contentListEndpointsSupportTaxonomyFilters() throws Exception {
+    Cookie adminCookie = login("admin", "admin123456");
+    MediaAssetEntity image = createMediaAsset("images/taxonomy-cover.jpg", com.rinana.media.media.MediaType.IMAGE);
+    MediaAssetEntity video = createMediaAsset("videos/taxonomy.mp4", com.rinana.media.media.MediaType.VIDEO);
+
+    mvc.perform(post("/api/content/posts")
+        .cookie(adminCookie)
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(json(Map.of(
+          "title", "studio post",
+          "content", "taxonomy body",
+          "category", "Studio",
+          "tags", java.util.List.of("Preview", "gold", "preview"),
+          "visibility", "PUBLIC"
+        ))))
+      .andExpect(status().isCreated())
+      .andExpect(jsonPath("$.category").value("Studio"))
+      .andExpect(jsonPath("$.tags", hasSize(2)))
+      .andExpect(jsonPath("$.tags[0]").value("preview"))
+      .andExpect(jsonPath("$.tags[1]").value("gold"));
+
+    mvc.perform(post("/api/content/albums")
+        .cookie(adminCookie)
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(json(Map.of(
+          "title", "portrait album",
+          "description", "taxonomy album",
+          "category", "Portrait",
+          "tags", java.util.List.of("gallery"),
+          "visibility", "PUBLIC",
+          "coverMediaId", image.getId().toString()
+        ))))
+      .andExpect(status().isCreated())
+      .andExpect(jsonPath("$.category").value("Portrait"))
+      .andExpect(jsonPath("$.tags[0]").value("gallery"));
+
+    mvc.perform(post("/api/content/videos")
+        .cookie(adminCookie)
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(json(Map.of(
+          "title", "trailer video",
+          "description", "taxonomy video",
+          "category", "Trailer",
+          "tags", java.util.List.of("preview"),
+          "visibility", "PUBLIC",
+          "mediaAssetId", video.getId().toString()
+        ))))
+      .andExpect(status().isCreated())
+      .andExpect(jsonPath("$.category").value("Trailer"))
+      .andExpect(jsonPath("$.tags[0]").value("preview"));
+
+    createPost(adminCookie, "daily post", "PUBLIC", "taxonomy body");
+
+    mvc.perform(get("/api/content/posts")
+        .queryParam("category", "studio"))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.items", hasSize(1)))
+      .andExpect(jsonPath("$.items[0].title").value("studio post"));
+
+    mvc.perform(get("/api/content/posts")
+        .queryParam("tag", "preview"))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.items", hasSize(1)))
+      .andExpect(jsonPath("$.items[0].title").value("studio post"));
+
+    mvc.perform(get("/api/content/albums")
+        .queryParam("tag", "gallery"))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.items", hasSize(1)))
+      .andExpect(jsonPath("$.items[0].title").value("portrait album"));
+
+    mvc.perform(get("/api/content/videos")
+        .queryParam("category", "trailer"))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.items", hasSize(1)))
+      .andExpect(jsonPath("$.items[0].title").value("trailer video"));
+  }
+
+  @Test
   void pinnedPostsAreReturnedBeforeRegularPosts() throws Exception {
     Cookie adminCookie = login("admin", "admin123456");
     String regularPostId = createPostAndReturnId(adminCookie, "regular update", "PUBLIC", "body");

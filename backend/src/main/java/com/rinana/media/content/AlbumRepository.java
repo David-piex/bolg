@@ -40,12 +40,18 @@ public interface AlbumRepository extends JpaRepository<AlbumEntity, UUID> {
         :query = ''
         or lower(album.title) like lower(concat('%', :query, '%'))
         or lower(album.description) like lower(concat('%', :query, '%'))
+        or lower(coalesce(album.category, '')) like lower(concat('%', :query, '%'))
+        or lower(coalesce(album.tags, '')) like lower(concat('%', :query, '%'))
       )
+      and (:category = '' or lower(coalesce(album.category, '')) = lower(:category))
+      and (:tag = '' or lower(coalesce(album.tags, '')) like lower(concat('%', :tag, '%')))
     """)
   Page<AlbumEntity> searchPublished(
     @Param("status") ContentStatus status,
     @Param("visibilities") Collection<ContentVisibility> visibilities,
     @Param("query") String query,
+    @Param("category") String category,
+    @Param("tag") String tag,
     Pageable pageable
   );
 

@@ -12,6 +12,12 @@ import { useAppState } from "@/state/AppStateProvider";
 type Dictionary = ReturnType<typeof getDictionary>;
 const pageSize = 12;
 
+function uniqueSorted(values: string[]): string[] {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).sort((left, right) =>
+    left.localeCompare(right)
+  );
+}
+
 function formatVisibilityLevels(dictionary: Dictionary) {
   return [
     dictionary.membership.public,
@@ -34,6 +40,8 @@ export function PostsView({ dictionary, locale }: { dictionary: Dictionary; loca
   const [page, setPage] = useState(0);
   const [pagedPosts, setPagedPosts] = useState(visiblePosts.slice(0, pageSize));
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("");
+  const [tag, setTag] = useState("");
   const [sort, setSort] = useState<ContentSort>("latest");
   const [total, setTotal] = useState(visiblePosts.length);
   const [totalPages, setTotalPages] = useState(Math.max(1, Math.ceil(visiblePosts.length / pageSize)));
@@ -49,11 +57,24 @@ export function PostsView({ dictionary, locale }: { dictionary: Dictionary; loca
     setPage(0);
   }
 
+  function updateCategory(value: string) {
+    setCategory(value);
+    setPage(0);
+  }
+
+  function updateTag(value: string) {
+    setTag(value);
+    setPage(0);
+  }
+
+  const categoryOptions = uniqueSorted(visiblePosts.map((post) => post.category));
+  const tagOptions = uniqueSorted(visiblePosts.flatMap((post) => post.tags));
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
 
-    void loadPostsPage({ page, q: query, size: pageSize, sort })
+    void loadPostsPage({ category, page, q: query, size: pageSize, sort, tag })
       .then((result) => {
         if (cancelled) return;
         setPagedPosts(getPosts(viewer, { posts: result.items }));
@@ -67,7 +88,7 @@ export function PostsView({ dictionary, locale }: { dictionary: Dictionary; loca
     return () => {
       cancelled = true;
     };
-  }, [loadPostsPage, page, query, sort, viewer]);
+  }, [category, loadPostsPage, page, query, sort, tag, viewer]);
 
   return (
     <div className="page">
@@ -81,11 +102,17 @@ export function PostsView({ dictionary, locale }: { dictionary: Dictionary; loca
         </p>
       </section>
       <ContentDiscoveryToolbar
+        category={category}
+        categoryOptions={categoryOptions}
         dictionary={dictionary}
         query={query}
+        setCategory={updateCategory}
         setQuery={updateQuery}
         setSort={updateSort}
+        setTag={updateTag}
         sort={sort}
+        tag={tag}
+        tagOptions={tagOptions}
       />
       <div className="feed-grid">
         {pagedPosts.map((post) => (

@@ -46,12 +46,18 @@ public interface PostRepository extends JpaRepository<PostEntity, UUID> {
         :query = ''
         or lower(post.title) like lower(concat('%', :query, '%'))
         or lower(post.content) like lower(concat('%', :query, '%'))
+        or lower(coalesce(post.category, '')) like lower(concat('%', :query, '%'))
+        or lower(coalesce(post.tags, '')) like lower(concat('%', :query, '%'))
       )
+      and (:category = '' or lower(coalesce(post.category, '')) = lower(:category))
+      and (:tag = '' or lower(coalesce(post.tags, '')) like lower(concat('%', :tag, '%')))
     """)
   Page<PostEntity> searchPublished(
     @Param("status") ContentStatus status,
     @Param("visibilities") Collection<ContentVisibility> visibilities,
     @Param("query") String query,
+    @Param("category") String category,
+    @Param("tag") String tag,
     Pageable pageable
   );
 

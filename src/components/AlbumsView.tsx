@@ -12,6 +12,12 @@ import { useAppState } from "@/state/AppStateProvider";
 type Dictionary = ReturnType<typeof getDictionary>;
 const pageSize = 12;
 
+function uniqueSorted(values: string[]): string[] {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).sort((left, right) =>
+    left.localeCompare(right)
+  );
+}
+
 function formatCount(count: number, unit: string) {
   if (/[\u4e00-\u9fff]/.test(unit)) {
     return `${count}${unit}`;
@@ -33,6 +39,8 @@ export function AlbumsView({ dictionary, locale }: { dictionary: Dictionary; loc
   const [page, setPage] = useState(0);
   const [pagedAlbums, setPagedAlbums] = useState(visibleAlbums.slice(0, pageSize));
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("");
+  const [tag, setTag] = useState("");
   const [sort, setSort] = useState<ContentSort>("latest");
   const [total, setTotal] = useState(visibleAlbums.length);
   const [totalPages, setTotalPages] = useState(Math.max(1, Math.ceil(visibleAlbums.length / pageSize)));
@@ -48,11 +56,24 @@ export function AlbumsView({ dictionary, locale }: { dictionary: Dictionary; loc
     setPage(0);
   }
 
+  function updateCategory(value: string) {
+    setCategory(value);
+    setPage(0);
+  }
+
+  function updateTag(value: string) {
+    setTag(value);
+    setPage(0);
+  }
+
+  const categoryOptions = uniqueSorted(visibleAlbums.map((album) => album.category));
+  const tagOptions = uniqueSorted(visibleAlbums.flatMap((album) => album.tags));
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
 
-    void loadAlbumsPage({ page, q: query, size: pageSize, sort })
+    void loadAlbumsPage({ category, page, q: query, size: pageSize, sort, tag })
       .then((result) => {
         if (cancelled) return;
         setPagedAlbums(getAlbums(viewer, { albums: result.items, photos }));
@@ -66,7 +87,7 @@ export function AlbumsView({ dictionary, locale }: { dictionary: Dictionary; loc
     return () => {
       cancelled = true;
     };
-  }, [loadAlbumsPage, page, photos, query, sort, viewer]);
+  }, [category, loadAlbumsPage, page, photos, query, sort, tag, viewer]);
 
   return (
     <div className="page">
@@ -76,11 +97,17 @@ export function AlbumsView({ dictionary, locale }: { dictionary: Dictionary; loc
         <p>{dictionary.content.albumsDescription}</p>
       </section>
       <ContentDiscoveryToolbar
+        category={category}
+        categoryOptions={categoryOptions}
         dictionary={dictionary}
         query={query}
+        setCategory={updateCategory}
         setQuery={updateQuery}
         setSort={updateSort}
+        setTag={updateTag}
         sort={sort}
+        tag={tag}
+        tagOptions={tagOptions}
       />
       <div className="media-grid">
         {pagedAlbums.map((album) => (

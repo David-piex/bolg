@@ -18,6 +18,8 @@ export type PostRecord = {
   title: string;
   excerpt: string;
   body: string;
+  category: string;
+  tags: string[];
   coverImage: string;
   pinned: boolean;
   status: ContentRecordStatus;
@@ -29,6 +31,8 @@ export type AlbumRecord = {
   id: string;
   title: string;
   description: string;
+  category: string;
+  tags: string[];
   coverImage: string;
   defaultVisibility: MembershipLevel;
   status: ContentRecordStatus;
@@ -48,6 +52,8 @@ export type VideoCollectionRecord = {
   id: string;
   title: string;
   description: string;
+  category: string;
+  tags: string[];
   coverImage: string;
   defaultVisibility: MembershipLevel;
   status: ContentRecordStatus;
@@ -116,6 +122,8 @@ export const posts: PostRecord[] = [
     title: "公开更新：六月片场手记",
     excerpt: "一组新的片段和照片已经整理完成，公开视频也会放在这里。",
     body: "这条动态所有访客可见，用来展示公开内容。",
+    category: "studio",
+    tags: ["shooting", "preview"],
     coverImage: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&q=80",
     pinned: true,
     status: "published",
@@ -128,6 +136,8 @@ export const posts: PostRecord[] = [
     title: "会员更新：幕后照片整理",
     excerpt: "普通会员可见的图文动态，用来承载日常内容。",
     body: "这条动态登录用户可见。",
+    category: "daily",
+    tags: ["behind-scenes", "member"],
     coverImage: "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&w=1200&q=80",
     pinned: false,
     status: "published",
@@ -140,6 +150,8 @@ export const posts: PostRecord[] = [
     title: "黄金内容：完整拍摄笔记",
     excerpt: "黄金和钻石用户可见的长动态。",
     body: "这条动态面向黄金以上用户。",
+    category: "studio",
+    tags: ["notes", "gold"],
     coverImage: "https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&w=1200&q=80",
     pinned: false,
     status: "published",
@@ -152,6 +164,8 @@ export const posts: PostRecord[] = [
     title: "钻石内容：未公开剪辑说明",
     excerpt: "钻石用户专属说明和片段索引。",
     body: "这条动态只有钻石用户可见。",
+    category: "exclusive",
+    tags: ["edit", "diamond"],
     coverImage: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=1200&q=80",
     pinned: false,
     status: "published",
@@ -165,6 +179,8 @@ export const albums: AlbumRecord[] = [
     id: "album-public",
     title: "公开相册",
     description: "访客也能浏览的精选照片。",
+    category: "portrait",
+    tags: ["public", "gallery"],
     coverImage: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80",
     defaultVisibility: "public",
     status: "published",
@@ -174,6 +190,8 @@ export const albums: AlbumRecord[] = [
     id: "album-members",
     title: "会员相册",
     description: "默认黄金可见，内部照片可单独提升到钻石。",
+    category: "member",
+    tags: ["gallery", "gold"],
     coverImage: "https://images.unsplash.com/photo-1499364615650-ec38552f4f34?auto=format&fit=crop&w=1200&q=80",
     defaultVisibility: "gold",
     status: "published",
@@ -213,6 +231,8 @@ export const videoCollections: VideoCollectionRecord[] = [
     id: "videos-public",
     title: "公开短片",
     description: "公开预告和试看内容。",
+    category: "trailer",
+    tags: ["public", "preview"],
     coverImage: "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=1200&q=80",
     defaultVisibility: "public",
     status: "published",
@@ -222,6 +242,8 @@ export const videoCollections: VideoCollectionRecord[] = [
     id: "videos-member",
     title: "会员视频合集",
     description: "默认黄金可见，单条视频可设为钻石。",
+    category: "member",
+    tags: ["video", "gold"],
     coverImage: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=1200&q=80",
     defaultVisibility: "gold",
     status: "published",

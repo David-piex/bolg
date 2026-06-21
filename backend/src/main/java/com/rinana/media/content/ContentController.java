@@ -91,13 +91,22 @@ public class ContentController {
     @RequestParam(defaultValue = "0") int page,
     @RequestParam(defaultValue = "12") int size,
     @RequestParam(defaultValue = "") String q,
+    @RequestParam(defaultValue = "") String category,
+    @RequestParam(defaultValue = "") String tag,
     @RequestParam(defaultValue = "latest") String sort,
     HttpServletRequest request
   ) {
     UserEntity viewer = currentViewerOrVisitor(request);
     var pageable = PageRequest.of(safePage(page), safeSize(size), postSort(sort));
     return ContentPageResponse.from(
-      postRepository.searchPublished(ContentStatus.PUBLISHED, visibleLevelsFor(viewer), normalizedQuery(q), pageable)
+      postRepository.searchPublished(
+          ContentStatus.PUBLISHED,
+          visibleLevelsFor(viewer),
+          normalizedQuery(q),
+          normalizedFilter(category),
+          ContentTaxonomy.tagFilterKey(tag),
+          pageable
+        )
         .map(PostResponse::from)
     );
   }
@@ -119,13 +128,22 @@ public class ContentController {
     @RequestParam(defaultValue = "0") int page,
     @RequestParam(defaultValue = "12") int size,
     @RequestParam(defaultValue = "") String q,
+    @RequestParam(defaultValue = "") String category,
+    @RequestParam(defaultValue = "") String tag,
     @RequestParam(defaultValue = "latest") String sort,
     HttpServletRequest request
   ) {
     UserEntity viewer = currentViewerOrVisitor(request);
     var pageable = PageRequest.of(safePage(page), safeSize(size), contentSort(sort));
     return ContentPageResponse.from(
-      albumRepository.searchPublished(ContentStatus.PUBLISHED, visibleLevelsFor(viewer), normalizedQuery(q), pageable)
+      albumRepository.searchPublished(
+          ContentStatus.PUBLISHED,
+          visibleLevelsFor(viewer),
+          normalizedQuery(q),
+          normalizedFilter(category),
+          ContentTaxonomy.tagFilterKey(tag),
+          pageable
+        )
         .map(AlbumResponse::from)
     );
   }
@@ -147,13 +165,22 @@ public class ContentController {
     @RequestParam(defaultValue = "0") int page,
     @RequestParam(defaultValue = "12") int size,
     @RequestParam(defaultValue = "") String q,
+    @RequestParam(defaultValue = "") String category,
+    @RequestParam(defaultValue = "") String tag,
     @RequestParam(defaultValue = "latest") String sort,
     HttpServletRequest request
   ) {
     UserEntity viewer = currentViewerOrVisitor(request);
     var pageable = PageRequest.of(safePage(page), safeSize(size), contentSort(sort));
     return ContentPageResponse.from(
-      videoRepository.searchPublished(ContentStatus.PUBLISHED, visibleLevelsFor(viewer), normalizedQuery(q), pageable)
+      videoRepository.searchPublished(
+          ContentStatus.PUBLISHED,
+          visibleLevelsFor(viewer),
+          normalizedQuery(q),
+          normalizedFilter(category),
+          ContentTaxonomy.tagFilterKey(tag),
+          pageable
+        )
         .map(VideoResponse::from)
     );
   }
@@ -177,6 +204,8 @@ public class ContentController {
     PostEntity post = new PostEntity();
     post.setTitle(request.title());
     post.setContent(request.content());
+    post.setCategory(ContentTaxonomy.normalizeCategory(request.category()));
+    post.setTags(ContentTaxonomy.serializeTags(request.tags()));
     post.setVisibility(request.visibility());
     post.setStatus(writeableStatus(request.status()));
     post.setPinned(Boolean.TRUE.equals(request.pinned()));
@@ -201,6 +230,8 @@ public class ContentController {
     AlbumEntity album = new AlbumEntity();
     album.setTitle(request.title());
     album.setDescription(request.description());
+    album.setCategory(ContentTaxonomy.normalizeCategory(request.category()));
+    album.setTags(ContentTaxonomy.serializeTags(request.tags()));
     album.setVisibility(request.visibility());
     album.setCoverMedia(request.coverMediaId() == null ? null : requireMedia(request.coverMediaId()));
     album.setStatus(writeableStatus(request.status()));
@@ -224,6 +255,8 @@ public class ContentController {
     VideoEntity video = new VideoEntity();
     video.setTitle(request.title());
     video.setDescription(request.description());
+    video.setCategory(ContentTaxonomy.normalizeCategory(request.category()));
+    video.setTags(ContentTaxonomy.serializeTags(request.tags()));
     video.setVisibility(request.visibility());
     video.setMediaAsset(requireMedia(request.mediaAssetId()));
     video.setCoverMedia(request.coverMediaId() == null ? null : requireMedia(request.coverMediaId()));
@@ -249,6 +282,8 @@ public class ContentController {
       .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CONTENT_NOT_FOUND", "Content not found"));
     post.setTitle(request.title());
     post.setContent(request.content());
+    post.setCategory(ContentTaxonomy.normalizeCategory(request.category()));
+    post.setTags(ContentTaxonomy.serializeTags(request.tags()));
     post.setVisibility(request.visibility());
     applyStatus(post, request.status());
     if (request.pinned() != null) {
@@ -271,6 +306,8 @@ public class ContentController {
       .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CONTENT_NOT_FOUND", "Content not found"));
     album.setTitle(request.title());
     album.setDescription(request.description());
+    album.setCategory(ContentTaxonomy.normalizeCategory(request.category()));
+    album.setTags(ContentTaxonomy.serializeTags(request.tags()));
     album.setVisibility(request.visibility());
     applyStatus(album, request.status());
     album.setCoverMedia(request.coverMediaId() == null ? null : requireMedia(request.coverMediaId()));
@@ -290,6 +327,8 @@ public class ContentController {
       .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CONTENT_NOT_FOUND", "Content not found"));
     video.setTitle(request.title());
     video.setDescription(request.description());
+    video.setCategory(ContentTaxonomy.normalizeCategory(request.category()));
+    video.setTags(ContentTaxonomy.serializeTags(request.tags()));
     video.setVisibility(request.visibility());
     applyStatus(video, request.status());
     if (request.mediaAssetId() != null) {
@@ -355,6 +394,10 @@ public class ContentController {
 
   private String normalizedQuery(String query) {
     return query == null ? "" : query.trim();
+  }
+
+  private String normalizedFilter(String value) {
+    return value == null ? "" : value.trim();
   }
 
   private Sort contentSort(String sort) {

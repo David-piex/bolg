@@ -590,12 +590,14 @@ describe("AppStateProvider", () => {
       posts: [
         {
           body: "Remote body",
+          category: "remote",
           coverImage: "https://images.example/remote.jpg",
           excerpt: "Remote",
           id: "remote-post",
           pinned: false,
           publishedAt: "2026-06-18",
           status: "published",
+          tags: ["sync"],
           title: "Remote post",
           type: "post",
           visibility: "public"
@@ -625,12 +627,14 @@ describe("AppStateProvider", () => {
       posts: [
         {
           body: "Remote body",
+          category: "remote",
           coverImage: "http://minio.local/signed-cover.jpg?X-Amz-Signature=secret",
           excerpt: "Remote",
           id: "remote-post",
           pinned: false,
           publishedAt: "2026-06-18",
           status: "published",
+          tags: ["sync"],
           title: "Remote post",
           type: "post",
           visibility: "public"
@@ -700,12 +704,14 @@ describe("AppStateProvider", () => {
     vi.mocked(publishRemoteContent).mockResolvedValue({
       post: {
         body: "Remote body",
+        category: "remote",
         coverImage: "https://images.example/remote.jpg",
         excerpt: "Remote body",
         id: "remote-post",
         pinned: true,
         publishedAt: "2026-06-18",
         status: "published",
+        tags: ["sync"],
         title: "Remote post",
         type: "post",
         visibility: "gold"
@@ -911,12 +917,14 @@ describe("AppStateProvider", () => {
       posts: [
         {
           body: "Original",
+          category: "remote",
           coverImage: "/api/media/media-from-view/view",
           excerpt: "Original",
           id: "post-public",
           pinned: false,
           publishedAt: "2026-06-18",
           status: "published",
+          tags: ["sync"],
           title: "Original",
           type: "post",
           visibility: "public"

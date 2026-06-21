@@ -31,6 +31,12 @@ public class VideoEntity {
   @Column(nullable = false)
   private String description;
 
+  @Column(length = 80)
+  private String category;
+
+  @Column
+  private String tags;
+
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 32)
   private ContentVisibility visibility;
@@ -78,6 +84,22 @@ public class VideoEntity {
 
   public void setDescription(String description) {
     this.description = description;
+  }
+
+  public String getCategory() {
+    return category;
+  }
+
+  public void setCategory(String category) {
+    this.category = category;
+  }
+
+  public String getTags() {
+    return tags;
+  }
+
+  public void setTags(String tags) {
+    this.tags = tags;
   }
 
   public ContentVisibility getVisibility() {

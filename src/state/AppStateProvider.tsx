@@ -111,6 +111,8 @@ type AppStateValue = {
   publishPost: (input: {
     title: string;
     body: string;
+    category?: string;
+    tags?: string[];
     visibility: MembershipLevel;
     status?: ContentRecordStatus;
     coverImage?: string;
@@ -120,6 +122,8 @@ type AppStateValue = {
   createAlbumWithPhoto: (input: {
     title: string;
     description: string;
+    category?: string;
+    tags?: string[];
     visibility: MembershipLevel;
     photoTitle: string;
     status?: ContentRecordStatus;
@@ -129,6 +133,8 @@ type AppStateValue = {
   createVideoCollectionWithVideo: (input: {
     title: string;
     description: string;
+    category?: string;
+    tags?: string[];
     visibility: MembershipLevel;
     videoTitle: string;
     status?: ContentRecordStatus;
@@ -141,6 +147,8 @@ type AppStateValue = {
     id: string;
     title: string;
     body: string;
+    category?: string;
+    tags?: string[];
     visibility: MembershipLevel;
     status?: ContentRecordStatus;
     coverImage?: string;
@@ -151,6 +159,8 @@ type AppStateValue = {
     id: string;
     title: string;
     description: string;
+    category?: string;
+    tags?: string[];
     defaultVisibility: MembershipLevel;
     status?: ContentRecordStatus;
     coverImage?: string;
@@ -160,6 +170,8 @@ type AppStateValue = {
     id: string;
     title: string;
     description: string;
+    category?: string;
+    tags?: string[];
     defaultVisibility: MembershipLevel;
     status?: ContentRecordStatus;
     coverImage?: string;
@@ -363,9 +375,12 @@ function makeLocalContentPage<T>(
 ): RemoteContentPage<T> {
   const pageSize = Math.max(1, input.size ?? 12);
   const query = input.q?.trim().toLowerCase() ?? "";
-  const filteredItems = query
-    ? items.filter((item) => searchableText(item).toLowerCase().includes(query))
-    : items;
+  const category = input.category?.trim().toLowerCase() ?? "";
+  const tag = input.tag?.trim().toLowerCase() ?? "";
+  const filteredItems = items
+    .filter((item) => !query || searchableText(item).toLowerCase().includes(query))
+    .filter((item) => !category || taxonomyFor(item).category.toLowerCase() === category)
+    .filter((item) => !tag || taxonomyFor(item).tags.some((itemTag) => itemTag.toLowerCase() === tag));
   const sortedItems = [...filteredItems].sort((left, right) => compareContentItems(left, right, input.sort));
   const total = sortedItems.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -402,6 +417,22 @@ function compareContentItems<T>(left: T, right: T, sort: RemoteContentPageInput[
 
   return (rightRecord.publishedAt ?? "").localeCompare(leftRecord.publishedAt ?? "")
     || (leftRecord.title ?? "").localeCompare(rightRecord.title ?? "");
+}
+
+function taxonomyFor(item: unknown): { category: string; tags: string[] } {
+  const record = item as { category?: string; tags?: string[] };
+  return {
+    category: record.category ?? "",
+    tags: Array.isArray(record.tags) ? record.tags : []
+  };
+}
+
+function normalizeCategory(value?: string): string {
+  return value?.trim() ?? "";
+}
+
+function normalizeTags(value?: string[]): string[] {
+  return Array.from(new Set((value ?? []).map((tag) => tag.trim().toLowerCase()).filter(Boolean)));
 }
 
 function makeLocalAdminUserPage(users: UserProfile[], page = 0, size = defaultAdminUserPageSize): AdminUserPage {
@@ -692,7 +723,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           return makeLocalContentPage(
             content.posts.filter(isPublishedContent),
             input,
-            (post) => `${post.title} ${post.excerpt} ${post.body}`
+            (post) => `${post.title} ${post.excerpt} ${post.body} ${post.category} ${post.tags.join(" ")}`
           );
         }
       },
@@ -708,7 +739,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           return makeLocalContentPage(
             content.albums.filter(isPublishedContent),
             input,
-            (album) => `${album.title} ${album.description}`
+            (album) => `${album.title} ${album.description} ${album.category} ${album.tags.join(" ")}`
           );
         }
       },
@@ -725,7 +756,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           const page = makeLocalContentPage(
             content.videoCollections.filter(isPublishedContent),
             input,
-            (collection) => `${collection.title} ${collection.description}`
+            (collection) => `${collection.title} ${collection.description} ${collection.category} ${collection.tags.join(" ")}`
           );
           const items = page.items
             .map((collection) => ({
@@ -870,11 +901,13 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           title: input.title.trim() || "未命名动态",
           excerpt: input.body.trim().slice(0, 120) || input.title.trim() || "动态正文",
           body: input.body,
+          category: normalizeCategory(input.category),
           coverImage:
             input.coverImage ||
             "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&q=80",
           pinned: Boolean(input.pinned),
           status: nextStatus,
+          tags: normalizeTags(input.tags),
           visibility: input.visibility,
           publishedAt: publishedDateFor(nextStatus)
         };
@@ -882,11 +915,13 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         if (state.authSession?.accessToken) {
           const result = await publishRemoteContent(state.authSession.accessToken, {
             body: post.body,
+            category: post.category,
             coverImage: post.coverImage,
             kind: "post",
             mediaAssetId: input.mediaAssetId || mediaIdFromAccessUrl(post.coverImage),
             pinned: post.pinned,
             status: post.status,
+            tags: post.tags,
             title: post.title,
             visibility: post.visibility
           });
@@ -909,11 +944,13 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           id: albumId,
           title: input.title.trim() || "未命名相册",
           description: input.description.trim() || "相册描述",
+          category: normalizeCategory(input.category),
           coverImage:
             input.imageUrl ||
             "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80",
           defaultVisibility: input.visibility,
           status: nextStatus,
+          tags: normalizeTags(input.tags),
           publishedAt: publishedDateFor(nextStatus)
         };
         const photo: PhotoRecord = {
@@ -927,12 +964,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
         if (state.authSession?.accessToken) {
           const result = await publishRemoteContent(state.authSession.accessToken, {
+            category: album.category,
             description: album.description,
             imageUrl: photo.imageUrl,
             kind: "album",
             mediaAssetId: input.mediaAssetId,
             photoTitle: photo.title,
             status: album.status,
+            tags: album.tags,
             title: album.title,
             visibility: album.defaultVisibility
           });
@@ -966,9 +1005,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           id: collectionId,
           title: input.title.trim() || "未命名视频",
           description: input.description.trim() || "视频简介",
+          category: normalizeCategory(input.category),
           coverImage: thumbnailUrl,
           defaultVisibility: input.visibility,
           status: nextStatus,
+          tags: normalizeTags(input.tags),
           publishedAt: publishedDateFor(nextStatus)
         };
         const video: VideoRecord = {
@@ -987,12 +1028,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         if (state.authSession?.accessToken) {
           const result = await publishRemoteContent(state.authSession.accessToken, {
             mediaAssetId: video.mediaAssetId,
+            category: collection.category,
             description: collection.description,
             kind: "video",
             playbackUrl: video.playbackUrl,
             coverMediaId: input.coverMediaId,
             thumbnailUrl: video.thumbnailUrl,
             status: collection.status,
+            tags: collection.tags,
             title: collection.title,
             videoTitle: video.title,
             visibility: collection.defaultVisibility
@@ -1024,12 +1067,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         const nextStatus = contentStatus(input.status ?? existingPost?.status);
         const updatedPost = {
           body: input.body,
+          category: normalizeCategory(input.category ?? existingPost?.category),
           coverImage: input.coverImage || "",
           excerpt: shortExcerpt(input.body, input.title),
           id: input.id,
           ...(input.pinned !== undefined ? { pinned: input.pinned } : {}),
           publishedAt: publishedDateFor(nextStatus, existingPost?.publishedAt),
           status: nextStatus,
+          tags: normalizeTags(input.tags ?? existingPost?.tags),
           title: input.title.trim() || "未命名动态",
           visibility: input.visibility
         };
@@ -1042,12 +1087,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         if (state.authSession?.accessToken) {
           await updateRemoteContent(state.authSession.accessToken, {
             body: updatedPost.body,
+            category: updatedPost.category,
             coverImage: updatedPost.coverImage,
             id: updatedPost.id,
             kind: "post",
             mediaAssetId: input.mediaAssetId || mediaIdFromAccessUrl(updatedPost.coverImage),
             pinned: input.pinned,
             status: updatedPost.status,
+            tags: updatedPost.tags,
             title: updatedPost.title,
             visibility: updatedPost.visibility
           });
@@ -1061,12 +1108,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         const existingAlbum = content.albums.find((album) => album.id === input.id);
         const nextStatus = contentStatus(input.status ?? existingAlbum?.status);
         const updatedAlbum = {
+          category: normalizeCategory(input.category ?? existingAlbum?.category),
           coverImage: input.coverImage || "",
           defaultVisibility: input.defaultVisibility,
           description: input.description,
           id: input.id,
           publishedAt: publishedDateFor(nextStatus, existingAlbum?.publishedAt),
           status: nextStatus,
+          tags: normalizeTags(input.tags ?? existingAlbum?.tags),
           title: input.title.trim() || "未命名相册"
         };
 
@@ -1077,6 +1126,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
         if (state.authSession?.accessToken) {
           await updateRemoteContent(state.authSession.accessToken, {
+            category: updatedAlbum.category,
             coverImage: updatedAlbum.coverImage,
             coverMediaId: input.coverMediaId || mediaIdFromAccessUrl(updatedAlbum.coverImage),
             defaultVisibility: updatedAlbum.defaultVisibility,
@@ -1084,6 +1134,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             id: updatedAlbum.id,
             kind: "album",
             status: updatedAlbum.status,
+            tags: updatedAlbum.tags,
             title: updatedAlbum.title
           });
           setRemoteContent((current) => ({
@@ -1098,12 +1149,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         const existingCollection = content.videoCollections.find((collection) => collection.id === input.id);
         const nextStatus = contentStatus(input.status ?? existingCollection?.status);
         const updatedCollection = {
+          category: normalizeCategory(input.category ?? existingCollection?.category),
           coverImage: input.coverImage || "",
           defaultVisibility: input.defaultVisibility,
           description: input.description,
           id: input.id,
           publishedAt: publishedDateFor(nextStatus, existingCollection?.publishedAt),
           status: nextStatus,
+          tags: normalizeTags(input.tags ?? existingCollection?.tags),
           title: input.title.trim() || "未命名视频"
         };
 
@@ -1116,6 +1169,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
         if (state.authSession?.accessToken) {
           await updateRemoteContent(state.authSession.accessToken, {
+            category: updatedCollection.category,
             coverImage: updatedCollection.coverImage,
             coverMediaId: input.coverMediaId || mediaIdFromAccessUrl(updatedCollection.coverImage),
             defaultVisibility: updatedCollection.defaultVisibility,
@@ -1123,6 +1177,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             id: updatedCollection.id,
             kind: "video",
             status: updatedCollection.status,
+            tags: updatedCollection.tags,
             title: updatedCollection.title
           });
           setRemoteContent((current) => ({

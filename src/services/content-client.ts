@@ -50,25 +50,30 @@ function errorMessageFromBody(body: unknown): string | undefined {
 export type RemotePublishInput =
   | {
       body: string;
+      category?: string;
       coverImage?: string;
       kind: "post";
       mediaAssetId?: string;
       pinned?: boolean;
       status?: ContentRecordStatus;
+      tags?: string[];
       title: string;
       visibility: MembershipLevel;
     }
   | {
+      category?: string;
       description: string;
       imageUrl?: string;
       kind: "album";
       mediaAssetId?: string;
       photoTitle: string;
       status?: ContentRecordStatus;
+      tags?: string[];
       title: string;
       visibility: MembershipLevel;
     }
   | {
+      category?: string;
       coverMediaId?: string;
       description: string;
       kind: "video";
@@ -77,6 +82,7 @@ export type RemotePublishInput =
       thumbnailUrl?: string;
       title: string;
       status?: ContentRecordStatus;
+      tags?: string[];
       videoTitle: string;
       visibility: MembershipLevel;
     };
@@ -84,16 +90,19 @@ export type RemotePublishInput =
 export type RemoteUpdateInput =
   | {
       body: string;
+      category?: string;
       coverImage?: string;
       id: string;
       kind: "post";
       mediaAssetId?: string;
       pinned?: boolean;
       status?: ContentRecordStatus;
+      tags?: string[];
       title: string;
       visibility: MembershipLevel;
     }
   | {
+      category?: string;
       coverImage?: string;
       coverMediaId?: string;
       defaultVisibility: MembershipLevel;
@@ -101,9 +110,11 @@ export type RemoteUpdateInput =
       id: string;
       kind: "album";
       status?: ContentRecordStatus;
+      tags?: string[];
       title: string;
     }
   | {
+      category?: string;
       coverImage?: string;
       coverMediaId?: string;
       defaultVisibility: MembershipLevel;
@@ -111,6 +122,7 @@ export type RemoteUpdateInput =
       id: string;
       kind: "video";
       status?: ContentRecordStatus;
+      tags?: string[];
       title: string;
     };
 
@@ -169,6 +181,10 @@ function dateOnly(value: string | null | undefined): string {
   return value ? value.slice(0, 10) : "";
 }
 
+function taxonomyTags(tags: string[] | null | undefined): string[] {
+  return Array.isArray(tags) ? tags.filter((tag) => tag.trim()).map((tag) => tag.trim()) : [];
+}
+
 function mediaViewUrl(mediaId: string | null | undefined): string {
   return mediaId ? `/api/media/${encodeURIComponent(mediaId)}/view` : "";
 }
@@ -181,12 +197,14 @@ function postFromJava(post: JavaPost): PostRecord {
   const firstMediaId = post.mediaAssetIds?.[0];
   return {
     body: post.content,
+    category: post.category ?? "",
     coverImage: mediaViewUrl(firstMediaId),
     excerpt: post.content.slice(0, 120),
     id: post.id,
     pinned: Boolean(post.pinned),
     publishedAt: dateOnly(post.publishedAt),
     status: fromJavaStatus(post.status),
+    tags: taxonomyTags(post.tags),
     title: post.title,
     type: "post",
     visibility: fromJavaVisibility(post.visibility)
@@ -195,24 +213,28 @@ function postFromJava(post: JavaPost): PostRecord {
 
 function albumFromJava(album: JavaAlbum): AlbumRecord {
   return {
+    category: album.category ?? "",
     coverImage: mediaViewUrl(album.coverMediaId),
     defaultVisibility: fromJavaVisibility(album.visibility),
     description: album.description,
     id: album.id,
     publishedAt: dateOnly(album.publishedAt),
     status: fromJavaStatus(album.status),
+    tags: taxonomyTags(album.tags),
     title: album.title
   };
 }
 
 function videoCollectionFromJava(video: JavaVideo): VideoCollectionRecord {
   return {
+    category: video.category ?? "",
     coverImage: mediaViewUrl(video.coverMediaId),
     defaultVisibility: fromJavaVisibility(video.visibility),
     description: video.description,
     id: `collection-${video.id}`,
     publishedAt: dateOnly(video.publishedAt),
     status: fromJavaStatus(video.status),
+    tags: taxonomyTags(video.tags),
     title: video.title
   };
 }
@@ -312,10 +334,12 @@ export async function publishRemoteContent(
 ): Promise<RemotePublishResult> {
   if (input.kind === "post") {
     const post = await createPost({
+      category: input.category,
       content: input.body,
       mediaAssetIds: input.mediaAssetId ? [input.mediaAssetId] : undefined,
       pinned: Boolean(input.pinned),
       status: toJavaStatus(input.status),
+      tags: input.tags,
       title: input.title,
       visibility: toJavaVisibility(input.visibility)
     });
@@ -324,9 +348,11 @@ export async function publishRemoteContent(
 
   if (input.kind === "album") {
     const album = await createAlbum({
+      category: input.category,
       coverMediaId: input.mediaAssetId,
       description: input.description,
       status: toJavaStatus(input.status),
+      tags: input.tags,
       title: input.title,
       visibility: toJavaVisibility(input.visibility)
     });
@@ -344,10 +370,12 @@ export async function publishRemoteContent(
   }
 
   const video = await createVideo({
+    category: input.category,
     coverMediaId: input.coverMediaId,
     description: input.description,
     mediaAssetId: input.mediaAssetId || input.playbackUrl || "",
     status: toJavaStatus(input.status),
+    tags: input.tags,
     title: input.videoTitle || input.title,
     visibility: toJavaVisibility(input.visibility)
   });
@@ -360,11 +388,13 @@ export async function publishRemoteContent(
 export async function updateRemoteContent(accessToken: string, input: RemoteUpdateInput): Promise<void> {
   if (input.kind === "post") {
     await updatePost({
+      category: input.category,
       content: input.body,
       id: input.id,
       mediaAssetIds: input.mediaAssetId ? [input.mediaAssetId] : undefined,
       pinned: input.pinned,
       status: toJavaStatus(input.status),
+      tags: input.tags,
       title: input.title,
       visibility: toJavaVisibility(input.visibility)
     });
@@ -373,10 +403,12 @@ export async function updateRemoteContent(accessToken: string, input: RemoteUpda
 
   if (input.kind === "album") {
     await updateAlbum({
+      category: input.category,
       coverMediaId: input.coverMediaId,
       description: input.description,
       id: input.id,
       status: toJavaStatus(input.status),
+      tags: input.tags,
       title: input.title,
       visibility: toJavaVisibility(input.defaultVisibility)
     });
@@ -384,10 +416,12 @@ export async function updateRemoteContent(accessToken: string, input: RemoteUpda
   }
 
   await updateVideo({
+    category: input.category,
     coverMediaId: input.coverMediaId,
     description: input.description,
     id: javaVideoIdFromCollectionId(input.id),
     status: toJavaStatus(input.status),
+    tags: input.tags,
     title: input.title,
     visibility: toJavaVisibility(input.defaultVisibility)
   });

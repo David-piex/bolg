@@ -131,33 +131,39 @@ export type JavaCompleteDirectUploadRequest = JavaDirectUploadRequest & {
 };
 
 export type JavaPost = {
+  category: string | null;
   content: string;
   id: string;
   mediaAssetIds: string[];
   pinned: boolean;
   publishedAt: string | null;
   status: JavaContentStatus;
+  tags: string[];
   title: string;
   visibility: JavaContentVisibility;
 };
 
 export type JavaAlbum = {
+  category: string | null;
   coverMediaId: string | null;
   description: string;
   id: string;
   publishedAt: string | null;
   status: JavaContentStatus;
+  tags: string[];
   title: string;
   visibility: JavaContentVisibility;
 };
 
 export type JavaVideo = {
+  category: string | null;
   coverMediaId: string | null;
   description: string;
   id: string;
   mediaAssetId: string;
   publishedAt: string | null;
   status: JavaContentStatus;
+  tags: string[];
   title: string;
   visibility: JavaContentVisibility;
 };
@@ -177,10 +183,12 @@ export type JavaContentPage<T> = {
 };
 
 export type ListContentPageInput = {
+  category?: string;
   page?: number;
   q?: string;
   size?: number;
   sort?: "latest" | "oldest" | "title";
+  tag?: string;
 };
 
 export type LoginInput = {
@@ -208,27 +216,33 @@ export type UpdateUserInput = {
 };
 
 export type CreatePostInput = {
+  category?: string;
   content: string;
   mediaAssetIds?: string[];
   pinned?: boolean;
   status?: JavaContentStatus;
+  tags?: string[];
   title: string;
   visibility: JavaContentVisibility;
 };
 
 export type CreateAlbumInput = {
+  category?: string;
   coverMediaId?: string;
   description: string;
   status?: JavaContentStatus;
+  tags?: string[];
   title: string;
   visibility: JavaContentVisibility;
 };
 
 export type CreateVideoInput = {
+  category?: string;
   coverMediaId?: string;
   description: string;
   mediaAssetId: string;
   status?: JavaContentStatus;
+  tags?: string[];
   title: string;
   visibility: JavaContentVisibility;
 };
@@ -242,11 +256,13 @@ export type UpdateAlbumInput = CreateAlbumInput & {
 };
 
 export type UpdateVideoInput = {
+  category?: string;
   coverMediaId?: string;
   description: string;
   id: string;
   mediaAssetId?: string;
   status?: JavaContentStatus;
+  tags?: string[];
   title: string;
   visibility: JavaContentVisibility;
 };
@@ -377,10 +393,12 @@ export async function createVideo(input: CreateVideoInput): Promise<JavaVideo> {
 export async function updatePost(input: UpdatePostInput): Promise<JavaPost> {
   return request<JavaPost>(`/api/content/posts/${encodeURIComponent(input.id)}`, {
     body: JSON.stringify({
+      category: input.category,
       content: input.content,
       mediaAssetIds: input.mediaAssetIds,
       pinned: input.pinned,
       status: input.status,
+      tags: input.tags,
       title: input.title,
       visibility: input.visibility
     }),
@@ -391,9 +409,11 @@ export async function updatePost(input: UpdatePostInput): Promise<JavaPost> {
 export async function updateAlbum(input: UpdateAlbumInput): Promise<JavaAlbum> {
   return request<JavaAlbum>(`/api/content/albums/${encodeURIComponent(input.id)}`, {
     body: JSON.stringify({
+      category: input.category,
       coverMediaId: input.coverMediaId,
       description: input.description,
       status: input.status,
+      tags: input.tags,
       title: input.title,
       visibility: input.visibility
     }),
@@ -404,10 +424,12 @@ export async function updateAlbum(input: UpdateAlbumInput): Promise<JavaAlbum> {
 export async function updateVideo(input: UpdateVideoInput): Promise<JavaVideo> {
   return request<JavaVideo>(`/api/content/videos/${encodeURIComponent(input.id)}`, {
     body: JSON.stringify({
+      category: input.category,
       coverMediaId: input.coverMediaId,
       description: input.description,
       mediaAssetId: input.mediaAssetId,
       status: input.status,
+      tags: input.tags,
       title: input.title,
       visibility: input.visibility
     }),
@@ -490,6 +512,12 @@ function contentPagePath(path: string, input: ListContentPageInput): string {
   }
   if (input.q?.trim()) {
     params.set("q", input.q.trim());
+  }
+  if (input.category?.trim()) {
+    params.set("category", input.category.trim());
+  }
+  if (input.tag?.trim()) {
+    params.set("tag", input.tag.trim());
   }
   if (input.sort) {
     params.set("sort", input.sort);

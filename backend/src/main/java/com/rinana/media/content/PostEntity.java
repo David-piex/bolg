@@ -34,6 +34,12 @@ public class PostEntity {
   @Column(nullable = false)
   private String content;
 
+  @Column(length = 80)
+  private String category;
+
+  @Column
+  private String tags;
+
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 32)
   private ContentVisibility visibility;
@@ -84,6 +90,22 @@ public class PostEntity {
 
   public void setContent(String content) {
     this.content = content;
+  }
+
+  public String getCategory() {
+    return category;
+  }
+
+  public void setCategory(String category) {
+    this.category = category;
+  }
+
+  public String getTags() {
+    return tags;
+  }
+
+  public void setTags(String tags) {
+    this.tags = tags;
   }
 
   public ContentVisibility getVisibility() {
