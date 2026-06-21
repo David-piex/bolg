@@ -40,7 +40,16 @@ docker run --rm \
   -e MINIO_BUCKET="$MINIO_BUCKET" \
   "$MC_IMAGE" sh -c \
   'mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null &&
-   mc mirror --overwrite "local/$MINIO_BUCKET" "/backup/$MINIO_BUCKET"'
+   mc mirror --overwrite "local/$MINIO_BUCKET" "/backup/$MINIO_BUCKET"' >&2
 
-find "$OUT_DIR" -type f | sort > "$OUT_DIR/manifest.txt"
+find "$OUT_DIR/$MINIO_BUCKET" -type f | sort > "$OUT_DIR/manifest.txt"
+OBJECT_COUNT=$(find "$OUT_DIR/$MINIO_BUCKET" -type f 2>/dev/null | wc -l | tr -d ' ')
+
+{
+  echo "stamp=$BACKUP_STAMP"
+  echo "bucket=$MINIO_BUCKET"
+  echo "object_count=$OBJECT_COUNT"
+  echo "created_at_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+} > "$OUT_DIR/summary.txt"
+
 echo "$OUT_DIR"

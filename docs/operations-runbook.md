@@ -31,6 +31,7 @@ Default output:
 
 - PostgreSQL: `deploy/backups/postgres/rinana-postgres-<timestamp>.dump`
 - MinIO: `deploy/backups/minio/rinana-minio-<timestamp>/rinana-media/`
+- Run manifest: `deploy/backups/manifests/rinana-backup-<timestamp>.txt`
 
 Use a different destination for mounted backup storage:
 
@@ -38,10 +39,21 @@ Use a different destination for mounted backup storage:
 BACKUP_ROOT=/mnt/backups/rinana bash deploy/scripts/backup-all.sh
 ```
 
+Operational knobs:
+
+- `BACKUP_RETENTION_DAYS=14`: prune older PostgreSQL dumps, MinIO mirrors,
+  and run manifests after this many days.
+- `BACKUP_PRUNE=0`: disable automatic pruning for a one-off run.
+- `BACKUP_STAMP=YYYYMMDDTHHMMSSZ`: force a timestamp when testing.
+
+`backup-all.sh` uses `flock` when available so cron does not run overlapping
+backups. PostgreSQL dumps include a `.sha256` sidecar when checksum tools are
+available. MinIO backups include `summary.txt` and `manifest.txt`.
+
 Suggested cron:
 
 ```cron
-15 3 * * * cd /opt/rinana && BACKUP_ROOT=/mnt/backups/rinana bash deploy/scripts/backup-all.sh >> /var/log/rinana-backup.log 2>&1
+15 3 * * * cd /opt/rinana && BACKUP_ROOT=/mnt/backups/rinana BACKUP_RETENTION_DAYS=14 bash deploy/scripts/backup-all.sh >> /var/log/rinana-backup.log 2>&1
 ```
 
 Keep at least 7 daily backups and at least 4 weekly backups. Periodically copy
@@ -65,6 +77,8 @@ bash deploy/scripts/restore-minio.sh /mnt/backups/rinana/minio/rinana-minio-2026
 
 Restore into a staging server first when possible. PostgreSQL restore uses
 `--clean --if-exists`, so it can replace existing tables in the target database.
+If a PostgreSQL `.sha256` sidecar exists, the restore script verifies it before
+running `pg_restore`.
 
 ## Docker logs
 
@@ -100,21 +114,14 @@ request for MP4 playback diagnostics.
 
 ## Cloudflare cache rules
 
-Use conservative rules first:
+Use the concrete rule set in [Cloudflare Cache Rules](cloudflare-cache-rules.md).
+The short version is:
 
-1. Bypass cache for `http.request.uri.path starts_with "/api/"`.
-2. Cache `http.request.uri.path starts_with "/_next/static/"` with a long edge
-   TTL. These files are content-hashed and safe to cache.
-3. For `http.request.uri.path starts_with "/rinana-media/"`, keep query strings
-   in the cache key. Do not use "Ignore Query String" for signed MinIO URLs.
-4. If private media caching is not acceptable, bypass cache for
-   `/rinana-media/*`. If short edge reuse is acceptable, keep TTL low, for
-   example 900 seconds, and test MP4 Range playback.
-
-Cloudflare's default cache level treats different query strings as different
-resources. That is the safe behavior for presigned URLs. Cache Rules can bypass
-cache for matching requests, and Cache Rules can also ignore query strings, but
-that must not be applied to private signed media URLs.
+1. Bypass cache for `/api/*`.
+2. Cache `/_next/static/*` aggressively.
+3. Treat `/rinana-media/*` as signed private media unless you have explicitly
+   proven a public cache policy is safe. Do not ignore query strings for signed
+   MinIO URLs.
 
 After enabling Cloudflare proxy, verify:
 
@@ -128,7 +135,7 @@ The media response should preserve byte-range behavior for MP4 seeking.
 
 ## Sources
 
-- Cloudflare request body limits: https://developers.cloudflare.com/workers/platform/limits/
+- Cloudflare request body limits: https://developers.cloudflare.com/support/troubleshooting/http-status-codes/4xx-client-error/error-413/
 - Cloudflare 413 limits: https://developers.cloudflare.com/support/troubleshooting/http-status-codes/4xx-client-error/error-413/
-- Cloudflare cache levels and query strings: https://developers.cloudflare.com/cache/how-to/set-caching-levels/
+- Cloudflare cache keys and query strings: https://developers.cloudflare.com/cache/how-to/cache-keys/
 - Cloudflare Cache Rules settings: https://developers.cloudflare.com/cache/how-to/cache-rules/settings/

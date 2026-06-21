@@ -36,6 +36,15 @@ case "$BACKUP_DIR" in
   *) ABS_BACKUP_DIR=$(CDPATH= cd -- "$BACKUP_DIR" && pwd) ;;
 esac
 
+if [ -f "$ABS_BACKUP_DIR/summary.txt" ]; then
+  cat "$ABS_BACKUP_DIR/summary.txt"
+fi
+
+if [ ! -d "$ABS_BACKUP_DIR/$MINIO_BUCKET" ] && ! find "$ABS_BACKUP_DIR" -type f ! -name manifest.txt ! -name summary.txt | grep -q .; then
+  echo "backup directory has no restorable files: $ABS_BACKUP_DIR" >&2
+  exit 1
+fi
+
 cd "$DEPLOY_DIR"
 
 MINIO_CONTAINER=$(docker compose ps -q minio)

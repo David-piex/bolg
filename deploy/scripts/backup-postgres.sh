@@ -20,6 +20,12 @@ docker compose exec -T postgres sh -c \
   'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -F c --no-owner --no-acl' \
   > "$OUT_FILE"
 
+if [ ! -s "$OUT_FILE" ]; then
+  rm -f "$OUT_FILE"
+  echo "postgres backup is empty" >&2
+  exit 1
+fi
+
 if command -v sha256sum >/dev/null 2>&1; then
   sha256sum "$OUT_FILE" > "$OUT_FILE.sha256"
 elif command -v shasum >/dev/null 2>&1; then
