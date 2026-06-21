@@ -204,6 +204,28 @@ class ContentControllerTest {
   }
 
   @Test
+  void pinnedPostsAreReturnedBeforeRegularPosts() throws Exception {
+    Cookie adminCookie = login("admin", "admin123456");
+    String regularPostId = createPostAndReturnId(adminCookie, "regular update", "PUBLIC", "body");
+    String pinnedPostId = createPostAndReturnId(adminCookie, "pinned update", "PUBLIC", "body", true);
+    setPostPublishedAt(regularPostId, "2026-06-03T00:00:00Z");
+    setPostPublishedAt(pinnedPostId, "2026-06-01T00:00:00Z");
+
+    mvc.perform(get("/api/content"))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.posts", hasSize(2)))
+      .andExpect(jsonPath("$.posts[0].title").value("pinned update"))
+      .andExpect(jsonPath("$.posts[0].pinned").value(true));
+
+    mvc.perform(get("/api/content/posts")
+        .queryParam("sort", "oldest"))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.items", hasSize(2)))
+      .andExpect(jsonPath("$.items[0].title").value("pinned update"))
+      .andExpect(jsonPath("$.items[0].pinned").value(true));
+  }
+
+  @Test
   void contentDetailEndpointsRespectMembershipVisibility() throws Exception {
     Cookie adminCookie = login("admin", "admin123456");
     String publicPostId = createPostAndReturnId(adminCookie, "public detail", "PUBLIC");
@@ -306,12 +328,25 @@ class ContentControllerTest {
         .content(json(Map.of(
           "title", "new post",
           "content", "new body",
-          "visibility", "DIAMOND"
+          "visibility", "DIAMOND",
+          "pinned", true
         ))))
       .andExpect(status().isOk())
       .andExpect(jsonPath("$.title").value("new post"))
       .andExpect(jsonPath("$.content").value("new body"))
-      .andExpect(jsonPath("$.visibility").value("DIAMOND"));
+      .andExpect(jsonPath("$.visibility").value("DIAMOND"))
+      .andExpect(jsonPath("$.pinned").value(true));
+
+    mvc.perform(patch("/api/content/posts/" + postId)
+        .cookie(adminCookie)
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(json(Map.of(
+          "title", "new post without pin flag",
+          "content", "new body",
+          "visibility", "DIAMOND"
+        ))))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.pinned").value(true));
 
     mvc.perform(patch("/api/content/albums/" + albumId)
         .cookie(adminCookie)
@@ -380,13 +415,18 @@ class ContentControllerTest {
   }
 
   private String createPostAndReturnId(Cookie adminCookie, String title, String visibility, String content) throws Exception {
+    return createPostAndReturnId(adminCookie, title, visibility, content, false);
+  }
+
+  private String createPostAndReturnId(Cookie adminCookie, String title, String visibility, String content, boolean pinned) throws Exception {
     return mvc.perform(post("/api/content/posts")
         .cookie(adminCookie)
         .contentType(MediaType.APPLICATION_JSON)
         .content(json(Map.of(
           "title", title,
           "content", content,
-          "visibility", visibility
+          "visibility", visibility,
+          "pinned", pinned
         ))))
       .andExpect(status().isCreated())
       .andReturn()

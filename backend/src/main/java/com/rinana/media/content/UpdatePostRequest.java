@@ -12,6 +12,7 @@ public record UpdatePostRequest(
   @NotBlank @Size(max = 240) String title,
   @NotBlank String content,
   @NotNull ContentVisibility visibility,
+  Boolean pinned,
   List<UUID> mediaAssetIds
 ) {
 }

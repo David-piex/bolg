@@ -60,7 +60,7 @@ public class ContentController {
     UserEntity viewer = currentViewerOrVisitor(request);
     List<ContentVisibility> visibleLevels = visibleLevelsFor(viewer);
 
-    var posts = postRepository.findByStatusAndVisibilityInOrderByPublishedAtDesc(ContentStatus.PUBLISHED, visibleLevels).stream()
+    var posts = postRepository.findByStatusAndVisibilityIn(ContentStatus.PUBLISHED, visibleLevels, postSort("latest")).stream()
       .map(PostResponse::from)
       .toList();
     var albums = albumRepository.findByStatusAndVisibilityInOrderByPublishedAtDesc(ContentStatus.PUBLISHED, visibleLevels).stream()
@@ -82,7 +82,7 @@ public class ContentController {
     HttpServletRequest request
   ) {
     UserEntity viewer = currentViewerOrVisitor(request);
-    var pageable = PageRequest.of(safePage(page), safeSize(size), contentSort(sort));
+    var pageable = PageRequest.of(safePage(page), safeSize(size), postSort(sort));
     return ContentPageResponse.from(
       postRepository.searchPublished(ContentStatus.PUBLISHED, visibleLevelsFor(viewer), normalizedQuery(q), pageable)
         .map(PostResponse::from)
@@ -166,7 +166,7 @@ public class ContentController {
     post.setContent(request.content());
     post.setVisibility(request.visibility());
     post.setStatus(ContentStatus.PUBLISHED);
-    post.setPinned(false);
+    post.setPinned(Boolean.TRUE.equals(request.pinned()));
     post.setAuthor(author);
     post.setPublishedAt(now);
     post.setCreatedAt(now);
@@ -231,6 +231,9 @@ public class ContentController {
     post.setTitle(request.title());
     post.setContent(request.content());
     post.setVisibility(request.visibility());
+    if (request.pinned() != null) {
+      post.setPinned(request.pinned());
+    }
     replacePostMedia(post, request.mediaAssetIds());
     post.setUpdatedAt(Instant.now());
     return PostResponse.from(postRepository.save(post));
@@ -337,6 +340,21 @@ public class ContentController {
       case "oldest" -> Sort.by(Sort.Direction.ASC, "publishedAt").and(Sort.by(Sort.Direction.ASC, "id"));
       case "title" -> Sort.by(Sort.Direction.ASC, "title").and(Sort.by(Sort.Direction.DESC, "publishedAt"));
       default -> Sort.by(Sort.Direction.DESC, "publishedAt").and(Sort.by(Sort.Direction.ASC, "id"));
+    };
+  }
+
+  private Sort postSort(String sort) {
+    Sort pinnedFirst = Sort.by(Sort.Direction.DESC, "pinned");
+    return switch (sort == null ? "latest" : sort.trim().toLowerCase()) {
+      case "oldest" -> pinnedFirst
+        .and(Sort.by(Sort.Direction.ASC, "publishedAt"))
+        .and(Sort.by(Sort.Direction.ASC, "id"));
+      case "title" -> pinnedFirst
+        .and(Sort.by(Sort.Direction.ASC, "title"))
+        .and(Sort.by(Sort.Direction.DESC, "publishedAt"));
+      default -> pinnedFirst
+        .and(Sort.by(Sort.Direction.DESC, "publishedAt"))
+        .and(Sort.by(Sort.Direction.ASC, "id"));
     };
   }
 

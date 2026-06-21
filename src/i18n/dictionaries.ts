@@ -111,6 +111,9 @@ type Dictionary = {
     videoStorage: string;
     contentType: string;
     titleLabel: string;
+    pinPost: string;
+    pinPostHint: string;
+    pinnedPost: string;
     mediaFile: string;
     coverFile: string;
     mediaAttached: string;
@@ -368,6 +371,9 @@ export const dictionaries: Record<Locale, Dictionary> = {
       videoStorage: "视频存储",
       contentType: "内容类型",
       titleLabel: "标题",
+      pinPost: "置顶动态",
+      pinPostHint: "置顶后会优先出现在首页、动态列表和内容库顶部。",
+      pinnedPost: "置顶",
       mediaFile: "媒体文件",
       coverFile: "封面图片",
       mediaAttached: "已关联媒体，重新上传可替换。",
@@ -626,6 +632,9 @@ export const dictionaries: Record<Locale, Dictionary> = {
       videoStorage: "Video storage",
       contentType: "Content type",
       titleLabel: "Title",
+      pinPost: "Pin post",
+      pinPostHint: "Pinned posts appear first on home, post lists, and the content library.",
+      pinnedPost: "Pinned",
       mediaFile: "Media file",
       coverFile: "Cover image",
       mediaAttached: "Media is attached. Upload again to replace it.",

@@ -45,6 +45,7 @@ export type RemotePublishInput =
       coverImage?: string;
       kind: "post";
       mediaAssetId?: string;
+      pinned?: boolean;
       title: string;
       visibility: MembershipLevel;
     }
@@ -76,6 +77,7 @@ export type RemoteUpdateInput =
       id: string;
       kind: "post";
       mediaAssetId?: string;
+      pinned?: boolean;
       title: string;
       visibility: MembershipLevel;
     }
@@ -160,6 +162,7 @@ function postFromJava(post: JavaPost): PostRecord {
     coverImage: mediaViewUrl(firstMediaId),
     excerpt: post.content.slice(0, 120),
     id: post.id,
+    pinned: Boolean(post.pinned),
     publishedAt: dateOnly(post.publishedAt),
     title: post.title,
     type: "post",
@@ -286,6 +289,7 @@ export async function publishRemoteContent(
     const post = await createPost({
       content: input.body,
       mediaAssetIds: input.mediaAssetId ? [input.mediaAssetId] : undefined,
+      pinned: Boolean(input.pinned),
       title: input.title,
       visibility: toJavaVisibility(input.visibility)
     });
@@ -331,6 +335,7 @@ export async function updateRemoteContent(accessToken: string, input: RemoteUpda
       content: input.body,
       id: input.id,
       mediaAssetIds: input.mediaAssetId ? [input.mediaAssetId] : undefined,
+      pinned: input.pinned,
       title: input.title,
       visibility: toJavaVisibility(input.visibility)
     });

@@ -30,6 +30,7 @@ export type FeedItem = {
   title: string;
   excerpt: string;
   coverImage: string;
+  pinned?: boolean;
   requiredLevel: MembershipLevel;
   publishedAt: string;
 };
@@ -70,17 +71,18 @@ export function getPosts(viewer: Viewer, dataset: ContentDataset = {}): PostReco
 
 export function getHomeFeed(viewer: Viewer, dataset: ContentDataset = {}): FeedItem[] {
   const data = resolveDataset(dataset);
-  const postItems = data.posts.map((post) => ({
+  const postItems: FeedItem[] = data.posts.map((post) => ({
     id: post.id,
     kind: "post" as const,
     title: post.title,
     excerpt: post.excerpt,
     coverImage: post.coverImage,
     requiredLevel: post.visibility,
+    pinned: post.pinned,
     publishedAt: post.publishedAt
   }));
 
-  const albumItems = data.albums.map((album) => ({
+  const albumItems: FeedItem[] = data.albums.map((album) => ({
     id: album.id,
     kind: "album" as const,
     title: album.title,
@@ -90,7 +92,7 @@ export function getHomeFeed(viewer: Viewer, dataset: ContentDataset = {}): FeedI
     publishedAt: album.publishedAt
   }));
 
-  const videoItems = data.videoCollections.map((collection) => ({
+  const videoItems: FeedItem[] = data.videoCollections.map((collection) => ({
     id: collection.id,
     kind: "videoCollection" as const,
     title: collection.title,
@@ -102,7 +104,8 @@ export function getHomeFeed(viewer: Viewer, dataset: ContentDataset = {}): FeedI
 
   return [...postItems, ...albumItems, ...videoItems]
     .filter((item) => canViewContent(viewer, item.requiredLevel))
-    .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+    .sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned))
+      || b.publishedAt.localeCompare(a.publishedAt));
 }
 
 export function getAlbums(viewer: Viewer, dataset: ContentDataset = {}): VisibleAlbum[] {

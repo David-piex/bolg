@@ -26,6 +26,7 @@ describe("content client", () => {
           {
             content: "Body",
             id: "post-1",
+            pinned: true,
             publishedAt: "2026-06-18T00:00:00Z",
             title: "Public post",
             visibility: "PUBLIC"
@@ -37,7 +38,7 @@ describe("content client", () => {
     vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
 
     await expect(fetchRemoteContentDataset()).resolves.toMatchObject({
-      posts: [{ id: "post-1", visibility: "public" }]
+      posts: [{ id: "post-1", pinned: true, visibility: "public" }]
     });
     expect(fetchMock).toHaveBeenCalledWith("/api/content", {
       credentials: "include",
@@ -153,6 +154,7 @@ describe("content client", () => {
             content: "Body",
             id: "post-1",
             mediaAssetIds: [],
+            pinned: false,
             publishedAt: "2026-06-18T00:00:00Z",
             title: "Paged post",
             visibility: "PUBLIC"
@@ -190,6 +192,7 @@ describe("content client", () => {
             content: "Remote post body",
             id: "post-1",
             mediaAssetIds: ["media-post"],
+            pinned: true,
             publishedAt: "2026-06-18T00:00:00Z",
             title: "Remote post",
             visibility: "PUBLIC"
@@ -277,6 +280,7 @@ describe("content client", () => {
         content: "Body",
         id: "post-1",
         mediaAssetIds: ["media-post-image"],
+        pinned: true,
         publishedAt: "2026-06-18T00:00:00Z",
         title: "Post title",
         visibility: "GOLD"
@@ -290,6 +294,7 @@ describe("content client", () => {
         coverImage: "https://images.example/post.jpg",
         kind: "post",
         mediaAssetId: "media-post-image",
+        pinned: true,
         title: "Post title",
         visibility: "gold"
       })
@@ -301,6 +306,7 @@ describe("content client", () => {
       body: JSON.stringify({
         content: "Body",
         mediaAssetIds: ["media-post-image"],
+        pinned: true,
         title: "Post title",
         visibility: "GOLD"
       }),
@@ -357,6 +363,7 @@ describe("content client", () => {
       json: async () => ({
         content: "Updated body",
         id: "post-1",
+        pinned: false,
         publishedAt: "2026-06-18T00:00:00Z",
         title: "Updated post",
         visibility: "DIAMOND"
@@ -369,6 +376,7 @@ describe("content client", () => {
       coverImage: "https://images.example/post.jpg",
       id: "post-1",
       kind: "post",
+      pinned: false,
       title: "Updated post",
       visibility: "diamond"
     });
@@ -376,6 +384,7 @@ describe("content client", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/content/posts/post-1", {
       body: JSON.stringify({
         content: "Updated body",
+        pinned: false,
         title: "Updated post",
         visibility: "DIAMOND"
       }),

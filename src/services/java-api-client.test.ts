@@ -183,13 +183,14 @@ describe("java api client", () => {
       jsonResponse({
         content: "body",
         id: "post-1",
+        pinned: true,
         publishedAt: "2026-01-01T00:00:00Z",
         title: "title",
         visibility: "GOLD"
       })
     );
 
-    await createPost({ content: "body", title: "title", visibility: "GOLD" });
+    await createPost({ content: "body", pinned: true, title: "title", visibility: "GOLD" });
     await createAlbum({ coverMediaId: "media-image", description: "album", title: "album", visibility: "GOLD" });
     await createVideo({ description: "video", mediaAssetId: "media-video", title: "video", visibility: "DIAMOND" });
     await listPosts({ page: 2, q: "summer notes", size: 12, sort: "title" });
@@ -198,6 +199,12 @@ describe("java api client", () => {
     await getVideo("video-1");
 
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/content/posts", expect.objectContaining({
+      body: JSON.stringify({
+        content: "body",
+        pinned: true,
+        title: "title",
+        visibility: "GOLD"
+      }),
       credentials: "include",
       method: "POST"
     }));

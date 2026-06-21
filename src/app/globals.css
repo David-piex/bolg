@@ -1327,6 +1327,42 @@ main {
   resize: vertical;
 }
 
+.pin-toggle {
+  display: flex !important;
+  min-height: 58px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(215, 66, 125, 0.2);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(90deg, rgba(255, 127, 172, 0.12), transparent 70%),
+    #fff8fc;
+  cursor: pointer;
+}
+
+.pin-toggle input {
+  width: 20px;
+  min-height: 20px;
+  accent-color: var(--accent);
+}
+
+.pin-toggle-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.pin-toggle-copy strong {
+  color: var(--ink-strong);
+  font-size: 0.94rem;
+}
+
+.pin-toggle-copy small {
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
 .file-upload-label {
   display: grid;
   gap: 7px;
@@ -2052,6 +2088,20 @@ main {
   gap: 8px;
   color: var(--muted);
   font-size: 0.86rem;
+}
+
+.pinned-badge {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(215, 66, 125, 0.22);
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: rgba(255, 233, 243, 0.92);
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 850;
 }
 
 .audit-section {

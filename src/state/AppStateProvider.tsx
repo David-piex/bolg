@@ -113,6 +113,7 @@ type AppStateValue = {
     visibility: MembershipLevel;
     coverImage?: string;
     mediaAssetId?: string;
+    pinned?: boolean;
   }) => Promise<void>;
   createAlbumWithPhoto: (input: {
     title: string;
@@ -139,6 +140,7 @@ type AppStateValue = {
     visibility: MembershipLevel;
     coverImage?: string;
     mediaAssetId?: string;
+    pinned?: boolean;
   }) => Promise<void>;
   updateAlbum: (input: {
     id: string;
@@ -353,8 +355,13 @@ function makeLocalContentPage<T>(
 }
 
 function compareContentItems<T>(left: T, right: T, sort: RemoteContentPageInput["sort"]): number {
-  const leftRecord = left as { publishedAt?: string; title?: string };
-  const rightRecord = right as { publishedAt?: string; title?: string };
+  const leftRecord = left as { pinned?: boolean; publishedAt?: string; title?: string };
+  const rightRecord = right as { pinned?: boolean; publishedAt?: string; title?: string };
+  const pinnedComparison = Number(Boolean(rightRecord.pinned)) - Number(Boolean(leftRecord.pinned));
+
+  if (pinnedComparison !== 0) {
+    return pinnedComparison;
+  }
 
   if (sort === "oldest") {
     return (leftRecord.publishedAt ?? "").localeCompare(rightRecord.publishedAt ?? "")
@@ -830,6 +837,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           coverImage:
             input.coverImage ||
             "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&q=80",
+          pinned: Boolean(input.pinned),
           visibility: input.visibility,
           publishedAt: new Date().toISOString().slice(0, 10)
         };
@@ -840,6 +848,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             coverImage: post.coverImage,
             kind: "post",
             mediaAssetId: input.mediaAssetId || mediaIdFromAccessUrl(post.coverImage),
+            pinned: post.pinned,
             title: post.title,
             visibility: post.visibility
           });
@@ -972,6 +981,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           coverImage: input.coverImage || "",
           excerpt: shortExcerpt(input.body, input.title),
           id: input.id,
+          ...(input.pinned !== undefined ? { pinned: input.pinned } : {}),
           title: input.title.trim() || "未命名动态",
           visibility: input.visibility
         };
@@ -988,6 +998,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             id: updatedPost.id,
             kind: "post",
             mediaAssetId: input.mediaAssetId || mediaIdFromAccessUrl(updatedPost.coverImage),
+            pinned: input.pinned,
             title: updatedPost.title,
             visibility: updatedPost.visibility
           });

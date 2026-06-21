@@ -133,6 +133,7 @@ export type JavaPost = {
   content: string;
   id: string;
   mediaAssetIds: string[];
+  pinned: boolean;
   publishedAt: string;
   title: string;
   visibility: JavaContentVisibility;
@@ -205,6 +206,7 @@ export type UpdateUserInput = {
 export type CreatePostInput = {
   content: string;
   mediaAssetIds?: string[];
+  pinned?: boolean;
   title: string;
   visibility: JavaContentVisibility;
 };
@@ -369,6 +371,7 @@ export async function updatePost(input: UpdatePostInput): Promise<JavaPost> {
     body: JSON.stringify({
       content: input.content,
       mediaAssetIds: input.mediaAssetIds,
+      pinned: input.pinned,
       title: input.title,
       visibility: input.visibility
     }),

@@ -17,6 +17,7 @@ export type PostRecord = {
   excerpt: string;
   body: string;
   coverImage: string;
+  pinned: boolean;
   visibility: MembershipLevel;
   publishedAt: string;
 };
@@ -111,6 +112,7 @@ export const posts: PostRecord[] = [
     excerpt: "一组新的片段和照片已经整理完成，公开视频也会放在这里。",
     body: "这条动态所有访客可见，用来展示公开内容。",
     coverImage: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&q=80",
+    pinned: true,
     visibility: "public",
     publishedAt: "2026-06-18"
   },
@@ -121,6 +123,7 @@ export const posts: PostRecord[] = [
     excerpt: "普通会员可见的图文动态，用来承载日常内容。",
     body: "这条动态登录用户可见。",
     coverImage: "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&w=1200&q=80",
+    pinned: false,
     visibility: "normal",
     publishedAt: "2026-06-17"
   },
@@ -131,6 +134,7 @@ export const posts: PostRecord[] = [
     excerpt: "黄金和钻石用户可见的长动态。",
     body: "这条动态面向黄金以上用户。",
     coverImage: "https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&w=1200&q=80",
+    pinned: false,
     visibility: "gold",
     publishedAt: "2026-06-16"
   },
@@ -141,6 +145,7 @@ export const posts: PostRecord[] = [
     excerpt: "钻石用户专属说明和片段索引。",
     body: "这条动态只有钻石用户可见。",
     coverImage: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=1200&q=80",
+    pinned: false,
     visibility: "diamond",
     publishedAt: "2026-06-15"
   }

@@ -125,6 +125,9 @@ describe("AdminPanel", () => {
     expect(screen.getByText(/显示 8 \/ 8 条/)).toBeInTheDocument();
     expect(screen.getByText("标题")).toBeInTheDocument();
     expect(screen.getByText("正文")).toBeInTheDocument();
+    expect(screen.getByText("置顶动态")).toBeInTheDocument();
+    expect(screen.getByText("置顶后会优先出现在首页、动态列表和内容库顶部。")).toBeInTheDocument();
+    expect(screen.getAllByText("置顶").length).toBeGreaterThan(0);
     expect(screen.getByText("媒体文件")).toBeInTheDocument();
     expect(screen.getAllByText("停用").length).toBeGreaterThan(0);
     expect(screen.getAllByText("编辑").length).toBeGreaterThan(0);
@@ -134,6 +137,7 @@ describe("AdminPanel", () => {
     expect(screen.getByText("视频简介")).toBeInTheDocument();
     expect(screen.getByText("封面图片")).toBeInTheDocument();
     expect(screen.getByText("上传视频封面")).toBeInTheDocument();
+    expect(screen.queryByText("置顶动态")).not.toBeInTheDocument();
 
     expect(screen.queryByText("Enable")).not.toBeInTheDocument();
     expect(screen.queryByText("Disable")).not.toBeInTheDocument();

@@ -11,6 +11,7 @@ public record PostResponse(
   String title,
   String content,
   ContentVisibility visibility,
+  boolean pinned,
   Instant publishedAt,
   List<UUID> mediaAssetIds
 ) {
@@ -20,6 +21,7 @@ public record PostResponse(
       post.getTitle(),
       post.getContent(),
       post.getVisibility(),
+      post.isPinned(),
       post.getPublishedAt(),
       post.getMediaItems().stream()
         .map(item -> item.getMediaAsset().getId())

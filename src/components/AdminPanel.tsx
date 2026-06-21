@@ -8,6 +8,7 @@ import {
   History,
   KeyRound,
   Pencil,
+  Pin,
   ShieldCheck,
   Trash2,
   Upload,
@@ -52,6 +53,7 @@ type ContentLibraryRow = {
   id: string;
   kind: ContentKind;
   level: MembershipLevel;
+  pinned?: boolean;
   title: string;
 };
 
@@ -247,6 +249,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
   const [contentTitle, setContentTitle] = useState("");
   const [contentBody, setContentBody] = useState("");
   const [contentVisibility, setContentVisibility] = useState<MembershipLevel>("gold");
+  const [contentPinned, setContentPinned] = useState(false);
   const [contentAsset, setContentAsset] = useState("");
   const [publishMessage, setPublishMessage] = useState<string | null>(null);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
@@ -292,6 +295,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
       id: post.id,
       kind: "post" as const,
       level: post.visibility,
+      pinned: post.pinned,
       title: post.title
     })),
     ...albums.map((album) => ({
@@ -323,13 +327,18 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
         row.body,
         row.date,
         contentKindLabel(row.kind, dictionary),
-        dictionary.membership[row.level]
+        dictionary.membership[row.level],
+        row.pinned ? dictionary.admin.pinnedPost : ""
       ]
         .join(" ")
         .toLowerCase()
         .includes(normalizedContentLibraryQuery);
     })
-    .sort((left, right) => right.date.localeCompare(left.date) || left.title.localeCompare(right.title));
+    .sort((left, right) =>
+      Number(Boolean(right.pinned)) - Number(Boolean(left.pinned))
+      || right.date.localeCompare(left.date)
+      || left.title.localeCompare(right.title)
+    );
   const contentLibraryFilteredSummary = contentLibrarySummary(dictionary.admin.contentFilterSummary, {
     shown: filteredContentLibraryRows.length,
     total: contentLibraryRows.length
@@ -550,6 +559,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
     setUploadedVideoCoverMeta(null);
     setUploadedVideoMeta(null);
     setEditingContent(null);
+    setContentPinned(false);
   }
 
   async function onUploadImageFile(file: File | undefined) {
@@ -685,6 +695,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
     setUploadedImageMeta(null);
     setUploadedVideoCoverMeta(null);
     setUploadedVideoMeta(null);
+    setContentPinned(false);
     setUploadMessage(null);
     setUploadProgress(null);
     setUploadTarget(null);
@@ -710,6 +721,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
         setContentBody(post.body);
         setContentVisibility(post.visibility);
         setContentAsset(post.coverImage);
+        setContentPinned(post.pinned);
       }
       return;
     }
@@ -752,7 +764,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           body: contentBody,
           visibility: contentVisibility,
           coverImage: contentAsset,
-          mediaAssetId: uploadedImageMeta?.mediaAssetId
+          mediaAssetId: uploadedImageMeta?.mediaAssetId,
+          pinned: contentPinned
         });
       } else if (editingContent?.kind === "album") {
         await updateAlbum({
@@ -778,7 +791,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           body: contentBody,
           visibility: contentVisibility,
           coverImage: contentAsset,
-          mediaAssetId: uploadedImageMeta?.mediaAssetId
+          mediaAssetId: uploadedImageMeta?.mediaAssetId,
+          pinned: contentPinned
         });
       } else if (contentKind === "album") {
         await createAlbumWithPhoto({
@@ -931,6 +945,20 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
                 rows={7}
               />
             </label>
+            {contentKind === "post" ? (
+              <label className="pin-toggle full-row">
+                <input
+                  checked={contentPinned}
+                  disabled={isUploading}
+                  type="checkbox"
+                  onChange={(event) => setContentPinned(event.target.checked)}
+                />
+                <span className="pin-toggle-copy">
+                  <strong>{dictionary.admin.pinPost}</strong>
+                  <small>{dictionary.admin.pinPostHint}</small>
+                </span>
+              </label>
+            ) : null}
             <div className="form-actions full-row">
               <button type="button" onClick={() => void onPublishContent()} disabled={isUploading}>
                 {editingContent ? dictionary.common.save : dictionary.common.publish}
@@ -1228,6 +1256,12 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
                 <span className="admin-content-meta">{contentKindLabel(row.kind, dictionary)}</span>
                 <strong>{row.title}</strong>
                 <div className="admin-row-meta">
+                  {row.pinned ? (
+                    <span className="pinned-badge">
+                      <Pin size={14} />
+                      {dictionary.admin.pinnedPost}
+                    </span>
+                  ) : null}
                   <span className={`tier-badge tier-${row.level}`}>{dictionary.membership[row.level]}</span>
                   <span>{row.date}</span>
                 </div>
