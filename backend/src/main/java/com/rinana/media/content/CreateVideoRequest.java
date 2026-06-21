@@ -10,6 +10,7 @@ public record CreateVideoRequest(
   @NotBlank String title,
   @NotBlank String description,
   @NotNull ContentVisibility visibility,
+  ContentStatus status,
   @NotNull UUID mediaAssetId,
   UUID coverMediaId
 ) {

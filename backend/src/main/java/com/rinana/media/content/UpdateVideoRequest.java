@@ -10,6 +10,7 @@ public record UpdateVideoRequest(
   @NotBlank String title,
   @NotBlank String description,
   @NotNull ContentVisibility visibility,
+  ContentStatus status,
   UUID mediaAssetId,
   UUID coverMediaId
 ) {

@@ -123,6 +123,8 @@ describe("AdminPanel", () => {
     expect(screen.getByText("筛选类型")).toBeInTheDocument();
     expect(screen.getByText("会员等级")).toBeInTheDocument();
     expect(screen.getByText(/显示 8 \/ 8 条/)).toBeInTheDocument();
+    expect(screen.getByText("内容状态")).toBeInTheDocument();
+    expect(screen.getAllByText("已发布").length).toBeGreaterThan(0);
     expect(screen.getByText("标题")).toBeInTheDocument();
     expect(screen.getByText("正文")).toBeInTheDocument();
     expect(screen.getByText("置顶动态")).toBeInTheDocument();
@@ -146,6 +148,34 @@ describe("AdminPanel", () => {
     expect(screen.queryByText("Image URL")).not.toBeInTheDocument();
     expect(screen.queryByText("Media asset URL")).not.toBeInTheDocument();
     expect(screen.queryByText("video collections")).not.toBeInTheDocument();
+  });
+
+  it("saves draft content from the admin publishing form", async () => {
+    window.localStorage.clear();
+    const dictionary = getDictionary("zh");
+
+    render(
+      <AppStateProvider>
+        <AdminLoginProbe />
+        <AdminPanel dictionary={dictionary} />
+      </AppStateProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("内容管理")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText("标题"), { target: { value: "草稿动态" } });
+    fireEvent.change(screen.getByLabelText("正文"), { target: { value: "这条内容暂时不公开" } });
+    fireEvent.change(screen.getByLabelText("内容状态"), { target: { value: "draft" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存草稿" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("草稿已保存。")).toBeInTheDocument();
+    });
+    expect(screen.getByText("草稿动态")).toBeInTheDocument();
+    expect(screen.getAllByText("草稿").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("暂无日期").length).toBeGreaterThan(0);
   });
 
   it("filters the admin content library by query, type, and member tier", async () => {

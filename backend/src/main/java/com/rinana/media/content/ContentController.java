@@ -58,6 +58,19 @@ public class ContentController {
   @Transactional(readOnly = true)
   ContentFeedResponse listContent(HttpServletRequest request) {
     UserEntity viewer = currentViewerOrVisitor(request);
+    if (canManageContent(viewer)) {
+      var posts = postRepository.findByStatusIn(List.of(ContentStatus.PUBLISHED, ContentStatus.DRAFT), postSort("latest")).stream()
+        .map(PostResponse::from)
+        .toList();
+      var albums = albumRepository.findByStatusIn(List.of(ContentStatus.PUBLISHED, ContentStatus.DRAFT), contentSort("latest")).stream()
+        .map(AlbumResponse::from)
+        .toList();
+      var videos = videoRepository.findByStatusIn(List.of(ContentStatus.PUBLISHED, ContentStatus.DRAFT), contentSort("latest")).stream()
+        .map(VideoResponse::from)
+        .toList();
+      return new ContentFeedResponse(posts, albums, videos);
+    }
+
     List<ContentVisibility> visibleLevels = visibleLevelsFor(viewer);
 
     var posts = postRepository.findByStatusAndVisibilityIn(ContentStatus.PUBLISHED, visibleLevels, postSort("latest")).stream()
@@ -165,10 +178,12 @@ public class ContentController {
     post.setTitle(request.title());
     post.setContent(request.content());
     post.setVisibility(request.visibility());
-    post.setStatus(ContentStatus.PUBLISHED);
+    post.setStatus(writeableStatus(request.status()));
     post.setPinned(Boolean.TRUE.equals(request.pinned()));
     post.setAuthor(author);
-    post.setPublishedAt(now);
+    if (post.getStatus() == ContentStatus.PUBLISHED) {
+      post.setPublishedAt(now);
+    }
     post.setCreatedAt(now);
     post.setUpdatedAt(now);
     replacePostMedia(post, request.mediaAssetIds());
@@ -188,9 +203,11 @@ public class ContentController {
     album.setDescription(request.description());
     album.setVisibility(request.visibility());
     album.setCoverMedia(request.coverMediaId() == null ? null : requireMedia(request.coverMediaId()));
-    album.setStatus(ContentStatus.PUBLISHED);
+    album.setStatus(writeableStatus(request.status()));
     album.setAuthor(author);
-    album.setPublishedAt(now);
+    if (album.getStatus() == ContentStatus.PUBLISHED) {
+      album.setPublishedAt(now);
+    }
     album.setCreatedAt(now);
     album.setUpdatedAt(now);
     return ResponseEntity.status(HttpStatus.CREATED).body(AlbumResponse.from(albumRepository.save(album)));
@@ -210,9 +227,11 @@ public class ContentController {
     video.setVisibility(request.visibility());
     video.setMediaAsset(requireMedia(request.mediaAssetId()));
     video.setCoverMedia(request.coverMediaId() == null ? null : requireMedia(request.coverMediaId()));
-    video.setStatus(ContentStatus.PUBLISHED);
+    video.setStatus(writeableStatus(request.status()));
     video.setAuthor(author);
-    video.setPublishedAt(now);
+    if (video.getStatus() == ContentStatus.PUBLISHED) {
+      video.setPublishedAt(now);
+    }
     video.setCreatedAt(now);
     video.setUpdatedAt(now);
     return ResponseEntity.status(HttpStatus.CREATED).body(VideoResponse.from(videoRepository.save(video)));
@@ -231,6 +250,7 @@ public class ContentController {
     post.setTitle(request.title());
     post.setContent(request.content());
     post.setVisibility(request.visibility());
+    applyStatus(post, request.status());
     if (request.pinned() != null) {
       post.setPinned(request.pinned());
     }
@@ -252,6 +272,7 @@ public class ContentController {
     album.setTitle(request.title());
     album.setDescription(request.description());
     album.setVisibility(request.visibility());
+    applyStatus(album, request.status());
     album.setCoverMedia(request.coverMediaId() == null ? null : requireMedia(request.coverMediaId()));
     album.setUpdatedAt(Instant.now());
     return AlbumResponse.from(albumRepository.save(album));
@@ -270,6 +291,7 @@ public class ContentController {
     video.setTitle(request.title());
     video.setDescription(request.description());
     video.setVisibility(request.visibility());
+    applyStatus(video, request.status());
     if (request.mediaAssetId() != null) {
       video.setMediaAsset(requireMedia(request.mediaAssetId()));
     }
@@ -362,6 +384,54 @@ public class ContentController {
     return new ApiException(HttpStatus.NOT_FOUND, "CONTENT_NOT_FOUND", "Content not found");
   }
 
+  private ContentStatus writeableStatus(ContentStatus status) {
+    if (status == null) {
+      return ContentStatus.PUBLISHED;
+    }
+
+    if (status == ContentStatus.DELETED) {
+      throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_CONTENT_STATUS", "Content status cannot be deleted here");
+    }
+
+    return status;
+  }
+
+  private void applyStatus(PostEntity post, ContentStatus status) {
+    if (status == null) {
+      return;
+    }
+
+    ContentStatus nextStatus = writeableStatus(status);
+    if (post.getStatus() != ContentStatus.PUBLISHED && nextStatus == ContentStatus.PUBLISHED && post.getPublishedAt() == null) {
+      post.setPublishedAt(Instant.now());
+    }
+    post.setStatus(nextStatus);
+  }
+
+  private void applyStatus(AlbumEntity album, ContentStatus status) {
+    if (status == null) {
+      return;
+    }
+
+    ContentStatus nextStatus = writeableStatus(status);
+    if (album.getStatus() != ContentStatus.PUBLISHED && nextStatus == ContentStatus.PUBLISHED && album.getPublishedAt() == null) {
+      album.setPublishedAt(Instant.now());
+    }
+    album.setStatus(nextStatus);
+  }
+
+  private void applyStatus(VideoEntity video, ContentStatus status) {
+    if (status == null) {
+      return;
+    }
+
+    ContentStatus nextStatus = writeableStatus(status);
+    if (video.getStatus() != ContentStatus.PUBLISHED && nextStatus == ContentStatus.PUBLISHED && video.getPublishedAt() == null) {
+      video.setPublishedAt(Instant.now());
+    }
+    video.setStatus(nextStatus);
+  }
+
   private MediaAssetEntity requireMedia(java.util.UUID id) {
     return mediaAssetRepository.findById(id)
       .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "MEDIA_NOT_FOUND", "媒体不存在"));
@@ -399,5 +469,9 @@ public class ContentController {
       throw new ApiException(HttpStatus.FORBIDDEN, "ADMIN_REQUIRED", "需要管理员权限");
     }
     return user;
+  }
+
+  private boolean canManageContent(UserEntity user) {
+    return user != null && (user.getRole() == Role.ADMIN || user.getRole() == Role.SUPER_ADMIN);
   }
 }

@@ -65,13 +65,17 @@ function resolveDataset(dataset: ContentDataset = {}) {
   };
 }
 
+function isPublished(record: { status?: "published" | "draft" }): boolean {
+  return (record.status ?? "published") === "published";
+}
+
 export function getPosts(viewer: Viewer, dataset: ContentDataset = {}): PostRecord[] {
-  return resolveDataset(dataset).posts.filter((post) => canViewContent(viewer, post.visibility));
+  return resolveDataset(dataset).posts.filter((post) => isPublished(post) && canViewContent(viewer, post.visibility));
 }
 
 export function getHomeFeed(viewer: Viewer, dataset: ContentDataset = {}): FeedItem[] {
   const data = resolveDataset(dataset);
-  const postItems: FeedItem[] = data.posts.map((post) => ({
+  const postItems: FeedItem[] = data.posts.filter(isPublished).map((post) => ({
     id: post.id,
     kind: "post" as const,
     title: post.title,
@@ -82,7 +86,7 @@ export function getHomeFeed(viewer: Viewer, dataset: ContentDataset = {}): FeedI
     publishedAt: post.publishedAt
   }));
 
-  const albumItems: FeedItem[] = data.albums.map((album) => ({
+  const albumItems: FeedItem[] = data.albums.filter(isPublished).map((album) => ({
     id: album.id,
     kind: "album" as const,
     title: album.title,
@@ -92,7 +96,7 @@ export function getHomeFeed(viewer: Viewer, dataset: ContentDataset = {}): FeedI
     publishedAt: album.publishedAt
   }));
 
-  const videoItems: FeedItem[] = data.videoCollections.map((collection) => ({
+  const videoItems: FeedItem[] = data.videoCollections.filter(isPublished).map((collection) => ({
     id: collection.id,
     kind: "videoCollection" as const,
     title: collection.title,
@@ -111,7 +115,7 @@ export function getHomeFeed(viewer: Viewer, dataset: ContentDataset = {}): FeedI
 export function getAlbums(viewer: Viewer, dataset: ContentDataset = {}): VisibleAlbum[] {
   const data = resolveDataset(dataset);
   return data.albums
-    .filter((album) => canViewContent(viewer, album.defaultVisibility))
+    .filter((album) => isPublished(album) && canViewContent(viewer, album.defaultVisibility))
     .map((album) => {
       const collection: VisibilityCollection = {
         id: album.id,
@@ -142,7 +146,7 @@ export function getAlbums(viewer: Viewer, dataset: ContentDataset = {}): Visible
 export function getVideoCollections(viewer: Viewer, dataset: ContentDataset = {}): VisibleVideoCollection[] {
   const data = resolveDataset(dataset);
   return data.videoCollections
-    .filter((collection) => canViewContent(viewer, collection.defaultVisibility))
+    .filter((collection) => isPublished(collection) && canViewContent(viewer, collection.defaultVisibility))
     .map((collection) => {
       const visibilityCollection: VisibilityCollection = {
         id: collection.id,

@@ -282,6 +282,7 @@ describe("content client", () => {
         mediaAssetIds: ["media-post-image"],
         pinned: true,
         publishedAt: "2026-06-18T00:00:00Z",
+        status: "PUBLISHED",
         title: "Post title",
         visibility: "GOLD"
       })
@@ -307,6 +308,7 @@ describe("content client", () => {
         content: "Body",
         mediaAssetIds: ["media-post-image"],
         pinned: true,
+        status: "PUBLISHED",
         title: "Post title",
         visibility: "GOLD"
       }),
@@ -324,6 +326,7 @@ describe("content client", () => {
         description: "Album body",
         id: "album-1",
         publishedAt: "2026-06-18T00:00:00Z",
+        status: "DRAFT",
         title: "Album title",
         visibility: "GOLD"
       })
@@ -337,17 +340,19 @@ describe("content client", () => {
         kind: "album",
         mediaAssetId: "media-image",
         photoTitle: "Cover",
+        status: "draft",
         title: "Album title",
         visibility: "gold"
       })
     ).resolves.toMatchObject({
-      album: { coverImage: "/api/media/media-image/view", id: "album-1" }
+      album: { coverImage: "/api/media/media-image/view", id: "album-1", status: "draft" }
     });
 
     expect(fetchMock).toHaveBeenCalledWith("/api/content/albums", {
       body: JSON.stringify({
         coverMediaId: "media-image",
         description: "Album body",
+        status: "DRAFT",
         title: "Album title",
         visibility: "GOLD"
       }),
@@ -365,6 +370,7 @@ describe("content client", () => {
         id: "post-1",
         pinned: false,
         publishedAt: "2026-06-18T00:00:00Z",
+        status: "PUBLISHED",
         title: "Updated post",
         visibility: "DIAMOND"
       })
@@ -377,6 +383,7 @@ describe("content client", () => {
       id: "post-1",
       kind: "post",
       pinned: false,
+      status: "published",
       title: "Updated post",
       visibility: "diamond"
     });
@@ -385,6 +392,7 @@ describe("content client", () => {
       body: JSON.stringify({
         content: "Updated body",
         pinned: false,
+        status: "PUBLISHED",
         title: "Updated post",
         visibility: "DIAMOND"
       }),

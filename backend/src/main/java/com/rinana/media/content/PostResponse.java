@@ -11,6 +11,7 @@ public record PostResponse(
   String title,
   String content,
   ContentVisibility visibility,
+  ContentStatus status,
   boolean pinned,
   Instant publishedAt,
   List<UUID> mediaAssetIds
@@ -21,6 +22,7 @@ public record PostResponse(
       post.getTitle(),
       post.getContent(),
       post.getVisibility(),
+      post.getStatus(),
       post.isPinned(),
       post.getPublishedAt(),
       post.getMediaItems().stream()

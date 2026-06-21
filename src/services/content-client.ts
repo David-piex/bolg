@@ -1,6 +1,13 @@
 import type { ContentDataset } from "@/data/repository";
 import type { MembershipLevel } from "@/domain/membership";
-import type { AlbumRecord, PhotoRecord, PostRecord, VideoCollectionRecord, VideoRecord } from "@/data/mock-data";
+import type {
+  AlbumRecord,
+  ContentRecordStatus,
+  PhotoRecord,
+  PostRecord,
+  VideoCollectionRecord,
+  VideoRecord
+} from "@/data/mock-data";
 import {
   createAlbum,
   createPost,
@@ -17,6 +24,7 @@ import {
   listVideos,
   type JavaAlbum,
   type JavaContentPage,
+  type JavaContentStatus,
   type JavaContentVisibility,
   type ListContentPageInput,
   type JavaPost,
@@ -46,6 +54,7 @@ export type RemotePublishInput =
       kind: "post";
       mediaAssetId?: string;
       pinned?: boolean;
+      status?: ContentRecordStatus;
       title: string;
       visibility: MembershipLevel;
     }
@@ -55,6 +64,7 @@ export type RemotePublishInput =
       kind: "album";
       mediaAssetId?: string;
       photoTitle: string;
+      status?: ContentRecordStatus;
       title: string;
       visibility: MembershipLevel;
     }
@@ -66,6 +76,7 @@ export type RemotePublishInput =
       playbackUrl?: string;
       thumbnailUrl?: string;
       title: string;
+      status?: ContentRecordStatus;
       videoTitle: string;
       visibility: MembershipLevel;
     };
@@ -78,6 +89,7 @@ export type RemoteUpdateInput =
       kind: "post";
       mediaAssetId?: string;
       pinned?: boolean;
+      status?: ContentRecordStatus;
       title: string;
       visibility: MembershipLevel;
     }
@@ -88,6 +100,7 @@ export type RemoteUpdateInput =
       description: string;
       id: string;
       kind: "album";
+      status?: ContentRecordStatus;
       title: string;
     }
   | {
@@ -97,6 +110,7 @@ export type RemoteUpdateInput =
       description: string;
       id: string;
       kind: "video";
+      status?: ContentRecordStatus;
       title: string;
     };
 
@@ -143,8 +157,16 @@ function fromJavaVisibility(visibility: JavaContentVisibility): MembershipLevel 
   return visibility.toLowerCase() as MembershipLevel;
 }
 
-function dateOnly(value: string): string {
-  return value.slice(0, 10);
+function toJavaStatus(status: ContentRecordStatus | undefined): JavaContentStatus {
+  return (status ?? "published").toUpperCase() as JavaContentStatus;
+}
+
+function fromJavaStatus(status: JavaContentStatus | undefined): ContentRecordStatus {
+  return status === "DRAFT" ? "draft" : "published";
+}
+
+function dateOnly(value: string | null | undefined): string {
+  return value ? value.slice(0, 10) : "";
 }
 
 function mediaViewUrl(mediaId: string | null | undefined): string {
@@ -164,6 +186,7 @@ function postFromJava(post: JavaPost): PostRecord {
     id: post.id,
     pinned: Boolean(post.pinned),
     publishedAt: dateOnly(post.publishedAt),
+    status: fromJavaStatus(post.status),
     title: post.title,
     type: "post",
     visibility: fromJavaVisibility(post.visibility)
@@ -177,6 +200,7 @@ function albumFromJava(album: JavaAlbum): AlbumRecord {
     description: album.description,
     id: album.id,
     publishedAt: dateOnly(album.publishedAt),
+    status: fromJavaStatus(album.status),
     title: album.title
   };
 }
@@ -188,6 +212,7 @@ function videoCollectionFromJava(video: JavaVideo): VideoCollectionRecord {
     description: video.description,
     id: `collection-${video.id}`,
     publishedAt: dateOnly(video.publishedAt),
+    status: fromJavaStatus(video.status),
     title: video.title
   };
 }
@@ -290,6 +315,7 @@ export async function publishRemoteContent(
       content: input.body,
       mediaAssetIds: input.mediaAssetId ? [input.mediaAssetId] : undefined,
       pinned: Boolean(input.pinned),
+      status: toJavaStatus(input.status),
       title: input.title,
       visibility: toJavaVisibility(input.visibility)
     });
@@ -300,6 +326,7 @@ export async function publishRemoteContent(
     const album = await createAlbum({
       coverMediaId: input.mediaAssetId,
       description: input.description,
+      status: toJavaStatus(input.status),
       title: input.title,
       visibility: toJavaVisibility(input.visibility)
     });
@@ -320,6 +347,7 @@ export async function publishRemoteContent(
     coverMediaId: input.coverMediaId,
     description: input.description,
     mediaAssetId: input.mediaAssetId || input.playbackUrl || "",
+    status: toJavaStatus(input.status),
     title: input.videoTitle || input.title,
     visibility: toJavaVisibility(input.visibility)
   });
@@ -336,6 +364,7 @@ export async function updateRemoteContent(accessToken: string, input: RemoteUpda
       id: input.id,
       mediaAssetIds: input.mediaAssetId ? [input.mediaAssetId] : undefined,
       pinned: input.pinned,
+      status: toJavaStatus(input.status),
       title: input.title,
       visibility: toJavaVisibility(input.visibility)
     });
@@ -347,6 +376,7 @@ export async function updateRemoteContent(accessToken: string, input: RemoteUpda
       coverMediaId: input.coverMediaId,
       description: input.description,
       id: input.id,
+      status: toJavaStatus(input.status),
       title: input.title,
       visibility: toJavaVisibility(input.defaultVisibility)
     });
@@ -357,6 +387,7 @@ export async function updateRemoteContent(accessToken: string, input: RemoteUpda
     coverMediaId: input.coverMediaId,
     description: input.description,
     id: javaVideoIdFromCollectionId(input.id),
+    status: toJavaStatus(input.status),
     title: input.title,
     visibility: toJavaVisibility(input.defaultVisibility)
   });

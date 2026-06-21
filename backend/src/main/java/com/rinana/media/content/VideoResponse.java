@@ -10,6 +10,7 @@ public record VideoResponse(
   String title,
   String description,
   ContentVisibility visibility,
+  ContentStatus status,
   UUID mediaAssetId,
   UUID coverMediaId,
   Instant publishedAt
@@ -20,6 +21,7 @@ public record VideoResponse(
       video.getTitle(),
       video.getDescription(),
       video.getVisibility(),
+      video.getStatus(),
       video.getMediaAsset().getId(),
       video.getCoverMedia() == null ? null : video.getCoverMedia().getId(),
       video.getPublishedAt()

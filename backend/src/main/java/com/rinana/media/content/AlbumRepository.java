@@ -3,6 +3,7 @@ package com.rinana.media.content;
 import com.rinana.media.common.ContentVisibility;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -24,6 +25,11 @@ public interface AlbumRepository extends JpaRepository<AlbumEntity, UUID> {
     ContentStatus status,
     Collection<ContentVisibility> visibilities,
     Pageable pageable
+  );
+
+  List<AlbumEntity> findByStatusIn(
+    Collection<ContentStatus> statuses,
+    Sort sort
   );
 
   @Query("""

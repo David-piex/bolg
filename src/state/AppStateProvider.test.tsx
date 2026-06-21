@@ -595,6 +595,7 @@ describe("AppStateProvider", () => {
           id: "remote-post",
           pinned: false,
           publishedAt: "2026-06-18",
+          status: "published",
           title: "Remote post",
           type: "post",
           visibility: "public"
@@ -629,6 +630,7 @@ describe("AppStateProvider", () => {
           id: "remote-post",
           pinned: false,
           publishedAt: "2026-06-18",
+          status: "published",
           title: "Remote post",
           type: "post",
           visibility: "public"
@@ -703,6 +705,7 @@ describe("AppStateProvider", () => {
         id: "remote-post",
         pinned: true,
         publishedAt: "2026-06-18",
+        status: "published",
         title: "Remote post",
         type: "post",
         visibility: "gold"
@@ -913,6 +916,7 @@ describe("AppStateProvider", () => {
           id: "post-public",
           pinned: false,
           publishedAt: "2026-06-18",
+          status: "published",
           title: "Original",
           type: "post",
           visibility: "public"

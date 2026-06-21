@@ -34,6 +34,7 @@ import {
   type JavaMediaType
 } from "@/services/java-api-client";
 import { useAppState } from "@/state/AppStateProvider";
+import type { ContentRecordStatus } from "@/data/mock-data";
 
 type Dictionary = ReturnType<typeof getDictionary>;
 type EditableLevel = Exclude<MembershipLevel, "public">;
@@ -54,6 +55,7 @@ type ContentLibraryRow = {
   kind: ContentKind;
   level: MembershipLevel;
   pinned?: boolean;
+  status: ContentRecordStatus;
   title: string;
 };
 
@@ -105,6 +107,10 @@ function latestPublishedAt(items: Array<{ publishedAt?: string }>, fallback: str
     .at(-1);
 
   return latest ?? fallback;
+}
+
+function contentStatusLabel(status: ContentRecordStatus, dictionary: Dictionary) {
+  return status === "draft" ? dictionary.admin.draftContent : dictionary.admin.publishedContent;
 }
 
 function memberPageSummary(template: string, input: { page: number; total: number; totalPages: number }) {
@@ -257,6 +263,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
   const [contentTitle, setContentTitle] = useState("");
   const [contentBody, setContentBody] = useState("");
   const [contentVisibility, setContentVisibility] = useState<MembershipLevel>("gold");
+  const [contentStatus, setContentStatus] = useState<ContentRecordStatus>("published");
   const [contentPinned, setContentPinned] = useState(false);
   const [contentAsset, setContentAsset] = useState("");
   const [publishMessage, setPublishMessage] = useState<string | null>(null);
@@ -307,6 +314,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
       kind: "post" as const,
       level: post.visibility,
       pinned: post.pinned,
+      status: post.status,
       title: post.title
     })),
     ...albums.map((album) => ({
@@ -315,6 +323,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
       id: album.id,
       kind: "album" as const,
       level: album.defaultVisibility,
+      status: album.status,
       title: album.title
     })),
     ...videoCollections.map((collection) => ({
@@ -323,6 +332,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
       id: collection.id,
       kind: "video" as const,
       level: collection.defaultVisibility,
+      status: collection.status,
       title: collection.title
     }))
   ];
@@ -338,6 +348,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
         row.body,
         row.date,
         contentKindLabel(row.kind, dictionary),
+        contentStatusLabel(row.status, dictionary),
         dictionary.membership[row.level],
         row.pinned ? dictionary.admin.pinnedPost : ""
       ]
@@ -392,6 +403,19 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
     dictionary.admin.noDate
   );
   const isUploading = uploadTarget !== null;
+  const primaryContentActionLabel =
+    contentStatus === "draft"
+      ? dictionary.admin.saveDraft
+      : editingContent
+        ? dictionary.common.save
+        : dictionary.common.publish;
+  const secondaryContentStatus: ContentRecordStatus = contentStatus === "draft" ? "published" : "draft";
+  const secondaryContentActionLabel =
+    secondaryContentStatus === "draft"
+      ? dictionary.admin.saveDraft
+      : editingContent
+        ? dictionary.admin.publishChanges
+        : dictionary.common.publish;
 
   useEffect(() => {
     if (!authReady) {
@@ -580,6 +604,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
     setUploadedVideoCoverMeta(null);
     setUploadedVideoMeta(null);
     setEditingContent(null);
+    setContentStatus("published");
     setContentPinned(false);
   }
 
@@ -717,6 +742,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
     setUploadedVideoCoverMeta(null);
     setUploadedVideoMeta(null);
     setContentPinned(false);
+    setContentStatus("published");
     setUploadMessage(null);
     setUploadProgress(null);
     setUploadTarget(null);
@@ -743,6 +769,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
         setContentVisibility(post.visibility);
         setContentAsset(post.coverImage);
         setContentPinned(post.pinned);
+        setContentStatus(post.status);
       }
       return;
     }
@@ -755,6 +782,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
         setContentBody(album.description);
         setContentVisibility(album.defaultVisibility);
         setContentAsset(album.coverImage);
+        setContentStatus(album.status);
       }
       return;
     }
@@ -766,6 +794,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
       setContentBody(collection.description);
       setContentVisibility(collection.defaultVisibility);
       setContentAsset(collection.coverImage);
+      setContentStatus(collection.status);
     }
   }
 
@@ -803,7 +832,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
             body: post.body,
             visibility: bulkContentVisibility,
             coverImage: post.coverImage,
-            pinned: post.pinned
+            pinned: post.pinned,
+            status: post.status
           });
           continue;
         }
@@ -817,7 +847,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
             title: album.title,
             description: album.description,
             defaultVisibility: bulkContentVisibility,
-            coverImage: album.coverImage
+            coverImage: album.coverImage,
+            status: album.status
           });
           continue;
         }
@@ -830,7 +861,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           title: collection.title,
           description: collection.description,
           defaultVisibility: bulkContentVisibility,
-          coverImage: collection.coverImage
+          coverImage: collection.coverImage,
+          status: collection.status
         });
       }
 
@@ -862,7 +894,7 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
     }
   }
 
-  async function onPublishContent() {
+  async function onPublishContent(nextStatus: ContentRecordStatus = contentStatus) {
     if (isUploading) {
       setPublishMessage(dictionary.admin.uploadBlocksPublish);
       return;
@@ -879,7 +911,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           visibility: contentVisibility,
           coverImage: contentAsset,
           mediaAssetId: uploadedImageMeta?.mediaAssetId,
-          pinned: contentPinned
+          pinned: contentPinned,
+          status: nextStatus
         });
       } else if (editingContent?.kind === "album") {
         await updateAlbum({
@@ -888,7 +921,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           description: contentBody,
           defaultVisibility: contentVisibility,
           coverImage: contentAsset,
-          coverMediaId: uploadedImageMeta?.mediaAssetId
+          coverMediaId: uploadedImageMeta?.mediaAssetId,
+          status: nextStatus
         });
       } else if (editingContent?.kind === "video") {
         await updateVideoCollection({
@@ -897,7 +931,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           description: contentBody,
           defaultVisibility: contentVisibility,
           coverImage: uploadedVideoCoverMeta?.publicUrl || contentAsset,
-          coverMediaId: uploadedVideoCoverMeta?.mediaAssetId
+          coverMediaId: uploadedVideoCoverMeta?.mediaAssetId,
+          status: nextStatus
         });
       } else if (contentKind === "post") {
         await publishPost({
@@ -906,7 +941,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           visibility: contentVisibility,
           coverImage: contentAsset,
           mediaAssetId: uploadedImageMeta?.mediaAssetId,
-          pinned: contentPinned
+          pinned: contentPinned,
+          status: nextStatus
         });
       } else if (contentKind === "album") {
         await createAlbumWithPhoto({
@@ -915,7 +951,8 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           visibility: contentVisibility,
           photoTitle: contentTitle,
           imageUrl: contentAsset,
-          mediaAssetId: uploadedImageMeta?.mediaAssetId
+          mediaAssetId: uploadedImageMeta?.mediaAssetId,
+          status: nextStatus
         });
       } else if (contentKind === "video") {
         await createVideoCollectionWithVideo({
@@ -926,11 +963,12 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           playbackUrl: contentAsset,
           mediaAssetId: uploadedVideoMeta?.mediaAssetId,
           coverMediaId: uploadedVideoCoverMeta?.mediaAssetId,
-          thumbnailUrl: uploadedVideoCoverMeta?.publicUrl || uploadedVideoMeta?.thumbnailUrl
+          thumbnailUrl: uploadedVideoCoverMeta?.publicUrl || uploadedVideoMeta?.thumbnailUrl,
+          status: nextStatus
         });
       }
 
-      setPublishMessage(dictionary.common.status);
+      setPublishMessage(nextStatus === "draft" ? dictionary.admin.draftSaved : dictionary.common.status);
       resetContentForm();
     } catch (error) {
       setPublishMessage(uploadErrorMessage(error, dictionary.admin.publishFailed));
@@ -1042,6 +1080,18 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
                 <option value="diamond">{dictionary.membership.diamond}</option>
               </select>
             </label>
+            <label>
+              <span>{dictionary.admin.contentStatus}</span>
+              <select
+                aria-label={dictionary.admin.contentStatus}
+                value={contentStatus}
+                disabled={isUploading}
+                onChange={(event) => setContentStatus(event.target.value as ContentRecordStatus)}
+              >
+                <option value="published">{dictionary.admin.publishedContent}</option>
+                <option value="draft">{dictionary.admin.draftContent}</option>
+              </select>
+            </label>
             <label className="full-row">
               <span>{dictionary.admin.titleLabel}</span>
               <input
@@ -1074,8 +1124,16 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
               </label>
             ) : null}
             <div className="form-actions full-row">
-              <button type="button" onClick={() => void onPublishContent()} disabled={isUploading}>
-                {editingContent ? dictionary.common.save : dictionary.common.publish}
+              <button type="button" onClick={() => void onPublishContent(contentStatus)} disabled={isUploading}>
+                {primaryContentActionLabel}
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => void onPublishContent(secondaryContentStatus)}
+                disabled={isUploading}
+              >
+                {secondaryContentActionLabel}
               </button>
               {editingContent ? (
                 <button type="button" className="secondary-button" onClick={resetContentForm}>
@@ -1424,8 +1482,11 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
                       {dictionary.admin.pinnedPost}
                     </span>
                   ) : null}
+                  <span className={`status-badge status-${row.status}`}>
+                    {contentStatusLabel(row.status, dictionary)}
+                  </span>
                   <span className={`tier-badge tier-${row.level}`}>{dictionary.membership[row.level]}</span>
-                  <span>{row.date}</span>
+                  <span>{row.date || dictionary.admin.noDate}</span>
                 </div>
               </div>
               <div className="row-actions">

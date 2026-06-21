@@ -33,6 +33,11 @@ public interface PostRepository extends JpaRepository<PostEntity, UUID> {
     Sort sort
   );
 
+  List<PostEntity> findByStatusIn(
+    Collection<ContentStatus> statuses,
+    Sort sort
+  );
+
   @Query("""
     select post from PostEntity post
     where post.status = :status

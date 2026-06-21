@@ -3,6 +3,7 @@ export type JavaMemberLevel = "NORMAL" | "GOLD" | "DIAMOND";
 export type JavaUserStatus = "ACTIVE" | "DISABLED";
 export type JavaInviteStatus = "ACTIVE" | "DISABLED";
 export type JavaContentVisibility = "PUBLIC" | "NORMAL" | "GOLD" | "DIAMOND";
+export type JavaContentStatus = "PUBLISHED" | "DRAFT";
 export type JavaMediaType = "IMAGE" | "VIDEO";
 
 export class JavaApiError extends Error {
@@ -134,7 +135,8 @@ export type JavaPost = {
   id: string;
   mediaAssetIds: string[];
   pinned: boolean;
-  publishedAt: string;
+  publishedAt: string | null;
+  status: JavaContentStatus;
   title: string;
   visibility: JavaContentVisibility;
 };
@@ -143,7 +145,8 @@ export type JavaAlbum = {
   coverMediaId: string | null;
   description: string;
   id: string;
-  publishedAt: string;
+  publishedAt: string | null;
+  status: JavaContentStatus;
   title: string;
   visibility: JavaContentVisibility;
 };
@@ -153,7 +156,8 @@ export type JavaVideo = {
   description: string;
   id: string;
   mediaAssetId: string;
-  publishedAt: string;
+  publishedAt: string | null;
+  status: JavaContentStatus;
   title: string;
   visibility: JavaContentVisibility;
 };
@@ -207,6 +211,7 @@ export type CreatePostInput = {
   content: string;
   mediaAssetIds?: string[];
   pinned?: boolean;
+  status?: JavaContentStatus;
   title: string;
   visibility: JavaContentVisibility;
 };
@@ -214,6 +219,7 @@ export type CreatePostInput = {
 export type CreateAlbumInput = {
   coverMediaId?: string;
   description: string;
+  status?: JavaContentStatus;
   title: string;
   visibility: JavaContentVisibility;
 };
@@ -222,6 +228,7 @@ export type CreateVideoInput = {
   coverMediaId?: string;
   description: string;
   mediaAssetId: string;
+  status?: JavaContentStatus;
   title: string;
   visibility: JavaContentVisibility;
 };
@@ -239,6 +246,7 @@ export type UpdateVideoInput = {
   description: string;
   id: string;
   mediaAssetId?: string;
+  status?: JavaContentStatus;
   title: string;
   visibility: JavaContentVisibility;
 };
@@ -372,6 +380,7 @@ export async function updatePost(input: UpdatePostInput): Promise<JavaPost> {
       content: input.content,
       mediaAssetIds: input.mediaAssetIds,
       pinned: input.pinned,
+      status: input.status,
       title: input.title,
       visibility: input.visibility
     }),
@@ -384,6 +393,7 @@ export async function updateAlbum(input: UpdateAlbumInput): Promise<JavaAlbum> {
     body: JSON.stringify({
       coverMediaId: input.coverMediaId,
       description: input.description,
+      status: input.status,
       title: input.title,
       visibility: input.visibility
     }),
@@ -397,6 +407,7 @@ export async function updateVideo(input: UpdateVideoInput): Promise<JavaVideo> {
       coverMediaId: input.coverMediaId,
       description: input.description,
       mediaAssetId: input.mediaAssetId,
+      status: input.status,
       title: input.title,
       visibility: input.visibility
     }),

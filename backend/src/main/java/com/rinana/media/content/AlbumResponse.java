@@ -10,6 +10,7 @@ public record AlbumResponse(
   String title,
   String description,
   ContentVisibility visibility,
+  ContentStatus status,
   UUID coverMediaId,
   Instant publishedAt
 ) {
@@ -19,6 +20,7 @@ public record AlbumResponse(
       album.getTitle(),
       album.getDescription(),
       album.getVisibility(),
+      album.getStatus(),
       album.getCoverMedia() == null ? null : album.getCoverMedia().getId(),
       album.getPublishedAt()
     );

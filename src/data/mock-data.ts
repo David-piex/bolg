@@ -1,6 +1,8 @@
 import type { InviteCode } from "@/domain/invites";
 import type { MembershipLevel, Viewer } from "@/domain/membership";
 
+export type ContentRecordStatus = "published" | "draft";
+
 export type UserProfile = {
   id: string;
   name: string;
@@ -18,6 +20,7 @@ export type PostRecord = {
   body: string;
   coverImage: string;
   pinned: boolean;
+  status: ContentRecordStatus;
   visibility: MembershipLevel;
   publishedAt: string;
 };
@@ -28,6 +31,7 @@ export type AlbumRecord = {
   description: string;
   coverImage: string;
   defaultVisibility: MembershipLevel;
+  status: ContentRecordStatus;
   publishedAt: string;
 };
 
@@ -46,6 +50,7 @@ export type VideoCollectionRecord = {
   description: string;
   coverImage: string;
   defaultVisibility: MembershipLevel;
+  status: ContentRecordStatus;
   publishedAt: string;
 };
 
@@ -113,6 +118,7 @@ export const posts: PostRecord[] = [
     body: "这条动态所有访客可见，用来展示公开内容。",
     coverImage: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&q=80",
     pinned: true,
+    status: "published",
     visibility: "public",
     publishedAt: "2026-06-18"
   },
@@ -124,6 +130,7 @@ export const posts: PostRecord[] = [
     body: "这条动态登录用户可见。",
     coverImage: "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&w=1200&q=80",
     pinned: false,
+    status: "published",
     visibility: "normal",
     publishedAt: "2026-06-17"
   },
@@ -135,6 +142,7 @@ export const posts: PostRecord[] = [
     body: "这条动态面向黄金以上用户。",
     coverImage: "https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&w=1200&q=80",
     pinned: false,
+    status: "published",
     visibility: "gold",
     publishedAt: "2026-06-16"
   },
@@ -146,6 +154,7 @@ export const posts: PostRecord[] = [
     body: "这条动态只有钻石用户可见。",
     coverImage: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=1200&q=80",
     pinned: false,
+    status: "published",
     visibility: "diamond",
     publishedAt: "2026-06-15"
   }
@@ -158,6 +167,7 @@ export const albums: AlbumRecord[] = [
     description: "访客也能浏览的精选照片。",
     coverImage: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80",
     defaultVisibility: "public",
+    status: "published",
     publishedAt: "2026-06-14"
   },
   {
@@ -166,6 +176,7 @@ export const albums: AlbumRecord[] = [
     description: "默认黄金可见，内部照片可单独提升到钻石。",
     coverImage: "https://images.unsplash.com/photo-1499364615650-ec38552f4f34?auto=format&fit=crop&w=1200&q=80",
     defaultVisibility: "gold",
+    status: "published",
     publishedAt: "2026-06-13"
   }
 ];
@@ -204,6 +215,7 @@ export const videoCollections: VideoCollectionRecord[] = [
     description: "公开预告和试看内容。",
     coverImage: "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=1200&q=80",
     defaultVisibility: "public",
+    status: "published",
     publishedAt: "2026-06-12"
   },
   {
@@ -212,6 +224,7 @@ export const videoCollections: VideoCollectionRecord[] = [
     description: "默认黄金可见，单条视频可设为钻石。",
     coverImage: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=1200&q=80",
     defaultVisibility: "gold",
+    status: "published",
     publishedAt: "2026-06-11"
   }
 ];

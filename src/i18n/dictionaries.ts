@@ -110,6 +110,12 @@ type Dictionary = {
     imageStorage: string;
     videoStorage: string;
     contentType: string;
+    contentStatus: string;
+    publishedContent: string;
+    draftContent: string;
+    saveDraft: string;
+    draftSaved: string;
+    publishChanges: string;
     titleLabel: string;
     pinPost: string;
     pinPostHint: string;
@@ -381,6 +387,12 @@ export const dictionaries: Record<Locale, Dictionary> = {
       imageStorage: "图片存储",
       videoStorage: "视频存储",
       contentType: "内容类型",
+      contentStatus: "内容状态",
+      publishedContent: "已发布",
+      draftContent: "草稿",
+      saveDraft: "保存草稿",
+      draftSaved: "草稿已保存。",
+      publishChanges: "发布修改",
       titleLabel: "标题",
       pinPost: "置顶动态",
       pinPostHint: "置顶后会优先出现在首页、动态列表和内容库顶部。",
@@ -653,6 +665,12 @@ export const dictionaries: Record<Locale, Dictionary> = {
       imageStorage: "Image storage",
       videoStorage: "Video storage",
       contentType: "Content type",
+      contentStatus: "Content status",
+      publishedContent: "Published",
+      draftContent: "Draft",
+      saveDraft: "Save draft",
+      draftSaved: "Draft saved.",
+      publishChanges: "Publish changes",
       titleLabel: "Title",
       pinPost: "Pin post",
       pinPostHint: "Pinned posts appear first on home, post lists, and the content library.",

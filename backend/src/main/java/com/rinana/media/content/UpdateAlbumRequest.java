@@ -10,6 +10,7 @@ public record UpdateAlbumRequest(
   @NotBlank String title,
   @NotBlank String description,
   @NotNull ContentVisibility visibility,
+  ContentStatus status,
   UUID coverMediaId
 ) {
 }

@@ -26,6 +26,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Mockito.when;
 import org.junit.jupiter.api.BeforeEach;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -373,6 +375,100 @@ class ContentControllerTest {
       .andExpect(jsonPath("$.title").value("new video"))
       .andExpect(jsonPath("$.description").value("new video body"))
       .andExpect(jsonPath("$.visibility").value("NORMAL"));
+  }
+
+  @Test
+  void draftContentIsOnlyVisibleToAdminsUntilPublished() throws Exception {
+    Cookie adminCookie = login("admin", "admin123456");
+    String draftPostResponse = mvc.perform(post("/api/content/posts")
+        .cookie(adminCookie)
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(json(Map.of(
+          "title", "draft post",
+          "content", "draft body",
+          "visibility", "PUBLIC",
+          "status", "DRAFT"
+        ))))
+      .andExpect(status().isCreated())
+      .andExpect(jsonPath("$.status").value("DRAFT"))
+      .andExpect(jsonPath("$.publishedAt").value(nullValue()))
+      .andReturn()
+      .getResponse()
+      .getContentAsString();
+    String draftPostId = objectMapper.readTree(draftPostResponse).get("id").asText();
+
+    mvc.perform(get("/api/content"))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.posts", hasSize(0)));
+
+    mvc.perform(get("/api/content/posts"))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.items", hasSize(0)));
+
+    mvc.perform(get("/api/content").cookie(adminCookie))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.posts", hasSize(1)))
+      .andExpect(jsonPath("$.posts[0].title").value("draft post"))
+      .andExpect(jsonPath("$.posts[0].status").value("DRAFT"));
+
+    mvc.perform(patch("/api/content/posts/" + draftPostId)
+        .cookie(adminCookie)
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(json(Map.of(
+          "title", "draft post renamed",
+          "content", "draft body",
+          "visibility", "PUBLIC"
+        ))))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.status").value("DRAFT"))
+      .andExpect(jsonPath("$.publishedAt").value(nullValue()));
+
+    mvc.perform(patch("/api/content/posts/" + draftPostId)
+        .cookie(adminCookie)
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(json(Map.of(
+          "title", "draft post published",
+          "content", "draft body",
+          "visibility", "PUBLIC",
+          "status", "PUBLISHED"
+        ))))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.status").value("PUBLISHED"))
+      .andExpect(jsonPath("$.publishedAt").value(notNullValue()));
+
+    mvc.perform(get("/api/content/posts/" + draftPostId))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.title").value("draft post published"));
+  }
+
+  @Test
+  void deletedStatusCannotBeWrittenThroughCreateOrPatch() throws Exception {
+    Cookie adminCookie = login("admin", "admin123456");
+    String postId = createPostAndReturnId(adminCookie, "valid post", "PUBLIC");
+
+    mvc.perform(post("/api/content/posts")
+        .cookie(adminCookie)
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(json(Map.of(
+          "title", "invalid post",
+          "content", "body",
+          "visibility", "PUBLIC",
+          "status", "DELETED"
+        ))))
+      .andExpect(status().isBadRequest())
+      .andExpect(jsonPath("$.errorCode").value("INVALID_CONTENT_STATUS"));
+
+    mvc.perform(patch("/api/content/posts/" + postId)
+        .cookie(adminCookie)
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(json(Map.of(
+          "title", "invalid patch",
+          "content", "body",
+          "visibility", "PUBLIC",
+          "status", "DELETED"
+        ))))
+      .andExpect(status().isBadRequest())
+      .andExpect(jsonPath("$.errorCode").value("INVALID_CONTENT_STATUS"));
   }
 
   @Test
