@@ -176,6 +176,13 @@ type Dictionary = {
     mediaLibraryImageSelected: string;
     mediaLibraryCoverSelected: string;
     mediaLibraryVideoSelected: string;
+    searchContent: string;
+    contentSearchPlaceholder: string;
+    contentKindFilter: string;
+    contentKindAll: string;
+    contentLevelFilter: string;
+    contentLevelAll: string;
+    contentFilterSummary: string;
     auditLogs: string;
     auditLogsHint: string;
     auditActor: string;
@@ -426,6 +433,13 @@ export const dictionaries: Record<Locale, Dictionary> = {
       mediaLibraryImageSelected: "已从素材库关联图片。",
       mediaLibraryCoverSelected: "已从素材库关联视频封面。",
       mediaLibraryVideoSelected: "已从素材库关联视频文件。",
+      searchContent: "搜索内容",
+      contentSearchPlaceholder: "标题、正文或日期",
+      contentKindFilter: "筛选类型",
+      contentKindAll: "全部类型",
+      contentLevelFilter: "会员等级",
+      contentLevelAll: "全部等级",
+      contentFilterSummary: "显示 {shown} / {total} 条",
       auditLogs: "操作记录",
       auditLogsHint: "查看管理员对邀请码和成员账号的关键操作，方便追踪问题。",
       auditActor: "操作人",
@@ -677,6 +691,13 @@ export const dictionaries: Record<Locale, Dictionary> = {
       mediaLibraryImageSelected: "Image attached from the media library.",
       mediaLibraryCoverSelected: "Video cover attached from the media library.",
       mediaLibraryVideoSelected: "Video file attached from the media library.",
+      searchContent: "Search content",
+      contentSearchPlaceholder: "Title, body, or date",
+      contentKindFilter: "Filter type",
+      contentKindAll: "All types",
+      contentLevelFilter: "Member tier",
+      contentLevelAll: "All tiers",
+      contentFilterSummary: "Showing {shown} of {total}",
       auditLogs: "Audit log",
       auditLogsHint: "Review key admin actions on invite codes and member accounts.",
       auditActor: "Actor",

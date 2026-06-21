@@ -39,10 +39,21 @@ type EditableLevel = Exclude<MembershipLevel, "public">;
 type ContentKind = "post" | "album" | "video";
 type UploadTarget = "image" | "video" | "cover";
 type MediaUseTarget = "image" | "video" | "cover";
+type ContentLibraryKindFilter = ContentKind | "ALL";
+type ContentLibraryLevelFilter = MembershipLevel | "ALL";
 type EditingContent = {
   id: string;
   kind: ContentKind;
 } | null;
+
+type ContentLibraryRow = {
+  body: string;
+  date: string;
+  id: string;
+  kind: ContentKind;
+  level: MembershipLevel;
+  title: string;
+};
 
 function formatCount(count: number, unit: string) {
   return `${count} ${unit}`;
@@ -192,6 +203,18 @@ function uploadTargetLabel(target: UploadTarget | null, dictionary: Dictionary) 
   return dictionary.admin.mediaUpload;
 }
 
+function contentKindLabel(kind: ContentKind, dictionary: Dictionary) {
+  if (kind === "album") return dictionary.content.album;
+  if (kind === "video") return dictionary.content.videoCollection;
+  return dictionary.content.post;
+}
+
+function contentLibrarySummary(template: string, input: { shown: number; total: number }) {
+  return template
+    .replace("{shown}", String(input.shown))
+    .replace("{total}", String(input.total));
+}
+
 export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
   const {
     users,
@@ -237,6 +260,9 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
   const [memberPageSize, setMemberPageSize] = useState(10);
   const [memberLoading, setMemberLoading] = useState(false);
   const [memberError, setMemberError] = useState<string | null>(null);
+  const [contentLibraryQuery, setContentLibraryQuery] = useState("");
+  const [contentLibraryKindFilter, setContentLibraryKindFilter] = useState<ContentLibraryKindFilter>("ALL");
+  const [contentLibraryLevelFilter, setContentLibraryLevelFilter] = useState<ContentLibraryLevelFilter>("ALL");
   const [mediaQuery, setMediaQuery] = useState("");
   const [mediaTypeFilter, setMediaTypeFilter] = useState<JavaMediaType | "ALL">("ALL");
   const [mediaPage, setMediaPage] = useState({
@@ -259,6 +285,55 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
   const [auditError, setAuditError] = useState<string | null>(null);
   const unusedInvites = invites.filter((invite) => !invite.usedByUserId);
   const contentTotal = posts.length + albums.length + videoCollections.length;
+  const contentLibraryRows: ContentLibraryRow[] = [
+    ...posts.map((post) => ({
+      body: post.body,
+      date: post.publishedAt,
+      id: post.id,
+      kind: "post" as const,
+      level: post.visibility,
+      title: post.title
+    })),
+    ...albums.map((album) => ({
+      body: album.description,
+      date: album.publishedAt,
+      id: album.id,
+      kind: "album" as const,
+      level: album.defaultVisibility,
+      title: album.title
+    })),
+    ...videoCollections.map((collection) => ({
+      body: collection.description,
+      date: collection.publishedAt,
+      id: collection.id,
+      kind: "video" as const,
+      level: collection.defaultVisibility,
+      title: collection.title
+    }))
+  ];
+  const normalizedContentLibraryQuery = contentLibraryQuery.trim().toLowerCase();
+  const filteredContentLibraryRows = contentLibraryRows
+    .filter((row) => contentLibraryKindFilter === "ALL" || row.kind === contentLibraryKindFilter)
+    .filter((row) => contentLibraryLevelFilter === "ALL" || row.level === contentLibraryLevelFilter)
+    .filter((row) => {
+      if (!normalizedContentLibraryQuery) return true;
+
+      return [
+        row.title,
+        row.body,
+        row.date,
+        contentKindLabel(row.kind, dictionary),
+        dictionary.membership[row.level]
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedContentLibraryQuery);
+    })
+    .sort((left, right) => right.date.localeCompare(left.date) || left.title.localeCompare(right.title));
+  const contentLibraryFilteredSummary = contentLibrarySummary(dictionary.admin.contentFilterSummary, {
+    shown: filteredContentLibraryRows.length,
+    total: contentLibraryRows.length
+  });
   const mediaTotal = photos.length + videos.length;
   const memberRows = adminUserPage.users;
   const memberCurrentPage = adminUserPage.page + 1;
@@ -1107,78 +1182,69 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
           <span>{formatCount(albums.length, dictionary.content.albumUnit)}</span>
           <span>{formatCount(videoCollections.length, dictionary.content.videoCollectionUnit)}</span>
         </div>
+        <div className="content-library-toolbar">
+          <label>
+            <span>{dictionary.admin.searchContent}</span>
+            <span className="member-search-control">
+              <Search size={16} />
+              <input
+                value={contentLibraryQuery}
+                onChange={(event) => setContentLibraryQuery(event.target.value)}
+                placeholder={dictionary.admin.contentSearchPlaceholder}
+              />
+            </span>
+          </label>
+          <label>
+            <span>{dictionary.admin.contentKindFilter}</span>
+            <select
+              value={contentLibraryKindFilter}
+              onChange={(event) => setContentLibraryKindFilter(event.target.value as ContentLibraryKindFilter)}
+            >
+              <option value="ALL">{dictionary.admin.contentKindAll}</option>
+              <option value="post">{dictionary.content.posts}</option>
+              <option value="album">{dictionary.content.albums}</option>
+              <option value="video">{dictionary.content.videos}</option>
+            </select>
+          </label>
+          <label>
+            <span>{dictionary.admin.contentLevelFilter}</span>
+            <select
+              value={contentLibraryLevelFilter}
+              onChange={(event) => setContentLibraryLevelFilter(event.target.value as ContentLibraryLevelFilter)}
+            >
+              <option value="ALL">{dictionary.admin.contentLevelAll}</option>
+              <option value="public">{dictionary.membership.public}</option>
+              <option value="normal">{dictionary.membership.normal}</option>
+              <option value="gold">{dictionary.membership.gold}</option>
+              <option value="diamond">{dictionary.membership.diamond}</option>
+            </select>
+          </label>
+          <span className="content-library-filter-summary">{contentLibraryFilteredSummary}</span>
+        </div>
         <div className="admin-content-list">
-          {posts.map((post) => (
-            <div key={post.id} className="admin-content-row">
+          {filteredContentLibraryRows.map((row) => (
+            <div key={`${row.kind}-${row.id}`} className="admin-content-row">
               <div>
-                <span className="admin-content-meta">{dictionary.content.post}</span>
-                <strong>{post.title}</strong>
+                <span className="admin-content-meta">{contentKindLabel(row.kind, dictionary)}</span>
+                <strong>{row.title}</strong>
                 <div className="admin-row-meta">
-                  <span className={`tier-badge tier-${post.visibility}`}>{dictionary.membership[post.visibility]}</span>
-                  <span>{post.publishedAt}</span>
+                  <span className={`tier-badge tier-${row.level}`}>{dictionary.membership[row.level]}</span>
+                  <span>{row.date}</span>
                 </div>
               </div>
               <div className="row-actions">
-                <button type="button" onClick={() => onEditContent({ id: post.id, kind: "post" })}>
+                <button type="button" onClick={() => onEditContent({ id: row.id, kind: row.kind })}>
                   <Pencil size={16} />
                   <span>{dictionary.common.edit}</span>
                 </button>
-                <button type="button" onClick={() => deleteContent({ id: post.id, kind: "post" })}>
+                <button type="button" onClick={() => deleteContent({ id: row.id, kind: row.kind })}>
                   <Trash2 size={16} />
                   <span>{dictionary.common.delete}</span>
                 </button>
               </div>
             </div>
           ))}
-          {albums.map((album) => (
-            <div key={album.id} className="admin-content-row">
-              <div>
-                <span className="admin-content-meta">{dictionary.content.album}</span>
-                <strong>{album.title}</strong>
-                <div className="admin-row-meta">
-                  <span className={`tier-badge tier-${album.defaultVisibility}`}>
-                    {dictionary.membership[album.defaultVisibility]}
-                  </span>
-                  <span>{album.publishedAt}</span>
-                </div>
-              </div>
-              <div className="row-actions">
-                <button type="button" onClick={() => onEditContent({ id: album.id, kind: "album" })}>
-                  <Pencil size={16} />
-                  <span>{dictionary.common.edit}</span>
-                </button>
-                <button type="button" onClick={() => deleteContent({ id: album.id, kind: "album" })}>
-                  <Trash2 size={16} />
-                  <span>{dictionary.common.delete}</span>
-                </button>
-              </div>
-            </div>
-          ))}
-          {videoCollections.map((collection) => (
-            <div key={collection.id} className="admin-content-row">
-              <div>
-                <span className="admin-content-meta">{dictionary.content.videoCollection}</span>
-                <strong>{collection.title}</strong>
-                <div className="admin-row-meta">
-                  <span className={`tier-badge tier-${collection.defaultVisibility}`}>
-                    {dictionary.membership[collection.defaultVisibility]}
-                  </span>
-                  <span>{collection.publishedAt}</span>
-                </div>
-              </div>
-              <div className="row-actions">
-                <button type="button" onClick={() => onEditContent({ id: collection.id, kind: "video" })}>
-                  <Pencil size={16} />
-                  <span>{dictionary.common.edit}</span>
-                </button>
-                <button type="button" onClick={() => deleteContent({ id: collection.id, kind: "video" })}>
-                  <Trash2 size={16} />
-                  <span>{dictionary.common.delete}</span>
-                </button>
-              </div>
-            </div>
-          ))}
-          {posts.length + albums.length + videoCollections.length === 0 ? (
+          {filteredContentLibraryRows.length === 0 ? (
             <p className="muted">{dictionary.admin.noContent}</p>
           ) : null}
         </div>

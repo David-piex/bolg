@@ -118,6 +118,11 @@ describe("AdminPanel", () => {
     expect(screen.getByText(/第 1 \/ 1 页，共 4 人/)).toBeInTheDocument();
     expect(screen.getByText("操作记录")).toBeInTheDocument();
     expect(screen.getByText("暂无操作记录")).toBeInTheDocument();
+    expect(screen.getByText("搜索内容")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("标题、正文或日期")).toBeInTheDocument();
+    expect(screen.getByText("筛选类型")).toBeInTheDocument();
+    expect(screen.getByText("会员等级")).toBeInTheDocument();
+    expect(screen.getByText(/显示 8 \/ 8 条/)).toBeInTheDocument();
     expect(screen.getByText("标题")).toBeInTheDocument();
     expect(screen.getByText("正文")).toBeInTheDocument();
     expect(screen.getByText("媒体文件")).toBeInTheDocument();
@@ -137,6 +142,36 @@ describe("AdminPanel", () => {
     expect(screen.queryByText("Image URL")).not.toBeInTheDocument();
     expect(screen.queryByText("Media asset URL")).not.toBeInTheDocument();
     expect(screen.queryByText("video collections")).not.toBeInTheDocument();
+  });
+
+  it("filters the admin content library by query, type, and member tier", async () => {
+    window.localStorage.clear();
+    const dictionary = getDictionary("zh");
+
+    render(
+      <AppStateProvider>
+        <AdminLoginProbe />
+        <AdminPanel dictionary={dictionary} />
+      </AppStateProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("内容管理")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByPlaceholderText("标题、正文或日期"), { target: { value: "会员" } });
+
+    await waitFor(() => {
+      expect(screen.getByText(/显示 3 \/ 8 条/)).toBeInTheDocument();
+    });
+    expect(screen.queryByText("公开更新：六月片场手记")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("筛选类型"), { target: { value: "album" } });
+    expect(screen.getByText(/显示 1 \/ 8 条/)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("会员等级"), { target: { value: "diamond" } });
+    expect(screen.getByText(/显示 0 \/ 8 条/)).toBeInTheDocument();
+    expect(screen.getByText("还没有内容")).toBeInTheDocument();
   });
 
   it("falls back from broken question-mark profile names in admin surfaces", async () => {
