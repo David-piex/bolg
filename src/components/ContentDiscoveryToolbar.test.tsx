@@ -16,6 +16,7 @@ describe("ContentDiscoveryToolbar", () => {
         category=""
         categoryOptions={["studio"]}
         dictionary={dictionary}
+        locale="zh"
         query=""
         setCategory={setCategory}
         setQuery={setQuery}

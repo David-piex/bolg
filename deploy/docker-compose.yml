@@ -28,6 +28,7 @@ services:
     environment:
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
+      NODE_OPTIONS: "--max-old-space-size=512"
     expose:
       - "3000"
     depends_on:
@@ -42,7 +43,7 @@ services:
     env_file:
       - ./env/backend.env
     environment:
-      JAVA_TOOL_OPTIONS: "-Xms256m -Xmx768m"
+      JAVA_TOOL_OPTIONS: "-Xms256m -Xmx640m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
     expose:
       - "8080"
     depends_on:
@@ -57,6 +58,18 @@ services:
 
   postgres:
     image: postgres:16-alpine
+    command:
+      - postgres
+      - -c
+      - max_connections=50
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - effective_cache_size=1024MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=64MB
     env_file:
       - ./env/postgres.env
     volumes:
@@ -71,6 +84,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
     volumes:
       - redis-data:/data
     logging: *default-logging

@@ -40,9 +40,7 @@ export function LoginView({ dictionary }: { dictionary: Dictionary }) {
     if (result.ok) {
       setMessage(dictionary.auth.loggedIn);
       setPassword("");
-      if (result.isAdmin) {
-        router.push(`/${normalizeLocale(params.locale)}/admin`);
-      }
+      router.replace(`/${normalizeLocale(params.locale)}`);
       return;
     }
 

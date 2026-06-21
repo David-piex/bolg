@@ -70,6 +70,15 @@ export function AlbumsView({ dictionary, locale }: { dictionary: Dictionary; loc
   const tagOptions = uniqueSorted(visibleAlbums.flatMap((album) => album.tags));
 
   useEffect(() => {
+    const canReuseInitialPage = page === 0 && !query && !category && !tag && sort === "latest" && visibleAlbums.length > 0;
+    if (canReuseInitialPage) {
+      setPagedAlbums(visibleAlbums.slice(0, pageSize));
+      setTotal(visibleAlbums.length);
+      setTotalPages(Math.max(1, Math.ceil(visibleAlbums.length / pageSize)));
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
     setLoading(true);
 
@@ -87,7 +96,7 @@ export function AlbumsView({ dictionary, locale }: { dictionary: Dictionary; loc
     return () => {
       cancelled = true;
     };
-  }, [category, loadAlbumsPage, page, photos, query, sort, tag, viewer]);
+  }, [category, loadAlbumsPage, page, photos, query, sort, tag, visibleAlbums, viewer]);
 
   return (
     <div className="page">

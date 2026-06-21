@@ -19,7 +19,7 @@ describe("AppShell", () => {
     );
 
     expect(container.firstElementChild).toHaveClass("site-shell-zh");
-    expect(screen.getByText("绫奈")).toBeInTheDocument();
+    expect(screen.getAllByText("绫奈").length).toBeGreaterThanOrEqual(1);
   });
 
   it("uses Chinese labels for the shell on the Chinese route", () => {

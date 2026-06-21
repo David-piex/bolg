@@ -201,7 +201,7 @@ function mediaAccessUrl(mediaId: string | null | undefined): string {
   return mediaId ? `/api/media/${encodeURIComponent(mediaId)}/view` : "";
 }
 
-function postFromJava(post: JavaPost): PostRecord {
+export function postFromJava(post: JavaPost): PostRecord {
   const firstMediaId = post.mediaAssetIds?.[0];
   return {
     body: post.content,
@@ -220,7 +220,7 @@ function postFromJava(post: JavaPost): PostRecord {
   };
 }
 
-function albumFromJava(album: JavaAlbum): AlbumRecord {
+export function albumFromJava(album: JavaAlbum): AlbumRecord {
   return {
     category: album.category ?? "",
     coverImage: mediaViewUrl(album.coverMediaId),
@@ -235,7 +235,7 @@ function albumFromJava(album: JavaAlbum): AlbumRecord {
   };
 }
 
-function videoCollectionFromJava(video: JavaVideo): VideoCollectionRecord {
+export function videoCollectionFromJava(video: JavaVideo): VideoCollectionRecord {
   return {
     category: video.category ?? "",
     coverImage: mediaViewUrl(video.coverMediaId),
@@ -250,7 +250,7 @@ function videoCollectionFromJava(video: JavaVideo): VideoCollectionRecord {
   };
 }
 
-function videoFromJava(video: JavaVideo): VideoRecord {
+export function videoFromJava(video: JavaVideo): VideoRecord {
   return {
     collectionId: `collection-${video.id}`,
     description: video.description,

@@ -71,6 +71,15 @@ export function PostsView({ dictionary, locale }: { dictionary: Dictionary; loca
   const tagOptions = uniqueSorted(visiblePosts.flatMap((post) => post.tags));
 
   useEffect(() => {
+    const canReuseInitialPage = page === 0 && !query && !category && !tag && sort === "latest" && visiblePosts.length > 0;
+    if (canReuseInitialPage) {
+      setPagedPosts(visiblePosts.slice(0, pageSize));
+      setTotal(visiblePosts.length);
+      setTotalPages(Math.max(1, Math.ceil(visiblePosts.length / pageSize)));
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
     setLoading(true);
 
@@ -88,7 +97,7 @@ export function PostsView({ dictionary, locale }: { dictionary: Dictionary; loca
     return () => {
       cancelled = true;
     };
-  }, [category, loadPostsPage, page, query, sort, tag, viewer]);
+  }, [category, loadPostsPage, page, query, sort, tag, visiblePosts, viewer]);
 
   return (
     <div className="page">

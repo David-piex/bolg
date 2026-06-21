@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Cloud,
   Database,
@@ -186,7 +186,16 @@ function formatAuditDetail(detailJson: string) {
   try {
     const parsed = JSON.parse(detailJson) as Record<string, unknown>;
     return Object.entries(parsed)
-      .map(([key, value]) => `${key}: ${String(value)}`)
+      .map(([key, value]) => {
+        if (key === "code") return `邀请码 ${String(value)}`;
+        if (key === "initialLevel" || key === "memberLevel") return `等级 ${String(value)}`;
+        if (key === "status") return `状态 ${String(value)}`;
+        if (key === "siteName") return `站点名称 ${String(value)}`;
+        if (key === "logoText") return `页眉文字 ${String(value)}`;
+        if (key === "logoMark") return `页眉标记 ${String(value)}`;
+        if (key === "mediaAssetId" || key === "targetId") return `资源 ${String(value)}`;
+        return `${key} ${String(value)}`;
+      })
       .join(" / ");
   } catch {
     return detailJson;
@@ -260,6 +269,8 @@ function formatScheduledPreview(value: string) {
 
 export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictionary; locale?: Locale }) {
   const {
+    siteSettings,
+    updateSiteSettings,
     users,
     adminUserPage,
     invites,
@@ -286,6 +297,13 @@ export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictiona
   } = useAppState();
   const [newInviteLevel, setNewInviteLevel] = useState<EditableLevel>("normal");
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
+  const [brandDraft, setBrandDraft] = useState({
+    logoMark: siteSettings.logoMark,
+    logoText: siteSettings.logoText,
+    siteName: siteSettings.siteName
+  });
+  const [brandSaving, setBrandSaving] = useState(false);
+  const [brandMessage, setBrandMessage] = useState<string | null>(null);
   const [contentKind, setContentKind] = useState<ContentKind>("post");
   const [contentTitle, setContentTitle] = useState("");
   const [contentBody, setContentBody] = useState("");
@@ -334,78 +352,97 @@ export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictiona
   });
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditError, setAuditError] = useState<string | null>(null);
-  const unusedInvites = invites.filter((invite) => !invite.usedByUserId);
+  const unusedInvites = useMemo(() => invites.filter((invite) => !invite.usedByUserId), [invites]);
   const contentTotal = posts.length + albums.length + videoCollections.length;
-  const contentLibraryRows: ContentLibraryRow[] = [
-    ...posts.map((post) => ({
-      body: post.body,
-      category: post.category,
-      date: post.status === "scheduled" ? post.scheduledAt ?? post.publishedAt : post.publishedAt,
-      id: post.id,
-      kind: "post" as const,
-      level: post.visibility,
-      pinned: post.pinned,
-      status: post.status,
-      tags: post.tags,
-      title: post.title
-    })),
-    ...albums.map((album) => ({
-      body: album.description,
-      category: album.category,
-      date: album.status === "scheduled" ? album.scheduledAt ?? album.publishedAt : album.publishedAt,
-      id: album.id,
-      kind: "album" as const,
-      level: album.defaultVisibility,
-      status: album.status,
-      tags: album.tags,
-      title: album.title
-    })),
-    ...videoCollections.map((collection) => ({
-      body: collection.description,
-      category: collection.category,
-      date: collection.status === "scheduled" ? collection.scheduledAt ?? collection.publishedAt : collection.publishedAt,
-      id: collection.id,
-      kind: "video" as const,
-      level: collection.defaultVisibility,
-      status: collection.status,
-      tags: collection.tags,
-      title: collection.title
-    }))
-  ];
-  const normalizedContentLibraryQuery = contentLibraryQuery.trim().toLowerCase();
-  const filteredContentLibraryRows = contentLibraryRows
-    .filter((row) => contentLibraryKindFilter === "ALL" || row.kind === contentLibraryKindFilter)
-    .filter((row) => contentLibraryLevelFilter === "ALL" || row.level === contentLibraryLevelFilter)
-    .filter((row) => {
-      if (!normalizedContentLibraryQuery) return true;
+  const contentLibraryRows = useMemo<ContentLibraryRow[]>(
+    () => [
+      ...posts.map((post) => ({
+        body: post.body,
+        category: post.category,
+        date: post.status === "scheduled" ? post.scheduledAt ?? post.publishedAt : post.publishedAt,
+        id: post.id,
+        kind: "post" as const,
+        level: post.visibility,
+        pinned: post.pinned,
+        status: post.status,
+        tags: post.tags,
+        title: post.title
+      })),
+      ...albums.map((album) => ({
+        body: album.description,
+        category: album.category,
+        date: album.status === "scheduled" ? album.scheduledAt ?? album.publishedAt : album.publishedAt,
+        id: album.id,
+        kind: "album" as const,
+        level: album.defaultVisibility,
+        status: album.status,
+        tags: album.tags,
+        title: album.title
+      })),
+      ...videoCollections.map((collection) => ({
+        body: collection.description,
+        category: collection.category,
+        date: collection.status === "scheduled" ? collection.scheduledAt ?? collection.publishedAt : collection.publishedAt,
+        id: collection.id,
+        kind: "video" as const,
+        level: collection.defaultVisibility,
+        status: collection.status,
+        tags: collection.tags,
+        title: collection.title
+      }))
+    ],
+    [albums, posts, videoCollections]
+  );
+  const normalizedContentLibraryQuery = useMemo(
+    () => contentLibraryQuery.trim().toLowerCase(),
+    [contentLibraryQuery]
+  );
+  const filteredContentLibraryRows = useMemo(
+    () =>
+      contentLibraryRows
+        .filter((row) => contentLibraryKindFilter === "ALL" || row.kind === contentLibraryKindFilter)
+        .filter((row) => contentLibraryLevelFilter === "ALL" || row.level === contentLibraryLevelFilter)
+        .filter((row) => {
+          if (!normalizedContentLibraryQuery) return true;
 
-      return [
-        row.title,
-        row.body,
-        row.category,
-        row.tags.join(" "),
-        row.date,
-        contentKindLabel(row.kind, dictionary),
-        contentStatusLabel(row.status, dictionary),
-        dictionary.membership[row.level],
-        row.pinned ? dictionary.admin.pinnedPost : ""
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(normalizedContentLibraryQuery);
-    })
-    .sort((left, right) =>
-      Number(Boolean(right.pinned)) - Number(Boolean(left.pinned))
-      || right.date.localeCompare(left.date)
-      || left.title.localeCompare(right.title)
-    );
-  const contentLibraryFilteredSummary = contentLibrarySummary(dictionary.admin.contentFilterSummary, {
-    shown: filteredContentLibraryRows.length,
-    total: contentLibraryRows.length
-  });
-  const visibleContentKeys = filteredContentLibraryRows.map(contentLibraryRowKey);
-  const selectedContentRows = contentLibraryRows.filter((row) =>
-    selectedContentKeys.includes(contentLibraryRowKey(row))
+          return [
+            row.title,
+            row.body,
+            row.category,
+            row.tags.join(" "),
+            row.date,
+            contentKindLabel(row.kind, dictionary),
+            contentStatusLabel(row.status, dictionary),
+            dictionary.membership[row.level],
+            row.pinned ? dictionary.admin.pinnedPost : ""
+          ]
+            .join(" ")
+            .toLowerCase()
+            .includes(normalizedContentLibraryQuery);
+        })
+        .sort(
+          (left, right) =>
+            Number(Boolean(right.pinned)) - Number(Boolean(left.pinned))
+            || right.date.localeCompare(left.date)
+            || left.title.localeCompare(right.title)
+        ),
+    [contentLibraryKindFilter, contentLibraryLevelFilter, contentLibraryRows, dictionary, normalizedContentLibraryQuery]
+  );
+  const contentLibraryFilteredSummary = useMemo(
+    () =>
+      contentLibrarySummary(dictionary.admin.contentFilterSummary, {
+        shown: filteredContentLibraryRows.length,
+        total: contentLibraryRows.length
+      }),
+    [contentLibraryRows.length, dictionary.admin.contentFilterSummary, filteredContentLibraryRows.length]
+  );
+  const visibleContentKeys = useMemo(
+    () => filteredContentLibraryRows.map(contentLibraryRowKey),
+    [filteredContentLibraryRows]
+  );
+  const selectedContentRows = useMemo(
+    () => contentLibraryRows.filter((row) => selectedContentKeys.includes(contentLibraryRowKey(row))),
+    [contentLibraryRows, selectedContentKeys]
   );
   const selectedContentCount = selectedContentRows.length;
   const allVisibleContentSelected =
@@ -469,6 +506,40 @@ export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictiona
     title: contentTitle.trim() || titlePlaceholderFor(contentKind, dictionary),
     visibility: contentVisibility
   };
+
+  useEffect(() => {
+    setBrandDraft({
+      logoMark: siteSettings.logoMark,
+      logoText: siteSettings.logoText,
+      siteName: siteSettings.siteName
+    });
+  }, [siteSettings.logoMark, siteSettings.logoText, siteSettings.siteName]);
+
+  async function onSaveSiteSettings() {
+    setBrandSaving(true);
+    setBrandMessage(null);
+
+    try {
+      await updateSiteSettings({
+        logoMark: brandDraft.logoMark.trim(),
+        logoText: brandDraft.logoText.trim(),
+        siteName: brandDraft.siteName.trim()
+      });
+      setBrandMessage(dictionary.admin.siteBrandSaved);
+    } catch {
+      setBrandMessage(dictionary.admin.siteBrandSaveFailed);
+    } finally {
+      setBrandSaving(false);
+    }
+  }
+
+  function onSiteBrandChange(field: "logoMark" | "logoText" | "siteName", value: string) {
+    setBrandDraft((current) => ({
+      ...current,
+      [field]: value
+    }));
+    setBrandMessage(null);
+  }
 
   useEffect(() => {
     if (!authReady) {
@@ -570,7 +641,7 @@ export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictiona
     return (
       <section className="locked-state">
         <div>
-          <h2>正在恢复管理员登录状态</h2>
+          <h2>{dictionary.admin.loading}</h2>
           <p className="muted">{dictionary.admin.title}</p>
         </div>
       </section>
@@ -1110,6 +1181,43 @@ export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictiona
         </div>
       </section>
 
+      <section className="admin-section admin-site-layout" aria-label={dictionary.admin.siteSettings}>
+        <div className="admin-site-preview">
+          <span className="admin-site-preview-label">{dictionary.admin.siteSettings}</span>
+              <div className="admin-site-preview-brand">
+                <span className="brand-mark" aria-hidden="true">
+                  {brandDraft.logoMark || "绫"}
+                </span>
+                <div className="admin-site-preview-copy">
+                  <strong>{brandDraft.logoText || "绫奈"}</strong>
+                  <p>{brandDraft.siteName || "绫奈"}</p>
+                </div>
+              </div>
+          <div className="site-copy-note">
+            <span>{dictionary.admin.siteBrandTip}</span>
+            <p>{dictionary.admin.siteBrandNote}</p>
+          </div>
+          {brandMessage ? <p className="admin-message">{brandMessage}</p> : null}
+        </div>
+        <div className="admin-form-grid">
+          <label>
+            <span>{dictionary.admin.siteName}</span>
+            <input value={brandDraft.siteName} onChange={(event) => onSiteBrandChange("siteName", event.target.value)} />
+          </label>
+          <label>
+            <span>{dictionary.admin.logoText}</span>
+            <input value={brandDraft.logoText} onChange={(event) => onSiteBrandChange("logoText", event.target.value)} />
+          </label>
+          <label>
+            <span>{dictionary.admin.logoMark}</span>
+            <input value={brandDraft.logoMark} onChange={(event) => onSiteBrandChange("logoMark", event.target.value)} />
+          </label>
+          <button type="button" onClick={() => void onSaveSiteSettings()} disabled={brandSaving}>
+            {brandSaving ? dictionary.admin.saving : dictionary.common.save}
+          </button>
+        </div>
+      </section>
+
       <div className="admin-workspace">
         <section className="admin-section admin-publish-panel">
           <div className="section-heading">
@@ -1120,9 +1228,11 @@ export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictiona
               <p>{dictionary.admin.publishWorkspaceHint}</p>
             </div>
           </div>
-          <div className="content-kind-tabs" aria-hidden="true">
+          <div className="content-kind-tabs" role="tablist" aria-label={dictionary.admin.contentType}>
             <button
               type="button"
+              role="tab"
+              aria-selected={contentKind === "post"}
               className={contentKind === "post" ? "active" : ""}
               disabled={isUploading}
               onClick={() => onChangeContentKind("post")}
@@ -1131,6 +1241,8 @@ export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictiona
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={contentKind === "album"}
               className={contentKind === "album" ? "active" : ""}
               disabled={isUploading}
               onClick={() => onChangeContentKind("album")}
@@ -1139,6 +1251,8 @@ export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictiona
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={contentKind === "video"}
               className={contentKind === "video" ? "active" : ""}
               disabled={isUploading}
               onClick={() => onChangeContentKind("video")}
@@ -1147,19 +1261,6 @@ export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictiona
             </button>
           </div>
           <div className="admin-form-grid admin-editor-grid admin-workbench-grid">
-            <label>
-              <span>{dictionary.admin.contentType}</span>
-              <select
-                aria-label={dictionary.admin.contentType}
-                value={contentKind}
-                disabled={isUploading}
-                onChange={(event) => onChangeContentKind(event.target.value as typeof contentKind)}
-              >
-                <option value="post">{dictionary.content.posts}</option>
-                <option value="album">{dictionary.content.albums}</option>
-                <option value="video">{dictionary.content.videos}</option>
-              </select>
-            </label>
             <label>
               <span>{dictionary.content.visibility}</span>
               <select
@@ -1479,10 +1580,6 @@ export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictiona
                           {dictionary.admin.useAsImage}
                         </button>
                         {contentKind === "video" ? (
-                          <button type="button" onClick={() => onUseMedia(asset, "cover")}>
-                            {dictionary.admin.useAsCover}
-                          </button>
-                        ) : contentKind === "album" ? (
                           <button type="button" onClick={() => onUseMedia(asset, "cover")}>
                             {dictionary.admin.useAsCover}
                           </button>
@@ -1903,3 +2000,5 @@ export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictiona
     </div>
   );
 }
+
+

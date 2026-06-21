@@ -5,16 +5,18 @@ import { getDictionary } from "@/i18n/dictionaries";
 import { AppStateProvider } from "@/state/AppStateProvider";
 
 const pushMock = vi.fn();
+const replaceMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ locale: "zh" }),
-  useRouter: () => ({ push: pushMock })
+  useRouter: () => ({ push: pushMock, replace: replaceMock })
 }));
 
 describe("LoginView", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     pushMock.mockReset();
+    replaceMock.mockReset();
     window.localStorage.clear();
   });
 
@@ -51,12 +53,19 @@ describe("LoginView", () => {
     expect(screen.getByRole("button", { name: "注册" })).toBeInTheDocument();
   });
 
-  it("routes admins to the admin page after password login", async () => {
+  it("routes users back to the home page after password login", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => ({
         ok: true,
-        json: async () => ({ displayName: "Admin", email: "admin@example.com", id: "admin-1", memberLevel: "DIAMOND", role: "ADMIN", username: "admin" })
+        json: async () => ({
+          displayName: "Admin",
+          email: "admin@example.com",
+          id: "admin-1",
+          memberLevel: "DIAMOND",
+          role: "ADMIN",
+          username: "admin"
+        })
       })) as unknown as typeof fetch
     );
 
@@ -71,7 +80,7 @@ describe("LoginView", () => {
     fireEvent.click(screen.getByRole("button", { name: "登录" }));
 
     await waitFor(() => {
-      expect(pushMock).toHaveBeenCalledWith("/zh/admin");
+      expect(replaceMock).toHaveBeenCalledWith("/zh");
     });
   });
 });

@@ -22,7 +22,7 @@ export function AppShell({
   locale: Locale;
   dictionary: Dictionary;
 }) {
-  const { currentUser } = useAppState();
+  const { currentUser, siteSettings } = useAppState();
   const canOpenAdmin = canManage(
     currentUser
       ? {
@@ -51,8 +51,11 @@ export function AppShell({
     <div className={`site-shell site-shell-${locale}`}>
       <header className="topbar">
         <Link href={`/${locale}`} className="brand" aria-label={dictionary.nav.home}>
-          <span className="brand-mark" aria-hidden="true" />
-          <span className="brand-text">绫奈</span>
+          <span className="brand-mark" aria-hidden="true">{siteSettings.logoMark}</span>
+          <span className="brand-copy">
+            <span className="brand-text">{siteSettings.logoText}</span>
+            <span className="brand-subtext">{siteSettings.siteName}</span>
+          </span>
         </Link>
         <nav className="nav-list" aria-label={dictionary.nav.primary}>
           {navItems.map((item) => (

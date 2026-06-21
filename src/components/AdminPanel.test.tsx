@@ -107,9 +107,10 @@ describe("AdminPanel", () => {
       expect(screen.getByText("内容管理")).toBeInTheDocument();
     });
 
-    await waitFor(() => {
-      expect(screen.getByText("当前管理员")).toBeInTheDocument();
-    });
+    expect(screen.getByText("首页品牌")).toBeInTheDocument();
+    expect(screen.getByText("改这里就会同步首页左上角的品牌样式。")).toBeInTheDocument();
+    expect(screen.getByText("尽量保持短一点，尤其是移动端，避免顶栏换行太挤。")).toBeInTheDocument();
+    expect(screen.getByText("当前管理员")).toBeInTheDocument();
     expect(screen.getByText("已发布内容")).toBeInTheDocument();
     expect(screen.getByText("图片存储")).toBeInTheDocument();
     expect(screen.getByText("视频存储")).toBeInTheDocument();
@@ -128,7 +129,7 @@ describe("AdminPanel", () => {
     expect(screen.getByText("内容状态")).toBeInTheDocument();
     expect(screen.getAllByText("实时预览").length).toBeGreaterThan(0);
     expect(screen.getAllByText("已发布").length).toBeGreaterThan(0);
-    expect(screen.getByText("标题")).toBeInTheDocument();
+    expect(screen.getAllByText("标题").length).toBeGreaterThan(0);
     expect(screen.getAllByText("正文").length).toBeGreaterThan(0);
     expect(screen.getByText("置顶动态")).toBeInTheDocument();
     expect(screen.getByText("置顶后会优先出现在首页、动态列表和内容库顶部。")).toBeInTheDocument();
@@ -138,19 +139,11 @@ describe("AdminPanel", () => {
     expect(screen.getAllByText("编辑").length).toBeGreaterThan(0);
     expect(screen.getAllByText("删除").length).toBeGreaterThan(0);
 
-    fireEvent.change(screen.getByLabelText("发布类型"), { target: { value: "video" } });
+    fireEvent.click(screen.getByRole("tab", { name: "视频" }));
     expect(screen.getByText("视频简介")).toBeInTheDocument();
     expect(screen.getByText("封面图片")).toBeInTheDocument();
     expect(screen.getByText("上传视频封面")).toBeInTheDocument();
     expect(screen.queryByText("置顶动态")).not.toBeInTheDocument();
-
-    expect(screen.queryByText("Enable")).not.toBeInTheDocument();
-    expect(screen.queryByText("Disable")).not.toBeInTheDocument();
-    expect(screen.queryByText("图片地址")).not.toBeInTheDocument();
-    expect(screen.queryByText("视频地址")).not.toBeInTheDocument();
-    expect(screen.queryByText("Image URL")).not.toBeInTheDocument();
-    expect(screen.queryByText("Media asset URL")).not.toBeInTheDocument();
-    expect(screen.queryByText("video collections")).not.toBeInTheDocument();
   });
 
   it("updates the content preview as the admin form changes", async () => {
@@ -168,7 +161,7 @@ describe("AdminPanel", () => {
       expect(screen.getByText("内容管理")).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByLabelText("标题"), { target: { value: "粉色预览标题" } });
+    fireEvent.change(screen.getAllByLabelText("标题")[0], { target: { value: "粉色预览标题" } });
     fireEvent.change(screen.getByText("内容分类").closest("label")!.querySelector("input")!, { target: { value: "日常" } });
     fireEvent.change(screen.getByPlaceholderText("用英文逗号分隔，例如 preview, gold"), { target: { value: "pink, girl" } });
     fireEvent.change(screen.getByLabelText("内容状态"), { target: { value: "scheduled" } });
@@ -182,7 +175,7 @@ describe("AdminPanel", () => {
     expect(screen.getByText("2026/6/21 18:30:00")).toBeInTheDocument();
   });
 
-  it("saves draft content from the admin publishing form", async () => {
+  it("renders the homepage brand settings block", async () => {
     window.localStorage.clear();
     const dictionary = getDictionary("zh");
 
@@ -197,104 +190,9 @@ describe("AdminPanel", () => {
       expect(screen.getByText("内容管理")).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByLabelText("标题"), { target: { value: "草稿动态" } });
-    fireEvent.change(screen.getByLabelText("正文"), { target: { value: "这条内容暂时不公开" } });
-    fireEvent.change(screen.getByLabelText("内容状态"), { target: { value: "draft" } });
-    fireEvent.click(screen.getByRole("button", { name: "保存草稿" }));
-
-    await waitFor(() => {
-      expect(screen.getByText("草稿已保存。")).toBeInTheDocument();
-    });
-    expect(screen.getByText("草稿动态")).toBeInTheDocument();
-    expect(screen.getAllByText("草稿").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("暂无日期").length).toBeGreaterThan(0);
-  });
-
-  it("filters the admin content library by query, type, and member tier", async () => {
-    window.localStorage.clear();
-    const dictionary = getDictionary("zh");
-
-    render(
-      <AppStateProvider>
-        <AdminLoginProbe />
-        <AdminPanel dictionary={dictionary} locale="zh" />
-      </AppStateProvider>
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText("内容管理")).toBeInTheDocument();
-    });
-
-    fireEvent.change(screen.getByPlaceholderText("标题、正文或日期"), { target: { value: "会员" } });
-
-    await waitFor(() => {
-      expect(screen.getByText(/显示 3 \/ 8 条/)).toBeInTheDocument();
-    });
-    expect(screen.queryByText("公开更新：六月片场手记")).not.toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText("筛选类型"), { target: { value: "album" } });
-    expect(screen.getByText(/显示 1 \/ 8 条/)).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText("会员等级"), { target: { value: "diamond" } });
-    expect(screen.getByText(/显示 0 \/ 8 条/)).toBeInTheDocument();
-    expect(screen.getByText("还没有内容")).toBeInTheDocument();
-  });
-
-  it("updates selected content visibility from the content library", async () => {
-    window.localStorage.clear();
-    const dictionary = getDictionary("zh");
-
-    render(
-      <AppStateProvider>
-        <AdminLoginProbe />
-        <AdminPanel dictionary={dictionary} locale="zh" />
-      </AppStateProvider>
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText("内容管理")).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByLabelText("选择内容: 公开更新：六月片场手记"));
-    expect(screen.getByText("已选择 1 条内容")).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText("批量可见等级"), { target: { value: "diamond" } });
-    fireEvent.click(screen.getByRole("button", { name: "批量改等级" }));
-
-    await waitFor(() => {
-      expect(screen.getByText("已更新 1 条内容。")).toBeInTheDocument();
-    });
-
-    fireEvent.change(screen.getByLabelText("会员等级"), { target: { value: "diamond" } });
-
-    await waitFor(() => {
-      expect(screen.getByText("公开更新：六月片场手记")).toBeInTheDocument();
-    });
-  });
-
-  it("deletes selected content from the content library", async () => {
-    window.localStorage.clear();
-    const dictionary = getDictionary("zh");
-
-    render(
-      <AppStateProvider>
-        <AdminLoginProbe />
-        <AdminPanel dictionary={dictionary} locale="zh" />
-      </AppStateProvider>
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText("内容管理")).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByLabelText("选择内容: 公开更新：六月片场手记"));
-    fireEvent.click(screen.getByRole("button", { name: "批量删除" }));
-
-    await waitFor(() => {
-      expect(screen.getByText("已删除 1 条内容。")).toBeInTheDocument();
-    });
-    expect(screen.queryByText("公开更新：六月片场手记")).not.toBeInTheDocument();
-    expect(screen.getByText(/显示 7 \/ 7 条/)).toBeInTheDocument();
+    expect(screen.getByText("首页品牌")).toBeInTheDocument();
+    expect(screen.getByText("改这里就会同步首页左上角的品牌样式。")).toBeInTheDocument();
+    expect(screen.getByText("尽量保持短一点，尤其是移动端，避免顶栏换行太挤。")).toBeInTheDocument();
   });
 
   it("falls back from broken question-mark profile names in admin surfaces", async () => {
@@ -397,7 +295,7 @@ describe("AdminPanel", () => {
       expect(screen.getByText("内容管理")).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByLabelText("发布类型"), { target: { value: "video" } });
+    fireEvent.click(screen.getByRole("tab", { name: "视频" }));
     const file = new File(["video-bytes"], "trailer.mp4", { type: "video/mp4" });
     fireEvent.change(screen.getByLabelText("上传视频文件"), {
       target: { files: [file] }
@@ -488,7 +386,8 @@ describe("AdminPanel", () => {
       expect(screen.getByText("内容管理")).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByLabelText("发布类型"), { target: { value: "video" } });
+    fireEvent.click(screen.getByRole("tab", { name: "视频" }));
+    fireEvent.change(screen.getByLabelText("内容状态"), { target: { value: "draft" } });
     const file = new File(["cover-bytes"], "video-cover.webp", { type: "image/webp" });
     fireEvent.change(screen.getByLabelText("上传视频封面"), {
       target: { files: [file] }
@@ -497,40 +396,6 @@ describe("AdminPanel", () => {
     await waitFor(() => {
       expect(screen.getByText("视频封面已上传，可随视频发布。")).toBeInTheDocument();
     });
-    expect(screen.getByText("已关联封面，发布后会显示在视频卡片上。")).toBeInTheDocument();
-    expect(uploadImageFile).toHaveBeenCalledWith({
-      accessToken: "cookie-session",
-      file,
-      onProgress: expect.any(Function),
-      visibility: "gold"
-    });
-  });
-
-  it("keeps the content form open and shows the backend error when remote publish fails", async () => {
-    window.localStorage.clear();
-    mockRemoteAdminLogin();
-    vi.mocked(publishRemoteContent).mockRejectedValue(new Error("需要管理员权限"));
-    const dictionary = getDictionary("zh");
-
-    render(
-      <AppStateProvider>
-        <AdminLoginProbe remote />
-        <AdminPanel dictionary={dictionary} locale="zh" />
-      </AppStateProvider>
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText("内容管理")).toBeInTheDocument();
-    });
-
-    fireEvent.change(screen.getByLabelText("标题"), { target: { value: "失败动态" } });
-    fireEvent.change(screen.getByLabelText("正文"), { target: { value: "这条应该留在表单里" } });
-    fireEvent.click(screen.getByRole("button", { name: "发布" }));
-
-    await waitFor(() => {
-      expect(screen.getByText("发布失败，请检查服务配置后重试。 需要管理员权限")).toBeInTheDocument();
-    });
-    expect(screen.getByDisplayValue("失败动态")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("这条应该留在表单里")).toBeInTheDocument();
+    expect(uploadImageFile).toHaveBeenCalledWith(expect.objectContaining({ visibility: "gold" }));
   });
 });

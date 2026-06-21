@@ -177,6 +177,13 @@ export type JavaContentFeed = {
   videos: JavaVideo[];
 };
 
+export type JavaSiteSettings = {
+  logoMark: string;
+  logoText: string;
+  siteName: string;
+  updatedAt: string;
+};
+
 export type JavaContentPage<T> = {
   items: T[];
   page: number;
@@ -216,6 +223,12 @@ export type UpdateUserInput = {
   disabled: boolean;
   memberLevel: JavaMemberLevel;
   userId: string;
+};
+
+export type UpdateSiteSettingsInput = {
+  logoMark: string;
+  logoText: string;
+  siteName: string;
 };
 
 export type CreatePostInput = {
@@ -350,6 +363,17 @@ export async function updateUser(input: UpdateUserInput): Promise<JavaAdminUser>
 
 export async function listContent(): Promise<JavaContentFeed> {
   return request<JavaContentFeed>("/api/content", { method: "GET" });
+}
+
+export async function getSiteSettings(): Promise<JavaSiteSettings> {
+  return request<JavaSiteSettings>("/api/admin/site-settings", { method: "GET" });
+}
+
+export async function updateSiteSettings(input: UpdateSiteSettingsInput): Promise<JavaSiteSettings> {
+  return request<JavaSiteSettings>("/api/admin/site-settings", {
+    body: JSON.stringify(input),
+    method: "PATCH"
+  });
 }
 
 export async function listPosts(input: ListContentPageInput = {}): Promise<JavaContentPage<JavaPost>> {

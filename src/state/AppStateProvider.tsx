@@ -37,6 +37,7 @@ import {
   logoutClient,
   type ClientLoginSession
 } from "@/services/auth-client";
+import { getSiteSettings, updateSiteSettings as updateRemoteSiteSettings, type JavaSiteSettings } from "@/services/java-api-client";
 import type { ContentDataset } from "@/data/repository";
 import {
   albums as seedAlbums,
@@ -88,6 +89,7 @@ type AppStateValue = {
   photos: PhotoRecord[];
   videoCollections: VideoCollectionRecord[];
   videos: VideoRecord[];
+  siteSettings: JavaSiteSettings;
   currentUserId: string | null;
   currentUser: UserProfile | null;
   authSession: AuthSession | null;
@@ -106,6 +108,7 @@ type AppStateValue = {
   >;
   updateUserLevel: (userId: string, level: Exclude<MembershipLevel, "public">) => void;
   toggleUserDisabled: (userId: string) => void;
+  updateSiteSettings: (input: { siteName: string; logoText: string; logoMark: string }) => Promise<void>;
   generateInvite: (level: Exclude<MembershipLevel, "public">) => Promise<string>;
   deleteInvite: (inviteId: string) => void;
   publishPost: (input: {
@@ -187,6 +190,12 @@ type AppStateValue = {
 };
 
 const storageKey = "media-gate-state-v1";
+const defaultSiteSettings: JavaSiteSettings = {
+  logoMark: "绫",
+  logoText: "绫奈",
+  siteName: "绫奈空间",
+  updatedAt: new Date(0).toISOString()
+};
 
 const AppStateContext = createContext<AppStateValue | null>(null);
 
@@ -202,6 +211,7 @@ type PersistedState = {
   photos: PhotoRecord[];
   videoCollections: VideoCollectionRecord[];
   videos: VideoRecord[];
+  siteSettings: JavaSiteSettings;
   currentUserId: string | null;
   authSession: AuthSession | null;
 };
@@ -216,6 +226,12 @@ function createInitialState(): PersistedState {
       photos: [],
       videoCollections: [],
       videos: [],
+      siteSettings: {
+        logoMark: "绫",
+        logoText: "绫奈",
+        siteName: "绫奈",
+        updatedAt: new Date(0).toISOString()
+      },
       currentUserId: null,
       authSession: null
     };
@@ -229,6 +245,12 @@ function createInitialState(): PersistedState {
     photos: seedPhotos,
     videoCollections: seedVideoCollections,
     videos: seedVideos,
+    siteSettings: {
+      logoMark: "绫",
+      logoText: "绫奈",
+      siteName: "绫奈",
+      updatedAt: new Date(0).toISOString()
+    },
     currentUserId: null,
     authSession: null
   };
@@ -275,8 +297,18 @@ function hydrateState(saved: Partial<PersistedState>): PersistedState {
     photos: saved.photos ?? initial.photos,
     videoCollections: saved.videoCollections ?? initial.videoCollections,
     videos: saved.videos ?? initial.videos,
+    siteSettings: saved.siteSettings ?? initial.siteSettings,
     currentUserId: saved.currentUserId ?? initial.currentUserId,
     authSession: saved.authSession ?? initial.authSession
+  };
+}
+
+function normalizeSiteSettings(input: Partial<JavaSiteSettings> | null | undefined): JavaSiteSettings {
+  return {
+    logoMark: input?.logoMark?.trim() || defaultSiteSettings.logoMark,
+    logoText: input?.logoText?.trim() || defaultSiteSettings.logoText,
+    siteName: input?.siteName?.trim() || defaultSiteSettings.siteName,
+    updatedAt: input?.updatedAt || defaultSiteSettings.updatedAt
   };
 }
 
@@ -478,10 +510,19 @@ function userCanManage(user: UserProfile | null): boolean {
   return Boolean(user?.isAdmin && !user.disabled);
 }
 
-export function AppStateProvider({ children }: { children: ReactNode }) {
+export function AppStateProvider({
+  children,
+  initialContent
+}: {
+  children: ReactNode;
+  initialContent?: ContentDataset;
+}) {
   const [state, setState] = useState<PersistedState>(createInitialState);
-  const [remoteContent, setRemoteContent] = useState<ContentState>(emptyContentState);
+  const [remoteContent, setRemoteContent] = useState<ContentState>(
+    initialContent ? contentStateFromDataset(initialContent) : emptyContentState
+  );
   const [remoteAdminUserPage, setRemoteAdminUserPage] = useState<AdminUserPage | null>(null);
+  const [remoteSiteSettings, setRemoteSiteSettings] = useState<JavaSiteSettings | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [authReady, setAuthReady] = useState(false);
 
@@ -551,7 +592,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, [hydrated, state]);
 
   useEffect(() => {
-    if (!hydrated) {
+    if (!hydrated || initialContent) {
       return;
     }
 
@@ -572,7 +613,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [hydrated, state.authSession?.accessToken]);
+  }, [hydrated, initialContent, state.authSession?.accessToken]);
 
   useEffect(() => {
     if (!hydrated || !state.authSession?.accessToken) {
@@ -609,9 +650,34 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     };
   }, [hydrated, state.authSession?.accessToken, state.currentUserId]);
 
+  useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void getSiteSettings()
+        .then((settings) => {
+          if (!cancelled) {
+            setRemoteSiteSettings(normalizeSiteSettings(settings));
+          }
+        })
+        .catch(() => {
+          // Keep local site settings when the admin API is unavailable.
+        });
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [hydrated]);
+
   const value = useMemo<AppStateValue>(() => {
     const currentUser = state.users.find((user) => user.id === state.currentUserId) ?? null;
     const adminUserPage = remoteAdminUserPage ?? makeLocalAdminUserPage(state.users);
+    const siteSettings = normalizeSiteSettings(remoteSiteSettings ?? state.siteSettings);
     const content = hasRemoteContent(remoteContent)
       ? remoteContent
       : {
@@ -631,6 +697,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       photos: content.photos,
       videoCollections: content.videoCollections,
       videos: content.videos,
+      siteSettings,
       currentUserId: state.currentUserId,
       currentUser,
       authSession: state.authSession,
@@ -863,6 +930,26 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         if (state.authSession?.accessToken) {
           void updateRemoteUser(state.authSession.accessToken, { disabled: nextDisabled, userId }).catch(() => {
             // Keep the optimistic local admin update if production admin updates are unavailable.
+          });
+        }
+      },
+      async updateSiteSettings(input) {
+        const nextSettings = normalizeSiteSettings({
+          logoMark: input.logoMark.trim(),
+          logoText: input.logoText.trim(),
+          siteName: input.siteName.trim(),
+          updatedAt: new Date().toISOString()
+        });
+
+        setState((current) => ({
+          ...current,
+          siteSettings: nextSettings
+        }));
+        setRemoteSiteSettings(nextSettings);
+
+        if (state.authSession?.accessToken) {
+          await updateRemoteSiteSettings(nextSettings).catch(() => {
+            // Keep the optimistic local update if production site settings are unavailable.
           });
         }
       },

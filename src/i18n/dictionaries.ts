@@ -85,6 +85,7 @@ type Dictionary = {
   admin: {
     title: string;
     subtitle: string;
+    loading: string;
     overview: string;
     contentPreviewNote: string;
     publishedTotal: string;
@@ -104,6 +105,15 @@ type Dictionary = {
     contentPreview: string;
     contentPreviewHint: string;
     contentLibraryHint: string;
+    siteSettings: string;
+    siteBrandTip: string;
+    siteBrandNote: string;
+    siteName: string;
+    logoText: string;
+    logoMark: string;
+    siteBrandSaved: string;
+    siteBrandSaveFailed: string;
+    saving: string;
     latestUpdate: string;
     noDate: string;
     content: string;
@@ -327,7 +337,7 @@ export const dictionaries: Record<Locale, Dictionary> = {
       title: "登录或使用邀请码注册",
       subtitle: "已有账号直接登录；新用户需要你发的邀请码才能注册。邀请码会决定初始会员等级。",
       loginTitle: "登录账号",
-      loginHint: "用邮箱和密码登录。管理员账号会进入管理页。",
+      loginHint: "用邮箱和密码登录。登录后会回到首页。",
       registerTitle: "邀请码注册",
       registerHint: "先输入邀请码，再填写昵称、邮箱和密码。",
       registerTab: "邀请码注册",
@@ -379,6 +389,7 @@ export const dictionaries: Record<Locale, Dictionary> = {
     admin: {
       title: "内容管理",
       subtitle: "发布内容、生成邀请码、调整用户等级。",
+      loading: "正在恢复管理员登录状态",
       overview: "管理总览",
       contentPreviewNote: "预览说明",
       publishedTotal: "内容总数",
@@ -392,6 +403,15 @@ export const dictionaries: Record<Locale, Dictionary> = {
       mediaWorkflow: "素材上传",
       mediaWorkflowHint: "上传限制、绑定状态和素材存储都在这里。",
       mediaUpload: "上传素材",
+      siteSettings: "首页品牌",
+      siteBrandTip: "改这里就会同步首页左上角的品牌样式。",
+      siteBrandNote: "尽量保持短一点，尤其是移动端，避免顶栏换行太挤。",
+      siteName: "站点名称",
+      logoText: "页眉文字",
+      logoMark: "页眉标记",
+      siteBrandSaved: "首页品牌已保存。",
+      siteBrandSaveFailed: "首页品牌保存失败，请稍后重试。",
+      saving: "正在保存",
       imageUploadRule: "图片限制",
       videoUploadRule: "视频限制",
       uploadRules: "上传说明",
@@ -407,7 +427,7 @@ export const dictionaries: Record<Locale, Dictionary> = {
       uploadVideos: "视频素材上传",
       imageStorage: "图片存储",
       videoStorage: "视频存储",
-      contentType: "发布类型",
+      contentType: "内容类型",
       contentStatus: "内容状态",
       contentCategory: "内容分类",
       contentCategoryPlaceholder: "例如 片场 / 日常 / 预告",
@@ -622,7 +642,7 @@ export const dictionaries: Record<Locale, Dictionary> = {
       title: "Log in or register with an invite",
       subtitle: "Existing members can log in directly. New members need an invite code from the admin.",
       loginTitle: "Account login",
-      loginHint: "Log in with email and password. Admins are sent to the dashboard after login.",
+      loginHint: "Log in with email and password. You will return to the home page after login.",
       registerTitle: "Invite registration",
       registerHint: "Enter the invite code first, then set your name, email, and password.",
       registerTab: "Invite registration",
@@ -674,6 +694,7 @@ export const dictionaries: Record<Locale, Dictionary> = {
     admin: {
       title: "Content management",
       subtitle: "Publish content, generate invite codes, and adjust user levels.",
+      loading: "Restoring admin session",
       overview: "Management overview",
       contentPreviewNote: "Preview note",
       publishedTotal: "Content total",
@@ -687,6 +708,15 @@ export const dictionaries: Record<Locale, Dictionary> = {
       mediaWorkflow: "Asset upload",
       mediaWorkflowHint: "Upload limits, attachment state, and storage in one place.",
       mediaUpload: "Upload assets",
+      siteSettings: "Homepage brand",
+      siteBrandTip: "Changes here apply to the top-left brand on the homepage.",
+      siteBrandNote: "Keep the name short so it stays clean on mobile screens.",
+      siteName: "Site name",
+      logoText: "Header text",
+      logoMark: "Header mark",
+      siteBrandSaved: "Homepage brand saved.",
+      siteBrandSaveFailed: "Failed to save the homepage brand. Try again later.",
+      saving: "Saving",
       imageUploadRule: "Image limit",
       videoUploadRule: "Video limit",
       uploadRules: "Upload notes",
@@ -702,7 +732,7 @@ export const dictionaries: Record<Locale, Dictionary> = {
       uploadVideos: "Upload video assets",
       imageStorage: "Image storage",
       videoStorage: "Video storage",
-      contentType: "Publish type",
+      contentType: "Content type",
       contentStatus: "Content status",
       contentCategory: "Category",
       contentCategoryPlaceholder: "e.g. studio / daily / trailer",

@@ -70,6 +70,16 @@ export function VideosView({ dictionary, locale }: { dictionary: Dictionary; loc
   const tagOptions = uniqueSorted(visibleCollections.flatMap((collection) => collection.tags));
 
   useEffect(() => {
+    const canReuseInitialPage =
+      page === 0 && !query && !category && !tag && sort === "latest" && visibleCollections.length > 0;
+    if (canReuseInitialPage) {
+      setPagedCollections(visibleCollections.slice(0, pageSize));
+      setTotal(visibleCollections.length);
+      setTotalPages(Math.max(1, Math.ceil(visibleCollections.length / pageSize)));
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
     setLoading(true);
 
@@ -92,7 +102,7 @@ export function VideosView({ dictionary, locale }: { dictionary: Dictionary; loc
     return () => {
       cancelled = true;
     };
-  }, [category, loadVideosPage, page, query, sort, tag, viewer]);
+  }, [category, loadVideosPage, page, query, sort, tag, videoCollections, videos, visibleCollections, viewer]);
 
   return (
     <div className="page">

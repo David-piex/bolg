@@ -1,19 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { ArrowLeft, CalendarDays, Images, MessageSquareText, PlayCircle } from "lucide-react";
 import { MembershipBadge } from "@/components/MembershipBadge";
 import { getAlbums, getPosts, getVideoCollections } from "@/data/repository";
 import type { MembershipLevel } from "@/domain/membership";
 import type { getDictionary } from "@/i18n/dictionaries";
 import type { Locale } from "@/i18n/routing";
-import {
-  fetchRemoteAlbumDetail,
-  fetchRemotePostDetail,
-  fetchRemoteVideoDetail,
-  type RemoteDetail
-} from "@/services/content-client";
+import type { RemoteDetail } from "@/services/content-client";
 import { useAppState } from "@/state/AppStateProvider";
 
 type Dictionary = ReturnType<typeof getDictionary>;
@@ -120,12 +115,6 @@ function DetailHero({
   );
 }
 
-function fetchDetail(kind: DetailKind, id: string): Promise<RemoteDetail> {
-  if (kind === "post") return fetchRemotePostDetail(id);
-  if (kind === "album") return fetchRemoteAlbumDetail(id);
-  return fetchRemoteVideoDetail(id);
-}
-
 function resolvedLevel(item: { visibilityOverride: MembershipLevel | null }, fallback: MembershipLevel) {
   return item.visibilityOverride ?? fallback;
 }
@@ -144,8 +133,6 @@ export function ContentDetailView({
   locale: Locale;
 }) {
   const { viewer, posts, albums, photos, videoCollections, videos } = useAppState();
-  const [remoteDetail, setRemoteDetail] = useState<RemoteDetail | null>(null);
-  const [remoteSettled, setRemoteSettled] = useState(false);
 
   const localDetail = useMemo<RemoteDetail | null>(() => {
     if (kind === "post") {
@@ -162,40 +149,13 @@ export function ContentDetailView({
     return collection ? { collection, kind: "video", videos: collection.videos } : null;
   }, [albums, id, kind, photos, posts, videoCollections, videos, viewer]);
 
-  useEffect(() => {
-    let cancelled = false;
-    setRemoteDetail(null);
-    setRemoteSettled(false);
-
-    void fetchDetail(kind, id)
-      .then((detail) => {
-        if (!cancelled) {
-          setRemoteDetail(detail);
-        }
-      })
-      .catch(() => {
-        // Keep the local demo detail when the Java API is unavailable.
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setRemoteSettled(true);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [id, kind]);
-
   const detail =
-    remoteDetail?.kind === kind
-      ? remoteDetail
-      : initialDetail?.kind === kind
+    initialDetail?.kind === kind
         ? initialDetail
         : localDetail;
 
   if (!detail) {
-    return <EmptyDetailState dictionary={dictionary} kind={kind} locale={locale} loading={!remoteSettled} />;
+    return <EmptyDetailState dictionary={dictionary} kind={kind} locale={locale} loading={false} />;
   }
 
   if (detail.kind === "post") {

@@ -104,6 +104,18 @@ create table admin_audit_logs (
   created_at timestamp with time zone not null
 );
 
+create table site_settings (
+  id smallint primary key,
+  site_name varchar(120) not null,
+  logo_text varchar(32) not null,
+  logo_mark varchar(16) not null,
+  updated_by uuid references users(id),
+  updated_at timestamp with time zone not null
+);
+
+insert into site_settings (id, site_name, logo_text, logo_mark, updated_at)
+values (1, '绫奈空间', '绫奈', '绫', now());
+
 create index idx_posts_feed on posts(status, visibility, published_at desc);
 create index idx_albums_feed on albums(status, visibility, published_at desc);
 create index idx_videos_feed on videos(status, visibility, published_at desc);

@@ -102,6 +102,7 @@ textarea:focus-visible {
   align-items: center;
   gap: 10px;
   min-height: 44px;
+  max-width: 100%;
   font-weight: 800;
   letter-spacing: 0;
 }
@@ -110,26 +111,44 @@ textarea:focus-visible {
   display: inline-flex;
   width: 38px;
   height: 38px;
+  flex: 0 0 38px;
   align-items: center;
   justify-content: center;
   border: 1px solid rgba(255, 250, 253, 0.42);
-  border-radius: 999px;
+  border-radius: 12px;
   background: linear-gradient(135deg, #fffafd, #ffd3e5);
-  position: relative;
+  color: var(--accent);
+  font-size: 0.96rem;
+  font-weight: 900;
   box-shadow: inset 0 -8px 18px rgba(216, 63, 123, 0.12);
 }
 
+.brand-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
 .brand-mark::after {
-  content: "";
-  width: 14px;
-  height: 14px;
-  border-radius: 999px;
-  background: var(--accent);
-  box-shadow: 8px -6px 0 rgba(69, 114, 167, 0.72), -7px 7px 0 rgba(232, 168, 74, 0.78);
+  content: none;
+}
+
+.brand-text,
+.brand-subtext {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .brand-text {
+  line-height: 1.1;
   white-space: nowrap;
+}
+
+.brand-subtext {
+  color: rgba(255, 250, 253, 0.7);
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
 .nav-list {
@@ -137,6 +156,7 @@ textarea:focus-visible {
   flex-wrap: wrap;
   gap: 7px;
   justify-content: center;
+  min-width: 0;
 }
 
 .nav-link,
@@ -1290,6 +1310,79 @@ main {
   gap: 14px;
 }
 
+.admin-site-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.92fr) minmax(0, 1.08fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.admin-site-preview {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 18px;
+  border: 1px solid rgba(215, 66, 125, 0.16);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgba(255, 246, 250, 0.95), rgba(255, 252, 254, 0.98)),
+    var(--panel);
+  box-shadow: 0 12px 28px rgba(111, 38, 74, 0.08);
+}
+
+.admin-site-preview-label {
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.admin-site-preview-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(105, 41, 72, 0.12);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.admin-site-preview-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-site-preview-copy strong,
+.admin-site-preview-copy p {
+  overflow-wrap: anywhere;
+}
+
+
+.admin-site-preview p,
+.site-copy-note p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.site-copy-note {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid rgba(215, 66, 125, 0.12);
+  border-radius: var(--radius);
+  background: rgba(255, 243, 248, 0.78);
+}
+
+.site-copy-note span {
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
 .content-preview-panel {
   display: grid;
   gap: 12px;
@@ -2290,6 +2383,14 @@ main {
     grid-template-columns: 1fr;
   }
 
+  .admin-site-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-site-preview-brand {
+    width: 100%;
+  }
+
   .content-preview-inline {
     padding-top: 12px;
   }
@@ -2681,16 +2782,21 @@ main {
 
 @media (max-width: 900px) {
   .topbar {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
     justify-items: start;
   }
 
+  .brand {
+    min-width: 0;
+  }
+
   .nav-list {
+    grid-column: 1 / -1;
     justify-content: flex-start;
   }
 
   .language-switch {
-    justify-self: start;
+    justify-self: end;
   }
 
   .admin-section,
@@ -2745,9 +2851,13 @@ main {
   }
 
   .topbar {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
     margin-top: 10px;
     padding: 10px;
+  }
+
+  .brand {
+    width: 100%;
   }
 
   .brand-text {
@@ -2762,9 +2872,7 @@ main {
 
   .nav-list {
     display: grid;
-    grid-column: 1 / -1;
-    grid-row: 2;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     width: 100%;
   }
 
@@ -2773,10 +2881,8 @@ main {
   }
 
   .language-switch {
-    grid-column: 2;
-    grid-row: 1;
-    justify-self: end;
-    min-width: 88px;
+    justify-self: stretch;
+    min-width: 0;
   }
 
   main {
@@ -2785,6 +2891,10 @@ main {
 
   .hero {
     padding: 18px;
+  }
+
+  .admin-site-preview {
+    padding: 14px;
   }
 
   .content-discovery-toolbar {

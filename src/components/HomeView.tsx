@@ -16,11 +16,7 @@ function formatFeedKind(kind: "post" | "album" | "videoCollection", dictionary: 
 }
 
 function formatArchiveTitleLines(title: string) {
-  if (title === "绫奈动态、相册和视频，按会员等级开放。") {
-    return ["绫奈动态", "相册和视频", "按会员等级开放"];
-  }
-
-  return [title];
+  return title.includes("、") ? title.split("、") : [title];
 }
 
 function hrefForFeedItem(locale: Locale, kind: "post" | "album" | "videoCollection", id: string) {
