@@ -243,6 +243,19 @@ function formatTags(tags: string[]) {
   return tags.join(", ");
 }
 
+function formatScheduledPreview(value: string) {
+  if (!value.trim()) {
+    return "";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString();
+}
+
 export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
   const {
     users,
@@ -441,6 +454,19 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
       : editingContent
         ? dictionary.admin.publishChanges
         : dictionary.common.publish;
+  const contentPreview = {
+    body: contentBody.trim() || dictionary.content.bodyPlaceholder,
+    category: contentCategory.trim() || dictionary.admin.contentCategoryPlaceholder,
+    coverImage: contentAsset.trim(),
+    date:
+      contentStatus === "scheduled"
+        ? formatScheduledPreview(contentScheduledAt)
+        : dictionary.admin.latestUpdate,
+    pinned: contentPinned,
+    tags: parseTagInput(contentTags),
+    title: contentTitle.trim() || titlePlaceholderFor(contentKind, dictionary),
+    visibility: contentVisibility
+  };
 
   useEffect(() => {
     if (!authReady) {
@@ -1235,6 +1261,37 @@ export function AdminPanel({ dictionary }: { dictionary: Dictionary }) {
                   {dictionary.common.cancel}
                 </button>
               ) : null}
+            </div>
+          </div>
+          <div className="content-preview-panel" aria-label={dictionary.admin.contentPreview}>
+            <div className="content-preview-header">
+              <div>
+                <span className="eyebrow">{dictionary.admin.contentPreview}</span>
+                <strong>{contentPreview.title}</strong>
+              </div>
+              <span className={`status-badge status-${contentStatus}`}>
+                {contentStatusLabel(contentStatus, dictionary)}
+              </span>
+            </div>
+            <div className="content-preview-cover">
+              {contentPreview.coverImage ? (
+                <img src={contentPreview.coverImage} alt={contentPreview.title} />
+              ) : (
+                <div className="content-preview-cover-empty">{dictionary.content.noCover}</div>
+              )}
+              <div className="content-preview-meta">
+                <span>{contentKindLabel(contentKind, dictionary)}</span>
+                <span>{contentPreview.category}</span>
+              </div>
+            </div>
+            <p className="content-preview-body">{contentPreview.body}</p>
+            <div className="content-preview-foot">
+              <span className={`tier-badge tier-${contentPreview.visibility}`}>{dictionary.membership[contentPreview.visibility]}</span>
+              {contentPreview.pinned ? <span className="pinned-badge"><Pin size={14} />{dictionary.admin.pinnedPost}</span> : null}
+              {contentPreview.tags.length > 0 ? (
+                <span className="content-preview-tags">{contentPreview.tags.map((tag) => `#${tag}`).join(" ")}</span>
+              ) : null}
+              <span className="content-preview-date">{contentPreview.date}</span>
             </div>
           </div>
           <p className="muted">{dictionary.admin.demoNotice}</p>

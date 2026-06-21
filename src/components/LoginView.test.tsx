@@ -18,7 +18,7 @@ describe("LoginView", () => {
     window.localStorage.clear();
   });
 
-  it("starts with a focused password login form in Chinese", () => {
+  it("starts with a password login form in Chinese", () => {
     render(
       <AppStateProvider>
         <LoginView dictionary={getDictionary("zh")} />

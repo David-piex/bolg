@@ -27,6 +27,7 @@ type Dictionary = {
     featuredPreviewAria: string;
     inviteOnly: string;
     bilingual: string;
+    welcomeBack: string;
   };
   auth: {
     title: string;
@@ -99,6 +100,7 @@ type Dictionary = {
     uploadRules: string;
     attachedReady: string;
     waitingForMedia: string;
+    contentPreview: string;
     contentLibraryHint: string;
     latestUpdate: string;
     noDate: string;
@@ -316,7 +318,8 @@ export const dictionaries: Record<Locale, Dictionary> = {
       accessLadderAria: "会员权限阶梯",
       featuredPreviewAria: "精选内容预览",
       inviteOnly: "一次性邀请码注册",
-      bilingual: "默认中文，可切换英文"
+      bilingual: "默认中文，可切换英文",
+      welcomeBack: "欢迎回来，下面是你能直接操作的内容入口。"
     },
     auth: {
       title: "登录或使用邀请码注册",
@@ -381,6 +384,7 @@ export const dictionaries: Record<Locale, Dictionary> = {
       memberAccounts: "会员账号",
       publishWorkspace: "发布工作台",
       publishWorkspaceHint: "先选内容类型和可见等级，再上传媒体，最后发布或保存。",
+      contentPreview: "内容预览",
       mediaWorkflow: "媒体状态",
       mediaWorkflowHint: "上传限制、媒体绑定和 MinIO 存储状态集中看。",
       mediaUpload: "媒体上传",
@@ -607,7 +611,8 @@ export const dictionaries: Record<Locale, Dictionary> = {
       accessLadderAria: "Membership access ladder",
       featuredPreviewAria: "Featured media preview",
       inviteOnly: "One-time invite-code registration",
-      bilingual: "Chinese by default, English available"
+      bilingual: "Chinese by default, English available",
+      welcomeBack: "Welcome back. These are your direct content controls."
     },
     auth: {
       title: "Log in or register with an invite",
@@ -672,6 +677,7 @@ export const dictionaries: Record<Locale, Dictionary> = {
       memberAccounts: "Member accounts",
       publishWorkspace: "Publishing workspace",
       publishWorkspaceHint: "Choose type and visibility, upload media, then publish or save.",
+      contentPreview: "Content preview",
       mediaWorkflow: "Media status",
       mediaWorkflowHint: "Upload limits, attachment state, and MinIO storage in one place.",
       mediaUpload: "Media upload",

@@ -350,8 +350,9 @@ describe("content client", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/content/posts", {
       body: JSON.stringify({
         content: "Body",
-        scheduledAt: "2026-06-30T08:00:00Z",
+        pinned: false,
         status: "PUBLISHED",
+        scheduledAt: "2026-06-30T08:00:00Z",
         title: "Post title",
         visibility: "GOLD"
       }),

@@ -124,9 +124,10 @@ describe("AdminPanel", () => {
     expect(screen.getByText("会员等级")).toBeInTheDocument();
     expect(screen.getByText(/显示 8 \/ 8 条/)).toBeInTheDocument();
     expect(screen.getByText("内容状态")).toBeInTheDocument();
+    expect(screen.getByText("内容预览")).toBeInTheDocument();
     expect(screen.getAllByText("已发布").length).toBeGreaterThan(0);
     expect(screen.getByText("标题")).toBeInTheDocument();
-    expect(screen.getByText("正文")).toBeInTheDocument();
+    expect(screen.getAllByText("正文").length).toBeGreaterThan(0);
     expect(screen.getByText("置顶动态")).toBeInTheDocument();
     expect(screen.getByText("置顶后会优先出现在首页、动态列表和内容库顶部。")).toBeInTheDocument();
     expect(screen.getAllByText("置顶").length).toBeGreaterThan(0);
@@ -148,6 +149,35 @@ describe("AdminPanel", () => {
     expect(screen.queryByText("Image URL")).not.toBeInTheDocument();
     expect(screen.queryByText("Media asset URL")).not.toBeInTheDocument();
     expect(screen.queryByText("video collections")).not.toBeInTheDocument();
+  });
+
+  it("updates the content preview as the admin form changes", async () => {
+    window.localStorage.clear();
+    const dictionary = getDictionary("zh");
+
+    render(
+      <AppStateProvider>
+        <AdminLoginProbe />
+        <AdminPanel dictionary={dictionary} />
+      </AppStateProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("内容管理")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText("标题"), { target: { value: "粉色预览标题" } });
+    fireEvent.change(screen.getByText("内容分类").closest("label")!.querySelector("input")!, { target: { value: "日常" } });
+    fireEvent.change(screen.getByPlaceholderText("用英文逗号分隔，例如 preview, gold"), { target: { value: "pink, girl" } });
+    fireEvent.change(screen.getByLabelText("内容状态"), { target: { value: "scheduled" } });
+    fireEvent.change(screen.getByLabelText("定时发布时间"), { target: { value: "2026-06-21T18:30" } });
+
+    expect(screen.getByText("内容预览")).toBeInTheDocument();
+    expect(screen.getByText("粉色预览标题")).toBeInTheDocument();
+    expect(screen.getByText("日常")).toBeInTheDocument();
+    expect(screen.getByText("#pink #girl")).toBeInTheDocument();
+    expect(screen.getAllByText("定时").length).toBeGreaterThan(0);
+    expect(screen.getByText("2026/6/21 18:30:00")).toBeInTheDocument();
   });
 
   it("saves draft content from the admin publishing form", async () => {
