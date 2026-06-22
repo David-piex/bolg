@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { memo } from "react";
 import { LockKeyhole, PlayCircle } from "lucide-react";
 import { MembershipBadge } from "@/components/MembershipBadge";
@@ -35,7 +36,16 @@ function ContentCardComponent({
         className={`card-media${hasCoverImage ? "" : " card-media-empty"}`}
       >
         {hasCoverImage ? (
-          <img className="card-media-image" src={coverImage} alt={coverLabel} loading="lazy" decoding="async" />
+          <Image
+            className="card-media-image"
+            src={coverImage}
+            alt={coverLabel}
+            width={400}
+            height={300}
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px"
+            loading="lazy"
+            style={{ objectFit: 'cover' }}
+          />
         ) : null}
         <span className="media-grain" aria-hidden="true" />
         {!hasCoverImage ? <span className="media-empty-label">{dictionary.content.noCover}</span> : null}
