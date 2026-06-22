@@ -56,6 +56,12 @@ function PostCountProbe() {
   return <output aria-label="post count">{posts.length}</output>;
 }
 
+function PostIdsProbe() {
+  const { posts } = useAppState();
+
+  return <output aria-label="post ids">{posts.map((post) => post.id).join(",")}</output>;
+}
+
 function CurrentIdentityProbe() {
   const { currentUser, viewer } = useAppState();
 
@@ -719,6 +725,117 @@ describe("AppStateProvider", () => {
       expect(screen.getByLabelText("post count")).toHaveTextContent("1");
     });
     expect(fetchRemoteContentDataset).toHaveBeenCalledWith(undefined);
+  });
+
+  it("refreshes server-seeded initial content after a remote session is restored", async () => {
+    window.localStorage.clear();
+    window.localStorage.setItem(
+      "media-gate-state-v1",
+      JSON.stringify({
+        users: [
+          {
+            disabled: false,
+            email: "admin@example.com",
+            id: "admin-1",
+            isAdmin: true,
+            level: "diamond",
+            name: "Admin"
+          }
+        ],
+        invites: [],
+        posts: [],
+        albums: [],
+        photos: [],
+        videoCollections: [],
+        videos: [],
+        currentUserId: "admin-1",
+        authSession: {
+          accessToken: "cookie-session",
+          expiresIn: 900,
+          refreshToken: "cookie-session"
+        }
+      })
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input) === "/api/auth/me") {
+          return {
+            ok: true,
+            json: async () => ({
+              displayName: "Admin",
+              email: "admin@example.com",
+              id: "admin-1",
+              memberLevel: "DIAMOND",
+              role: "ADMIN",
+              username: "admin"
+            })
+          };
+        }
+
+        return {
+          ok: true,
+          json: async () => ({})
+        };
+      }) as unknown as typeof fetch
+    );
+    vi.mocked(fetchRemoteContentDataset).mockResolvedValue({
+      albums: [],
+      photos: [],
+      posts: [
+        {
+          body: "Admin-only body",
+          category: "remote",
+          coverImage: "https://images.example/admin.jpg",
+          excerpt: "Admin",
+          id: "remote-admin-post",
+          pinned: false,
+          publishedAt: "2026-06-18",
+          status: "published",
+          tags: ["admin"],
+          title: "Admin post",
+          type: "post",
+          visibility: "diamond"
+        }
+      ],
+      videoCollections: [],
+      videos: []
+    });
+
+    render(
+      <AppStateProvider
+        initialContent={{
+          albums: [],
+          photos: [],
+          posts: [
+            {
+              body: "Visitor body",
+              category: "visitor",
+              coverImage: "https://images.example/visitor.jpg",
+              excerpt: "Visitor",
+              id: "server-visitor-post",
+              pinned: false,
+              publishedAt: "2026-06-18",
+              status: "published",
+              tags: ["visitor"],
+              title: "Visitor post",
+              type: "post",
+              visibility: "public"
+            }
+          ],
+          videoCollections: [],
+          videos: []
+        }}
+      >
+        <PostIdsProbe />
+      </AppStateProvider>
+    );
+
+    expect(screen.getByLabelText("post ids")).toHaveTextContent("server-visitor-post");
+    await waitFor(() => {
+      expect(screen.getByLabelText("post ids")).toHaveTextContent("remote-admin-post");
+    });
+    expect(fetchRemoteContentDataset).toHaveBeenCalledWith("cookie-session");
   });
 
   it("does not persist remote content payloads or signed media URLs into localStorage", async () => {

@@ -47,7 +47,7 @@ public class SecurityBeans {
       .exceptionHandling(exception -> exception.authenticationEntryPoint((request, response, authException) -> {
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.getWriter().write("{\"errorCode\":\"UNAUTHENTICATED\",\"message\":\"Authentication required\"}");
+        response.getWriter().write("{\"errorCode\":\"UNAUTHENTICATED\",\"message\":\"请先登录\"}");
       }))
       .addFilterBefore(jwtCookieAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
       .build();

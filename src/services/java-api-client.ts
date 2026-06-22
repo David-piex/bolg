@@ -116,7 +116,9 @@ type CachedMediaAccess = {
 };
 
 const MEDIA_ACCESS_REFRESH_MARGIN_MS = 60_000;
+const AUTH_REFRESH_PATH = "/api/auth/refresh";
 const mediaAccessCache = new Map<string, CachedMediaAccess>();
+let authRefreshPromise: Promise<boolean> | null = null;
 
 export type JavaDirectUploadRequest = {
   mediaType: JavaMediaType;
@@ -585,7 +587,7 @@ function contentPagePath(path: string, input: ListContentPageInput): string {
   return `${path}${query ? `?${query}` : ""}`;
 }
 
-async function request<T>(path: string, init: RequestInit): Promise<T> {
+async function request<T>(path: string, init: RequestInit, retryAuth = true): Promise<T> {
   const headers = new Headers(init.headers);
   if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
@@ -603,6 +605,17 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
     headers
   });
 
+  if (response.status === 401 && retryAuth && shouldRefreshAuthentication(path)) {
+    const refreshed = await refreshAuthentication();
+    if (refreshed) {
+      return request<T>(path, init, false);
+    }
+  }
+
+  return responseBody<T>(response);
+}
+
+async function responseBody<T>(response: Response): Promise<T> {
   if (response.status === 204) {
     return undefined as T;
   }
@@ -619,6 +632,43 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
   }
 
   return body as T;
+}
+
+function shouldRefreshAuthentication(path: string): boolean {
+  return !path.startsWith("/api/auth/login")
+    && !path.startsWith("/api/auth/register")
+    && !path.startsWith("/api/auth/logout")
+    && !path.startsWith("/api/auth/csrf")
+    && !path.startsWith(AUTH_REFRESH_PATH);
+}
+
+async function refreshAuthentication(): Promise<boolean> {
+  if (!authRefreshPromise) {
+    authRefreshPromise = refreshAuthenticationOnce().finally(() => {
+      authRefreshPromise = null;
+    });
+  }
+
+  return authRefreshPromise;
+}
+
+async function refreshAuthenticationOnce(): Promise<boolean> {
+  const headers = new Headers();
+  const csrfToken = await ensureCsrfToken();
+  if (csrfToken) {
+    headers.set("X-XSRF-TOKEN", csrfToken);
+  }
+
+  try {
+    const response = await fetch(AUTH_REFRESH_PATH, {
+      credentials: "include",
+      headers,
+      method: "POST"
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
 }
 
 function isUnsafeMethod(method: string | undefined): boolean {

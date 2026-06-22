@@ -129,6 +129,44 @@ describe("java api client", () => {
     } satisfies Partial<JavaApiError>);
   });
 
+  it("refreshes an expired access cookie once before retrying protected requests", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse({ errorCode: "UNAUTHENTICATED", message: "请先登录" }, 401))
+      .mockResolvedValueOnce(jsonResponse({
+        displayName: "Admin",
+        email: "admin@example.com",
+        id: "admin-1",
+        memberLevel: "DIAMOND",
+        role: "ADMIN",
+        username: "admin"
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        items: [],
+        page: 0,
+        size: 8,
+        total: 0,
+        totalPages: 1
+      }));
+
+    await expect(listMedia({ page: 0, size: 8 })).resolves.toMatchObject({
+      items: [],
+      total: 0
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/media?page=0&size=8", expect.objectContaining({
+      credentials: "include",
+      method: "GET"
+    }));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/auth/refresh", expect.objectContaining({
+      credentials: "include",
+      method: "POST"
+    }));
+    expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/media?page=0&size=8", expect.objectContaining({
+      credentials: "include",
+      method: "GET"
+    }));
+  });
+
   it("uploads images and videos through Java media endpoints with cookies", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       jsonResponse({

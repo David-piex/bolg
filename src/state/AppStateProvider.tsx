@@ -694,7 +694,7 @@ export function AppStateProvider({
   }, [hydrated, state]);
 
   useEffect(() => {
-    if (!hydrated || initialContent) {
+    if (!hydrated) {
       return;
     }
 
@@ -717,7 +717,7 @@ export function AppStateProvider({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [hydrated, initialContent, state.authSession?.accessToken]);
+  }, [hydrated, state.authSession?.accessToken]);
 
   useEffect(() => {
     if (!hydrated || !state.authSession?.accessToken) {

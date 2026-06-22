@@ -29,6 +29,7 @@ import {
   type UploadProgress
 } from "@/services/admin-upload-client";
 import {
+  JavaApiError,
   listAdminAuditLogs,
   listMedia,
   type JavaAdminAuditLog,
@@ -68,11 +69,29 @@ function formatCount(count: number, unit: string) {
 }
 
 function uploadErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof JavaApiError && (error.status === 401 || error.errorCode === "UNAUTHENTICATED")) {
+    return fallback;
+  }
+
   if (error instanceof Error && error.message.trim()) {
     return `${fallback}${dictionarySeparator(fallback)}${error.message}`;
   }
 
   return fallback;
+}
+
+function adminActionErrorMessage(error: unknown, dictionary: Dictionary, fallback: string): string {
+  if (error instanceof JavaApiError) {
+    if (error.status === 401 || error.errorCode === "UNAUTHENTICATED") {
+      return dictionary.admin.adminAccessRequired;
+    }
+
+    if (error.status === 403 || error.errorCode === "ADMIN_REQUIRED") {
+      return dictionary.admin.adminPermissionRequired;
+    }
+  }
+
+  return uploadErrorMessage(error, fallback);
 }
 
 function dictionarySeparator(value: string) {
@@ -563,7 +582,7 @@ export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictiona
       void loadAdminUsersPage({ page: 0, q: memberQuery, size: memberPageSize })
         .catch((error) => {
           if (!cancelled) {
-            setMemberError(error instanceof Error ? error.message : dictionary.admin.noMembers);
+            setMemberError(adminActionErrorMessage(error, dictionary, dictionary.admin.noMembers));
           }
         })
         .finally(() => {
@@ -601,7 +620,7 @@ export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictiona
         })
         .catch((error) => {
           if (!cancelled) {
-            setMediaError(error instanceof Error ? error.message : dictionary.admin.noMediaAssets);
+            setMediaError(adminActionErrorMessage(error, dictionary, dictionary.admin.noMediaAssets));
           }
         })
         .finally(() => {
@@ -633,7 +652,7 @@ export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictiona
       })
       .catch((error) => {
         if (!cancelled) {
-          setAuditError(error instanceof Error ? error.message : dictionary.admin.noAuditLogs);
+          setAuditError(adminActionErrorMessage(error, dictionary, dictionary.admin.noAuditLogs));
         }
       })
       .finally(() => {
@@ -680,7 +699,7 @@ export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictiona
     try {
       await loadAdminUsersPage({ page, q: memberQuery, size: memberPageSize });
     } catch (error) {
-      setMemberError(error instanceof Error ? error.message : dictionary.admin.noMembers);
+      setMemberError(adminActionErrorMessage(error, dictionary, dictionary.admin.noMembers));
     } finally {
       setMemberLoading(false);
     }
@@ -704,7 +723,7 @@ export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictiona
       });
       setMediaPage(normalizeMediaPage(nextPage, mediaPage.size));
     } catch (error) {
-      setMediaError(error instanceof Error ? error.message : dictionary.admin.noMediaAssets);
+      setMediaError(adminActionErrorMessage(error, dictionary, dictionary.admin.noMediaAssets));
     } finally {
       setMediaLoading(false);
     }
@@ -723,7 +742,7 @@ export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictiona
       const nextPage = await listAdminAuditLogs({ page, size: auditPage.size });
       setAuditPage(normalizeAuditPage(nextPage, auditPage.size));
     } catch (error) {
-      setAuditError(error instanceof Error ? error.message : dictionary.admin.noAuditLogs);
+      setAuditError(adminActionErrorMessage(error, dictionary, dictionary.admin.noAuditLogs));
     } finally {
       setAuditLoading(false);
     }
@@ -1023,7 +1042,7 @@ export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictiona
       }));
       setSelectedContentKeys([]);
     } catch (error) {
-      setContentLibraryMessage(uploadErrorMessage(error, dictionary.admin.bulkActionFailed));
+      setContentLibraryMessage(adminActionErrorMessage(error, dictionary, dictionary.admin.bulkActionFailed));
     }
   }
 
@@ -1042,7 +1061,7 @@ export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictiona
       }));
       setSelectedContentKeys([]);
     } catch (error) {
-      setContentLibraryMessage(uploadErrorMessage(error, dictionary.admin.bulkActionFailed));
+      setContentLibraryMessage(adminActionErrorMessage(error, dictionary, dictionary.admin.bulkActionFailed));
     }
   }
 

@@ -9,6 +9,7 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
 
 @Service
@@ -39,7 +40,7 @@ public class AdminAuditService {
 
   public void record(UserEntity admin, String actionType, String targetType, UUID targetId, Map<String, Object> details) {
     try {
-      String detailJson = objectMapper.writeValueAsString(details);
+      String detailJson = objectMapper.writeValueAsString(new TreeMap<>(details));
       record(admin, actionType, targetType, targetId, detailJson);
     } catch (Exception e) {
       // Fallback to empty JSON if serialization fails

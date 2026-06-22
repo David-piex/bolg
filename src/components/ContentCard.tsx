@@ -1,6 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
 import { LockKeyhole, PlayCircle } from "lucide-react";
 import { MembershipBadge } from "@/components/MembershipBadge";
 import type { MembershipLevel } from "@/domain/membership";
@@ -27,8 +26,15 @@ function ContentCardComponent({
   href?: string;
   video?: boolean;
 }) {
-  const hasCoverImage = Boolean(coverImage.trim());
+  const normalizedCoverImage = coverImage.trim();
+  const [failedCoverImage, setFailedCoverImage] = useState<string | null>(null);
+  const hasCoverImage = Boolean(normalizedCoverImage) && failedCoverImage !== normalizedCoverImage;
   const coverLabel = `${title}${dictionary.common.chinese === "中文版" ? "封面" : " cover"}`;
+
+  useEffect(() => {
+    setFailedCoverImage(null);
+  }, [normalizedCoverImage]);
+
   const body = (
     <>
       <div
@@ -36,15 +42,13 @@ function ContentCardComponent({
         className={`card-media${hasCoverImage ? "" : " card-media-empty"}`}
       >
         {hasCoverImage ? (
-          <Image
+          <img
             className="card-media-image"
-            src={coverImage}
+            src={normalizedCoverImage}
             alt={coverLabel}
-            width={400}
-            height={300}
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px"
             loading="lazy"
-            style={{ objectFit: 'cover' }}
+            decoding="async"
+            onError={() => setFailedCoverImage(normalizedCoverImage)}
           />
         ) : null}
         <span className="media-grain" aria-hidden="true" />

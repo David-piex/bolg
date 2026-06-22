@@ -195,6 +195,8 @@ type Dictionary = {
     memberPrevious: string;
     memberNext: string;
     noMembers: string;
+    adminAccessRequired: string;
+    adminPermissionRequired: string;
     mediaLibrary: string;
     mediaLibraryHint: string;
     searchMedia: string;
@@ -502,6 +504,8 @@ export const dictionaries: Record<Locale, Dictionary> = {
       memberPrevious: "上一页",
       memberNext: "下一页",
       noMembers: "暂无成员",
+      adminAccessRequired: "管理员登录已失效，请重新登录后再试。",
+      adminPermissionRequired: "当前账号没有管理员权限，请切换管理员账号。",
       mediaLibrary: "素材库",
       mediaLibraryHint: "复用已经上传过的图片和视频，避免重复上传。",
       searchMedia: "搜索素材",
@@ -810,6 +814,8 @@ export const dictionaries: Record<Locale, Dictionary> = {
       memberPrevious: "Previous",
       memberNext: "Next",
       noMembers: "No members",
+      adminAccessRequired: "Admin login expired. Sign in again and retry.",
+      adminPermissionRequired: "This account does not have admin permission. Switch to an admin account.",
       mediaLibrary: "Media library",
       mediaLibraryHint: "Reuse uploaded images and videos instead of uploading duplicates.",
       searchMedia: "Search media",
