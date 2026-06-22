@@ -267,6 +267,8 @@ type AppAdminActions = Pick<
 >;
 
 const storageKey = "media-gate-state-v1";
+const persistDebounceMs = 300;
+const remoteContentLoadDelayMs = 120;
 const defaultSiteSettings: JavaSiteSettings = {
   logoMark: "绫",
   logoText: "绫奈",
@@ -606,10 +608,12 @@ export function AppStateProvider({
   const [remoteSiteSettings, setRemoteSiteSettings] = useState<JavaSiteSettings | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [authReady, setAuthReady] = useState(false);
+  const lastPersistedStateRef = useRef<string | null>(null);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(storageKey);
     if (saved) {
+      lastPersistedStateRef.current = saved;
       setState(hydrateState(JSON.parse(saved) as Partial<PersistedState>));
     }
     setHydrated(true);
@@ -674,7 +678,19 @@ export function AppStateProvider({
       return;
     }
 
-    window.localStorage.setItem(storageKey, JSON.stringify(state));
+    const timer = window.setTimeout(() => {
+      const serialized = JSON.stringify(state);
+      if (serialized === lastPersistedStateRef.current) {
+        return;
+      }
+
+      window.localStorage.setItem(storageKey, serialized);
+      lastPersistedStateRef.current = serialized;
+    }, persistDebounceMs);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [hydrated, state]);
 
   useEffect(() => {
@@ -683,21 +699,23 @@ export function AppStateProvider({
     }
 
     let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void fetchRemoteContentDataset(state.authSession?.accessToken)
+        .then((dataset) => {
+          if (cancelled) {
+            return;
+          }
 
-    void fetchRemoteContentDataset(state.authSession?.accessToken)
-      .then((dataset) => {
-        if (cancelled) {
-          return;
-        }
-
-        setRemoteContent(contentStateFromDataset(dataset));
-      })
-      .catch(() => {
-        // Keep local demo content when the Java content API is unavailable.
-      });
+          setRemoteContent(contentStateFromDataset(dataset));
+        })
+        .catch(() => {
+          // Keep local demo content when the Java content API is unavailable.
+        });
+    }, remoteContentLoadDelayMs);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
     };
   }, [hydrated, initialContent, state.authSession?.accessToken]);
 

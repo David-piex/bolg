@@ -70,6 +70,22 @@ function isPublished(record: { status?: ContentRecordStatus }): boolean {
   return (record.status ?? "published") === "published";
 }
 
+function groupBy<T>(items: T[], keyFor: (item: T) => string): Map<string, T[]> {
+  const groups = new Map<string, T[]>();
+
+  for (const item of items) {
+    const key = keyFor(item);
+    const group = groups.get(key);
+    if (group) {
+      group.push(item);
+    } else {
+      groups.set(key, [item]);
+    }
+  }
+
+  return groups;
+}
+
 export function getPosts(viewer: Viewer, dataset: ContentDataset = {}): PostRecord[] {
   return resolveDataset(dataset).posts.filter((post) => isPublished(post) && canViewContent(viewer, post.visibility));
 }
@@ -115,6 +131,8 @@ export function getHomeFeed(viewer: Viewer, dataset: ContentDataset = {}): FeedI
 
 export function getAlbums(viewer: Viewer, dataset: ContentDataset = {}): VisibleAlbum[] {
   const data = resolveDataset(dataset);
+  const photosByAlbumId = groupBy(data.photos, (photo) => photo.albumId);
+
   return data.albums
     .filter((album) => isPublished(album) && canViewContent(viewer, album.defaultVisibility))
     .map((album) => {
@@ -122,7 +140,7 @@ export function getAlbums(viewer: Viewer, dataset: ContentDataset = {}): Visible
         id: album.id,
         defaultVisibility: album.defaultVisibility
       };
-      const albumPhotos = data.photos.filter((photo) => photo.albumId === album.id);
+      const albumPhotos = photosByAlbumId.get(album.id) ?? [];
       const visiblePhotos = filterVisibleItems(
         viewer,
         albumPhotos.map((photo) => ({
@@ -146,6 +164,8 @@ export function getAlbums(viewer: Viewer, dataset: ContentDataset = {}): Visible
 
 export function getVideoCollections(viewer: Viewer, dataset: ContentDataset = {}): VisibleVideoCollection[] {
   const data = resolveDataset(dataset);
+  const videosByCollectionId = groupBy(data.videos, (video) => video.collectionId);
+
   return data.videoCollections
     .filter((collection) => isPublished(collection) && canViewContent(viewer, collection.defaultVisibility))
     .map((collection) => {
@@ -153,7 +173,7 @@ export function getVideoCollections(viewer: Viewer, dataset: ContentDataset = {}
         id: collection.id,
         defaultVisibility: collection.defaultVisibility
       };
-      const collectionVideos = data.videos.filter((video) => video.collectionId === collection.id);
+      const collectionVideos = videosByCollectionId.get(collection.id) ?? [];
       const visibleVideos = filterVisibleItems(
         viewer,
         collectionVideos.map((video) => ({

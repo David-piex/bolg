@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { memo } from "react";
 import { LockKeyhole, PlayCircle } from "lucide-react";
 import { MembershipBadge } from "@/components/MembershipBadge";
 import type { MembershipLevel } from "@/domain/membership";
@@ -6,7 +7,7 @@ import type { getDictionary } from "@/i18n/dictionaries";
 
 type Dictionary = ReturnType<typeof getDictionary>;
 
-export function ContentCard({
+function ContentCardComponent({
   title,
   excerpt,
   coverImage,
@@ -70,3 +71,5 @@ export function ContentCard({
     </article>
   );
 }
+
+export const ContentCard = memo(ContentCardComponent);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ContentCard } from "@/components/ContentCard";
 import { ContentDiscoveryToolbar, type ContentSort } from "@/components/ContentDiscoveryToolbar";
 import { EmptyContentState } from "@/components/EmptyContentState";
@@ -37,7 +37,7 @@ function pageSummary(template: string, input: { page: number; total: number; tot
 export function PostsView({ dictionary, locale }: { dictionary: Dictionary; locale: Locale }) {
   const { viewer } = useAppAuthState();
   const { loadPostsPage, posts: statePosts } = useAppContentState();
-  const visiblePosts = getPosts(viewer, { posts: statePosts });
+  const visiblePosts = useMemo(() => getPosts(viewer, { posts: statePosts }), [statePosts, viewer]);
   const [page, setPage] = useState(0);
   const [pagedPosts, setPagedPosts] = useState(visiblePosts.slice(0, pageSize));
   const [query, setQuery] = useState("");
@@ -68,8 +68,14 @@ export function PostsView({ dictionary, locale }: { dictionary: Dictionary; loca
     setPage(0);
   }
 
-  const categoryOptions = uniqueSorted(visiblePosts.map((post) => post.category));
-  const tagOptions = uniqueSorted(visiblePosts.flatMap((post) => post.tags));
+  const categoryOptions = useMemo(
+    () => uniqueSorted(visiblePosts.map((post) => post.category)),
+    [visiblePosts]
+  );
+  const tagOptions = useMemo(
+    () => uniqueSorted(visiblePosts.flatMap((post) => post.tags)),
+    [visiblePosts]
+  );
 
   useEffect(() => {
     const canReuseInitialPage = page === 0 && !query && !category && !tag && sort === "latest" && visiblePosts.length > 0;

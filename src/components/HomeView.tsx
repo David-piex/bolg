@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { ContentCard } from "@/components/ContentCard";
 import { EmptyContentState } from "@/components/EmptyContentState";
 import { getHomeFeed } from "@/data/repository";
@@ -33,10 +34,13 @@ function hrefForFeedItem(locale: Locale, kind: "post" | "album" | "videoCollecti
 export function HomeView({ dictionary, locale }: { dictionary: Dictionary; locale: Locale }) {
   const { viewer, currentUser } = useAppAuthState();
   const { posts, albums, photos, videoCollections, videos } = useAppContentState();
-  const feed = getHomeFeed(viewer, { posts, albums, photos, videoCollections, videos });
+  const feed = useMemo(
+    () => getHomeFeed(viewer, { posts, albums, photos, videoCollections, videos }),
+    [albums, photos, posts, videoCollections, videos, viewer]
+  );
   const featured = feed[0];
-  const secondary = feed.slice(1, 3);
-  const titleLines = formatArchiveTitleLines(dictionary.home.title);
+  const secondary = useMemo(() => feed.slice(1, 3), [feed]);
+  const titleLines = useMemo(() => formatArchiveTitleLines(dictionary.home.title), [dictionary.home.title]);
 
   return (
     <div className="page home-page">

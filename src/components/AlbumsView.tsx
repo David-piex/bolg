@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ContentCard } from "@/components/ContentCard";
 import { ContentDiscoveryToolbar, type ContentSort } from "@/components/ContentDiscoveryToolbar";
 import { EmptyContentState } from "@/components/EmptyContentState";
@@ -36,7 +36,7 @@ function pageSummary(template: string, input: { page: number; total: number; tot
 export function AlbumsView({ dictionary, locale }: { dictionary: Dictionary; locale: Locale }) {
   const { viewer } = useAppAuthState();
   const { loadAlbumsPage, albums: stateAlbums, photos } = useAppContentState();
-  const visibleAlbums = getAlbums(viewer, { albums: stateAlbums, photos });
+  const visibleAlbums = useMemo(() => getAlbums(viewer, { albums: stateAlbums, photos }), [stateAlbums, photos, viewer]);
   const [page, setPage] = useState(0);
   const [pagedAlbums, setPagedAlbums] = useState(visibleAlbums.slice(0, pageSize));
   const [query, setQuery] = useState("");
@@ -67,8 +67,14 @@ export function AlbumsView({ dictionary, locale }: { dictionary: Dictionary; loc
     setPage(0);
   }
 
-  const categoryOptions = uniqueSorted(visibleAlbums.map((album) => album.category));
-  const tagOptions = uniqueSorted(visibleAlbums.flatMap((album) => album.tags));
+  const categoryOptions = useMemo(
+    () => uniqueSorted(visibleAlbums.map((album) => album.category)),
+    [visibleAlbums]
+  );
+  const tagOptions = useMemo(
+    () => uniqueSorted(visibleAlbums.flatMap((album) => album.tags)),
+    [visibleAlbums]
+  );
 
   useEffect(() => {
     const canReuseInitialPage = page === 0 && !query && !category && !tag && sort === "latest" && visibleAlbums.length > 0;

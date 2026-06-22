@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ContentCard } from "@/components/ContentCard";
 import { ContentDiscoveryToolbar, type ContentSort } from "@/components/ContentDiscoveryToolbar";
 import { EmptyContentState } from "@/components/EmptyContentState";
@@ -36,7 +36,10 @@ function pageSummary(template: string, input: { page: number; total: number; tot
 export function VideosView({ dictionary, locale }: { dictionary: Dictionary; locale: Locale }) {
   const { viewer } = useAppAuthState();
   const { loadVideosPage, videoCollections, videos } = useAppContentState();
-  const visibleCollections = getVideoCollections(viewer, { videoCollections, videos });
+  const visibleCollections = useMemo(
+    () => getVideoCollections(viewer, { videoCollections, videos }),
+    [videoCollections, videos, viewer]
+  );
   const [page, setPage] = useState(0);
   const [pagedCollections, setPagedCollections] = useState(visibleCollections.slice(0, pageSize));
   const [query, setQuery] = useState("");
@@ -67,8 +70,14 @@ export function VideosView({ dictionary, locale }: { dictionary: Dictionary; loc
     setPage(0);
   }
 
-  const categoryOptions = uniqueSorted(visibleCollections.map((collection) => collection.category));
-  const tagOptions = uniqueSorted(visibleCollections.flatMap((collection) => collection.tags));
+  const categoryOptions = useMemo(
+    () => uniqueSorted(visibleCollections.map((collection) => collection.category)),
+    [visibleCollections]
+  );
+  const tagOptions = useMemo(
+    () => uniqueSorted(visibleCollections.flatMap((collection) => collection.tags)),
+    [visibleCollections]
+  );
 
   useEffect(() => {
     const canReuseInitialPage =
