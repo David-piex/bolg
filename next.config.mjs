@@ -27,13 +27,7 @@ const nextConfig = {
   compress: true,
 
   // 减少构建内存占用
-  experimental: {
-    optimizeCss: true,
-  },
-
   // SWC优化
-  swcMinify: true,
-
   async rewrites() {
     return [
       {
