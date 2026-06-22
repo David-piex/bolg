@@ -67,4 +67,17 @@ public interface AlbumRepository extends JpaRepository<AlbumEntity, UUID> {
     @Param("mediaAssetId") UUID mediaAssetId,
     @Param("status") ContentStatus status
   );
+
+  @Query("""
+    select case when count(album) > 0 then true else false end
+    from AlbumEntity album
+    where album.status = :status
+      and album.visibility in :visibilities
+      and album.coverMedia.id = :mediaAssetId
+    """)
+  boolean existsPublishedWithVisibleCoverMediaId(
+    @Param("mediaAssetId") UUID mediaAssetId,
+    @Param("status") ContentStatus status,
+    @Param("visibilities") Collection<ContentVisibility> visibilities
+  );
 }

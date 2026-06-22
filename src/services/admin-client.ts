@@ -51,6 +51,7 @@ function fromJavaLevel(level: JavaMemberLevel): InviteTargetLevel {
 function inviteFromJava(invite: JavaInvite): InviteCode {
   return {
     code: invite.code,
+    expiresAt: invite.expiresAt ?? null,
     id: invite.id,
     note: invite.status === "DISABLED" ? "disabled" : undefined,
     targetLevel: fromJavaLevel(invite.initialLevel),
@@ -101,10 +102,12 @@ export async function fetchRemoteAdminDataset(accessToken: string): Promise<Admi
 
 export async function createRemoteInvite(
   accessToken: string,
-  level: InviteTargetLevel
+  level: InviteTargetLevel,
+  expiresAt?: string | null
 ): Promise<InviteCode> {
   const invite = await createInvite({
     code: `${level.toUpperCase()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+    expiresAt,
     initialLevel: toJavaLevel(level),
     maxUses: 1
   });

@@ -1,5 +1,5 @@
 import type { InviteTargetLevel } from "@/domain/invites";
-import { getMe, login, logout, register, type JavaMemberLevel, type JavaRole, type JavaUser } from "@/services/java-api-client";
+import { JavaApiError, getMe, login, logout, register, type JavaMemberLevel, type JavaRole, type JavaUser } from "@/services/java-api-client";
 
 export type ClientRegisterInput = {
   displayName: string;
@@ -101,8 +101,16 @@ export async function loginWithPasswordClient(input: ClientLoginInput): Promise<
 export async function getCurrentSessionClient(): Promise<ClientLoginSession | null> {
   try {
     return sessionFromJavaUser(await getMe());
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof JavaApiError) {
+      if (error.status === 401 || error.status === 403) {
+        return null;
+      }
+
+      throw error;
+    }
+
+    throw error;
   }
 }
 

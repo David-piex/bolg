@@ -2,6 +2,7 @@ import type { MembershipLevel } from "@/domain/membership";
 import {
   completeDirectUpload,
   createDirectUpload,
+  JavaApiError,
   uploadImage,
   uploadVideo,
   type JavaMediaAsset,
@@ -142,7 +143,15 @@ async function uploadWithDirectFallback(
     });
     emitProgress("complete", 100);
     return completed;
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && (error.message === "DIRECT_UPLOAD_ABORTED" || error.message === "DIRECT_UPLOAD_PUT_FAILED")) {
+      throw error;
+    }
+
+    if (!(error instanceof JavaApiError) || error.status !== 404) {
+      throw error;
+    }
+
     emitProgress("fallback", 12);
     const uploaded = await fallbackUpload();
     emitProgress("complete", 100);

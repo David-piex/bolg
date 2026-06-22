@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { loginWithPasswordClient, registerWithInviteClient } from "@/services/auth-client";
+import { getCurrentSessionClient, loginWithPasswordClient, registerWithInviteClient } from "@/services/auth-client";
 
 describe("auth client", () => {
   beforeEach(() => {
@@ -96,5 +96,35 @@ describe("auth client", () => {
         password: "secret-password"
       })
     ).rejects.toThrow("Invite code is invalid");
+  });
+
+  it("treats unauthenticated session lookup failures as logged out", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: false,
+        json: async () => ({ errorCode: "UNAUTHENTICATED", message: "Please sign in" }),
+        status: 401
+      })) as unknown as typeof fetch
+    );
+
+    await expect(getCurrentSessionClient()).resolves.toBeNull();
+  });
+
+  it("surfaces transient auth session lookup failures", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: false,
+        json: async () => ({ errorCode: "SERVER_ERROR", message: "Temporary failure" }),
+        status: 500
+      })) as unknown as typeof fetch
+    );
+
+    await expect(getCurrentSessionClient()).rejects.toMatchObject({
+      errorCode: "SERVER_ERROR",
+      message: "Temporary failure",
+      status: 500
+    });
   });
 });

@@ -8,6 +8,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Version;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
@@ -32,6 +33,10 @@ public class InviteCodeEntity {
 
   @Column(name = "used_count", nullable = false)
   private int usedCount;
+
+  @Version
+  @Column(nullable = false)
+  private long version;
 
   @Column(name = "expires_at")
   private Instant expiresAt;
@@ -84,6 +89,14 @@ public class InviteCodeEntity {
 
   public void setUsedCount(int usedCount) {
     this.usedCount = usedCount;
+  }
+
+  public long getVersion() {
+    return version;
+  }
+
+  public void setVersion(long version) {
+    this.version = version;
   }
 
   public Instant getExpiresAt() {

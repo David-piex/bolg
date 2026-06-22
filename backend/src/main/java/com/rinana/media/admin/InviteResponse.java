@@ -4,6 +4,7 @@ import com.rinana.media.common.MemberLevel;
 import com.rinana.media.invite.InviteCodeEntity;
 import com.rinana.media.invite.InviteCodeStatus;
 
+import java.time.Instant;
 import java.util.UUID;
 
 public record InviteResponse(
@@ -12,7 +13,8 @@ public record InviteResponse(
   MemberLevel initialLevel,
   int maxUses,
   int usedCount,
-  InviteCodeStatus status
+  InviteCodeStatus status,
+  Instant expiresAt
 ) {
   static InviteResponse from(InviteCodeEntity invite) {
     return new InviteResponse(
@@ -21,7 +23,8 @@ public record InviteResponse(
       invite.getInitialLevel(),
       invite.getMaxUses(),
       invite.getUsedCount(),
-      invite.getStatus()
+      invite.getStatus(),
+      invite.getExpiresAt()
     );
   }
 }

@@ -33,6 +33,7 @@ public class AuthService {
 
   @Transactional
   public UserEntity register(RegisterRequest request) {
+    String normalizedEmail = normalizeEmail(request.email());
     InviteCodeEntity invite = inviteCodeRepository.findByCode(request.inviteCode())
       .filter(this::isInviteUsable)
       .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "INVALID_INVITE_CODE", "邀请码无效或已不可用"));
@@ -40,14 +41,14 @@ public class AuthService {
     if (userRepository.existsByUsername(request.username())) {
       throw new ApiException(HttpStatus.BAD_REQUEST, "USERNAME_EXISTS", "用户名已存在");
     }
-    if (userRepository.existsByEmail(request.email())) {
+    if (userRepository.existsByEmail(normalizedEmail)) {
       throw new ApiException(HttpStatus.BAD_REQUEST, "EMAIL_EXISTS", "邮箱已存在");
     }
 
     Instant now = Instant.now();
     UserEntity user = new UserEntity();
     user.setUsername(request.username());
-    user.setEmail(request.email());
+    user.setEmail(normalizedEmail);
     user.setPasswordHash(passwordEncoder.encode(request.password()));
     user.setDisplayName(request.username());
     user.setRole(Role.USER);
@@ -62,8 +63,9 @@ public class AuthService {
   }
 
   public UserEntity login(LoginRequest request) {
-    UserEntity user = userRepository.findByUsername(request.account())
-      .or(() -> userRepository.findByEmail(request.account()))
+    String account = request.account().trim();
+    UserEntity user = userRepository.findByUsername(account)
+      .or(() -> userRepository.findByEmail(normalizeEmail(account)))
       .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "账号或密码错误"));
 
     if (user.getStatus() == UserStatus.DISABLED) {
@@ -76,8 +78,12 @@ public class AuthService {
   }
 
   public UserEntity requireUser(UUID userId) {
-    return userRepository.findUserById(userId)
+    UserEntity user = userRepository.findUserById(userId)
       .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHENTICATED", "请先登录"));
+    if (user.getStatus() == UserStatus.DISABLED) {
+      throw new ApiException(HttpStatus.FORBIDDEN, "USER_DISABLED", "账号已被禁用");
+    }
+    return user;
   }
 
   private boolean isInviteUsable(InviteCodeEntity invite) {
@@ -88,5 +94,9 @@ public class AuthService {
       return false;
     }
     return invite.getExpiresAt() == null || invite.getExpiresAt().isAfter(Instant.now());
+  }
+
+  private String normalizeEmail(String email) {
+    return email.trim().toLowerCase();
   }
 }

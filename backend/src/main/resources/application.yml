@@ -18,10 +18,11 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  forward-headers-strategy: framework
 
 rinana:
   auth:
-    jwt-secret: ${JWT_SECRET:dev-only-change-this-secret-with-at-least-32-bytes}
+    jwt-secret: ${JWT_SECRET:}
     access-token-minutes: 15
     refresh-token-days: 14
   super-admin:

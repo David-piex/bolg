@@ -10,7 +10,7 @@ import {
   uploadAccountAvatar,
   type AccountProfile
 } from "@/services/account-client";
-import { useAppState } from "@/state/AppStateProvider";
+import { useAppAuthState } from "@/state/AppStateProvider";
 
 type Dictionary = ReturnType<typeof getDictionary>;
 
@@ -20,7 +20,8 @@ type Message = {
 };
 
 export function AccountSettingsView({ dictionary }: { dictionary: Dictionary }) {
-  const { currentUser, authReady, logout } = useAppState();
+  const { currentUser, authReady } = useAppAuthState();
+  const { logout } = useAppAuthState();
   const [profile, setProfile] = useState<AccountProfile | null>(null);
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -70,7 +71,7 @@ export function AccountSettingsView({ dictionary }: { dictionary: Dictionary }) 
     return () => {
       cancelled = true;
     };
-  }, [currentUser]);
+  }, [currentUser?.id]);
 
   async function onChangePassword() {
     setMessage(null);

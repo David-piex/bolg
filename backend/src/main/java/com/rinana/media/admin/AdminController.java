@@ -62,6 +62,7 @@ public class AdminController {
     invite.setInitialLevel(request.initialLevel());
     invite.setMaxUses(request.maxUses());
     invite.setUsedCount(0);
+    invite.setExpiresAt(request.expiresAt());
     invite.setStatus(InviteCodeStatus.ACTIVE);
     invite.setCreatedBy(admin.getId());
     invite.setCreatedAt(Instant.now());

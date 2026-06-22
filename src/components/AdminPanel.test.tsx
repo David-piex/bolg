@@ -138,6 +138,7 @@ describe("AdminPanel", () => {
     expect(screen.getAllByText("停用").length).toBeGreaterThan(0);
     expect(screen.getAllByText("编辑").length).toBeGreaterThan(0);
     expect(screen.getAllByText("删除").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("到期时间")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "视频" }));
     expect(screen.getByText("视频简介")).toBeInTheDocument();

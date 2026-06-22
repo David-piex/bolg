@@ -28,6 +28,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -189,44 +191,26 @@ public class MediaController {
       return;
     }
 
-    boolean linkedToPublishedContent = false;
+    var visibleLevels = visibleLevelsFor(viewer);
+    boolean visibleByLinkedContent =
+      videoRepository.existsPublishedWithVisibleMediaAssetId(asset.getId(), ContentStatus.PUBLISHED, visibleLevels)
+        || videoRepository.existsPublishedWithVisibleCoverMediaId(asset.getId(), ContentStatus.PUBLISHED, visibleLevels)
+        || albumRepository.existsPublishedWithVisibleCoverMediaId(asset.getId(), ContentStatus.PUBLISHED, visibleLevels)
+        || postRepository.existsPublishedWithVisibleMediaAssetId(asset.getId(), ContentStatus.PUBLISHED, visibleLevels);
 
-    var linkedVideo = videoRepository.findPublishedByMediaAssetId(asset.getId(), ContentStatus.PUBLISHED);
-    if (linkedVideo.isPresent()) {
-      linkedToPublishedContent = true;
-      if (viewerCanSee(viewer, linkedVideo.get().getVisibility())) {
-        return;
-      }
-    }
-
-    var linkedAlbum = albumRepository.findPublishedByCoverMediaId(asset.getId(), ContentStatus.PUBLISHED);
-    if (linkedAlbum.isPresent()) {
-      linkedToPublishedContent = true;
-      if (viewerCanSee(viewer, linkedAlbum.get().getVisibility())) {
-        return;
-      }
-    }
-
-    var linkedPost = postRepository.findPublishedByMediaAssetId(asset.getId(), ContentStatus.PUBLISHED);
-    if (linkedPost.isPresent()) {
-      linkedToPublishedContent = true;
-      if (viewerCanSee(viewer, linkedPost.get().getVisibility())) {
-        return;
-      }
-    }
-
-    if (!linkedToPublishedContent || viewer == null) {
+    if (!visibleByLinkedContent) {
       throw new ApiException(HttpStatus.FORBIDDEN, "CONTENT_NOT_VISIBLE", "内容对当前账号不可见");
     }
-
-    throw new ApiException(HttpStatus.FORBIDDEN, "CONTENT_NOT_VISIBLE", "内容对当前账号不可见");
   }
 
-  private boolean viewerCanSee(UserEntity viewer, ContentVisibility visibility) {
-    if (visibility == ContentVisibility.PUBLIC) {
-      return true;
+  private List<ContentVisibility> visibleLevelsFor(UserEntity viewer) {
+    if (viewer == null) {
+      return List.of(ContentVisibility.PUBLIC);
     }
-    return viewer != null && VisibilityPolicy.canView(viewer.getRole(), viewer.getMemberLevel(), visibility);
+
+    return Arrays.stream(ContentVisibility.values())
+      .filter(visibility -> VisibilityPolicy.canView(viewer.getRole(), viewer.getMemberLevel(), visibility))
+      .toList();
   }
 
   private void requireUploadAccepted(MediaType mediaType, String contentType, long sizeBytes) {

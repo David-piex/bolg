@@ -615,6 +615,75 @@ describe("AppStateProvider", () => {
     });
   });
 
+  it("preserves saved user state when session restoration hits a transient error", async () => {
+    window.localStorage.clear();
+    window.localStorage.setItem(
+      "media-gate-state-v1",
+      JSON.stringify({
+        users: [
+          {
+            disabled: false,
+            email: "admin@example.com",
+            id: "admin-1",
+            isAdmin: true,
+            level: "diamond",
+            name: "Admin"
+          }
+        ],
+        invites: [],
+        posts: [],
+        albums: [],
+        photos: [],
+        videoCollections: [],
+        videos: [],
+        currentUserId: "admin-1",
+        authSession: {
+          accessToken: "cookie-session",
+          expiresIn: 900,
+          refreshToken: "cookie-session"
+        }
+      })
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input) === "/api/auth/me") {
+          return {
+            ok: false,
+            status: 500,
+            json: async () => ({ errorCode: "SERVER_ERROR", message: "Temporary failure" })
+          };
+        }
+
+        return {
+          ok: true,
+          json: async () => ({})
+        };
+      }) as unknown as typeof fetch
+    );
+
+    render(
+      <AppStateProvider>
+        <CurrentIdentityProbe />
+        <AuthSessionProbe />
+      </AppStateProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("current identity")).toHaveTextContent("Admin:diamond");
+      expect(screen.getByLabelText("auth token")).toHaveTextContent("cookie-session");
+    });
+
+    await waitFor(() => {
+      const persisted = JSON.parse(window.localStorage.getItem("media-gate-state-v1") ?? "{}");
+      expect(persisted.currentUserId).toBe("admin-1");
+      expect(persisted.authSession).toMatchObject({
+        accessToken: "cookie-session",
+        refreshToken: "cookie-session"
+      });
+    });
+  });
+
   it("loads remote Java content after hydration when content API is configured", async () => {
     window.localStorage.clear();
     vi.mocked(fetchRemoteContentDataset).mockResolvedValue({
@@ -868,7 +937,7 @@ describe("AppStateProvider", () => {
       })) as unknown as typeof fetch
     );
     vi.mocked(fetchRemoteAdminDataset).mockResolvedValue({
-      invites: [{ code: "GOLD-REMOTE", id: "invite-remote", targetLevel: "gold", usedByUserId: null }],
+      invites: [{ code: "GOLD-REMOTE", expiresAt: "2026-07-01T00:00:00Z", id: "invite-remote", targetLevel: "gold", usedByUserId: null }],
       userPage: {
         page: 0,
         size: 10,
@@ -923,6 +992,7 @@ describe("AppStateProvider", () => {
     vi.mocked(createRemoteInvite).mockResolvedValue({
       code: "GOLD-REMOTE",
       id: "invite-remote",
+      expiresAt: "2026-07-01T00:00:00Z",
       targetLevel: "gold",
       usedByUserId: null
     });
@@ -936,7 +1006,7 @@ describe("AppStateProvider", () => {
     await waitFor(() => {
       expect(screen.getByLabelText("latest invite")).toHaveTextContent("GOLD-REMOTE");
     });
-    expect(createRemoteInvite).toHaveBeenCalledWith("cookie-session", "gold");
+    expect(createRemoteInvite).toHaveBeenCalledWith("cookie-session", "gold", undefined);
   });
 
   it("updates user level and disabled state remotely when an admin session exists", async () => {

@@ -4,7 +4,9 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useMemo,
+  useCallback,
   useState,
   type ReactNode
 } from "react";
@@ -109,7 +111,7 @@ type AppStateValue = {
   updateUserLevel: (userId: string, level: Exclude<MembershipLevel, "public">) => void;
   toggleUserDisabled: (userId: string) => void;
   updateSiteSettings: (input: { siteName: string; logoText: string; logoMark: string }) => Promise<void>;
-  generateInvite: (level: Exclude<MembershipLevel, "public">) => Promise<string>;
+  generateInvite: (level: Exclude<MembershipLevel, "public">, expiresAt?: string | null) => Promise<string>;
   deleteInvite: (inviteId: string) => void;
   publishPost: (input: {
     title: string;
@@ -189,6 +191,36 @@ type AppStateValue = {
   deleteContent: (input: { kind: "post" | "album" | "video"; id: string }) => Promise<void>;
 };
 
+type AppAuthState = {
+  authReady: boolean;
+  authSession: AuthSession | null;
+  currentUser: UserProfile | null;
+  currentUserId: string | null;
+  loginAs: (userId: string | null) => void;
+  loginWithPassword: (input: { email: string; password: string }) => Promise<RemoteAuthResult>;
+  logout: () => Promise<void>;
+  registerWithInvite: (input: { name: string; email: string; inviteCode: string }) => RegisterResult;
+  registerWithPassword: (input: { name: string; email: string; inviteCode: string; password: string }) => Promise<RemoteAuthResult>;
+  viewer: Viewer;
+};
+
+type AppContentState = {
+  albums: AlbumRecord[];
+  loadAlbumsPage: (input: RemoteContentPageInput) => Promise<RemoteContentPage<AlbumRecord>>;
+  loadPostsPage: (input: RemoteContentPageInput) => Promise<RemoteContentPage<PostRecord>>;
+  loadVideosPage: (input: RemoteContentPageInput) => Promise<
+    RemoteContentPage<{ collection: VideoCollectionRecord; video: VideoRecord }>
+  >;
+  photos: PhotoRecord[];
+  posts: PostRecord[];
+  videoCollections: VideoCollectionRecord[];
+  videos: VideoRecord[];
+};
+
+type AppSiteState = {
+  siteSettings: JavaSiteSettings;
+};
+
 const storageKey = "media-gate-state-v1";
 const defaultSiteSettings: JavaSiteSettings = {
   logoMark: "绫",
@@ -198,6 +230,9 @@ const defaultSiteSettings: JavaSiteSettings = {
 };
 
 const AppStateContext = createContext<AppStateValue | null>(null);
+const AppAuthStateContext = createContext<AppAuthState | null>(null);
+const AppContentStateContext = createContext<AppContentState | null>(null);
+const AppSiteStateContext = createContext<AppSiteState | null>(null);
 
 function demoDataEnabled(): boolean {
   return process.env.NEXT_PUBLIC_RINANA_DEMO_MODE === "enabled" || process.env.NODE_ENV !== "production";
@@ -572,6 +607,11 @@ export function AppStateProvider({
           users: upsertUser(current.users, user)
         }));
       })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+      })
       .finally(() => {
         if (!cancelled) {
           setAuthReady(true);
@@ -674,6 +714,196 @@ export function AppStateProvider({
     };
   }, [hydrated]);
 
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const remoteContentRef = useRef(remoteContent);
+  remoteContentRef.current = remoteContent;
+  const authSessionRef = useRef(state.authSession);
+  authSessionRef.current = state.authSession;
+
+  const getActiveContent = useCallback((): ContentState => {
+    const currentRemote = remoteContentRef.current;
+    if (hasRemoteContent(currentRemote)) {
+      return currentRemote;
+    }
+
+    const currentState = stateRef.current;
+    return {
+      albums: currentState.albums,
+      photos: currentState.photos,
+      posts: currentState.posts,
+      videoCollections: currentState.videoCollections,
+      videos: currentState.videos
+    };
+  }, []);
+
+  const registerWithInvite = useCallback<AppAuthState["registerWithInvite"]>((input) => {
+    const newUserId = `user-${Date.now()}`;
+    const result = consumeInviteCode(stateRef.current.invites, input.inviteCode.trim(), newUserId);
+
+    if (!result.ok) {
+      return result;
+    }
+
+    const newUser: UserProfile = {
+      id: newUserId,
+      name: input.name.trim() || input.email.trim(),
+      email: input.email.trim(),
+      level: result.assignedLevel,
+      disabled: false,
+      isAdmin: false
+    };
+
+    setState((current) => ({
+      ...current,
+      users: [...current.users, newUser],
+      invites: result.invites,
+      currentUserId: newUserId
+    }));
+
+    return { ok: true, message: "registered" };
+  }, []);
+
+  const registerWithPassword = useCallback<AppAuthState["registerWithPassword"]>(async (input) => {
+    try {
+      const registered = await registerWithInviteClient({
+        displayName: input.name,
+        email: input.email,
+        inviteCode: input.inviteCode,
+        password: input.password
+      });
+      const session = await loginWithPasswordClient({
+        email: input.email,
+        password: input.password
+      });
+      const user = userFromSession(session);
+
+      setState((current) => ({
+        ...current,
+        currentUserId: registered.userId,
+        authSession: sessionFromLogin(session),
+        users: upsertUser(current.users, { ...user, id: registered.userId, level: registered.level })
+      }));
+
+      return { ok: true, isAdmin: user.isAdmin };
+    } catch (error) {
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : "Registration failed"
+      };
+    }
+  }, []);
+
+  const loginWithPassword = useCallback<AppAuthState["loginWithPassword"]>(async (input) => {
+    try {
+      const session = await loginWithPasswordClient(input);
+      const user = userFromSession(session);
+
+      setState((current) => ({
+        ...current,
+        currentUserId: user.id,
+        authSession: sessionFromLogin(session),
+        users: upsertUser(current.users, user)
+      }));
+
+      return { ok: true, isAdmin: user.isAdmin };
+    } catch (error) {
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : "Login failed"
+      };
+    }
+  }, []);
+
+  const loginAs = useCallback<AppAuthState["loginAs"]>((userId) => {
+    setState((current) => ({ ...current, authSession: null, currentUserId: userId }));
+  }, []);
+
+  const logout = useCallback<AppAuthState["logout"]>(async () => {
+    if (authSessionRef.current?.accessToken) {
+      await logoutClient();
+    }
+    setRemoteAdminUserPage(null);
+    setState((current) => ({ ...current, authSession: null, currentUserId: null }));
+  }, []);
+
+  const loadPostsPage = useCallback<AppContentState["loadPostsPage"]>(async (input) => {
+    try {
+      const page = await fetchRemotePostsPage(input);
+      setRemoteContent((current) => ({
+        ...current,
+        posts: mergeById(current.posts, page.items)
+      }));
+      return page;
+    } catch {
+      const content = getActiveContent();
+      return makeLocalContentPage(
+        content.posts.filter(isPublishedContent),
+        input,
+        (post) => `${post.title} ${post.excerpt} ${post.body} ${post.category} ${post.tags.join(" ")}`
+      );
+    }
+  }, [getActiveContent]);
+
+  const loadAlbumsPage = useCallback<AppContentState["loadAlbumsPage"]>(async (input) => {
+    try {
+      const page = await fetchRemoteAlbumsPage(input);
+      setRemoteContent((current) => ({
+        ...current,
+        albums: mergeById(current.albums, page.items)
+      }));
+      return page;
+    } catch {
+      const content = getActiveContent();
+      return makeLocalContentPage(
+        content.albums.filter(isPublishedContent),
+        input,
+        (album) => `${album.title} ${album.description} ${album.category} ${album.tags.join(" ")}`
+      );
+    }
+  }, [getActiveContent]);
+
+  const loadVideosPage = useCallback<AppContentState["loadVideosPage"]>(async (input) => {
+    try {
+      const page = await fetchRemoteVideosPage(input);
+      setRemoteContent((current) => ({
+        ...current,
+        videoCollections: mergeById(current.videoCollections, page.items.map((item) => item.collection)),
+        videos: mergeById(current.videos, page.items.map((item) => item.video))
+      }));
+      return page;
+    } catch {
+      const content = getActiveContent();
+      const page = makeLocalContentPage(
+        content.videoCollections.filter(isPublishedContent),
+        input,
+        (collection) => `${collection.title} ${collection.description} ${collection.category} ${collection.tags.join(" ")}`
+      );
+      const items = page.items.map((collection) => ({
+        collection,
+        video: content.videos.find((video) => video.collectionId === collection.id) ?? {
+          collectionId: collection.id,
+          description: collection.description,
+          id: `${collection.id}-empty`,
+          mediaAssetId: "",
+          playbackUrl: "",
+          processingState: "ready" as const,
+          sortOrder: 1,
+          thumbnailUrl: collection.coverImage,
+          title: collection.title,
+          visibilityOverride: null
+        }
+      }));
+      return {
+        items,
+        page: page.page,
+        size: page.size,
+        total: page.total,
+        totalPages: page.totalPages
+      };
+    }
+  }, [getActiveContent]);
+
   const value = useMemo<AppStateValue>(() => {
     const currentUser = state.users.find((user) => user.id === state.currentUserId) ?? null;
     const adminUserPage = remoteAdminUserPage ?? makeLocalAdminUserPage(state.users);
@@ -703,163 +933,14 @@ export function AppStateProvider({
       authSession: state.authSession,
       authReady,
       viewer: toViewer(currentUser),
-      registerWithInvite(input) {
-        const newUserId = `user-${Date.now()}`;
-        const result = consumeInviteCode(state.invites, input.inviteCode.trim(), newUserId);
-
-        if (!result.ok) {
-          return result;
-        }
-
-        const newUser: UserProfile = {
-          id: newUserId,
-          name: input.name.trim() || input.email.trim(),
-          email: input.email.trim(),
-          level: result.assignedLevel,
-          disabled: false,
-          isAdmin: false
-        };
-
-        setState((current) => ({
-          ...current,
-          users: [...current.users, newUser],
-          invites: result.invites,
-          currentUserId: newUserId
-        }));
-
-        return { ok: true, message: "registered" };
-      },
-      async registerWithPassword(input) {
-        try {
-          const registered = await registerWithInviteClient({
-            displayName: input.name,
-            email: input.email,
-            inviteCode: input.inviteCode,
-            password: input.password
-          });
-          const session = await loginWithPasswordClient({
-            email: input.email,
-            password: input.password
-          });
-          const user = userFromSession(session);
-
-          setState((current) => ({
-            ...current,
-            currentUserId: registered.userId,
-            authSession: sessionFromLogin(session),
-            users: upsertUser(current.users, { ...user, id: registered.userId, level: registered.level })
-          }));
-
-          return { ok: true, isAdmin: user.isAdmin };
-        } catch (error) {
-          return {
-            ok: false,
-            message: error instanceof Error ? error.message : "Registration failed"
-          };
-        }
-      },
-      async loginWithPassword(input) {
-        try {
-          const session = await loginWithPasswordClient(input);
-          const user = userFromSession(session);
-
-          setState((current) => ({
-            ...current,
-            currentUserId: user.id,
-            authSession: sessionFromLogin(session),
-            users: upsertUser(current.users, user)
-          }));
-
-          return { ok: true, isAdmin: user.isAdmin };
-        } catch (error) {
-          return {
-            ok: false,
-            message: error instanceof Error ? error.message : "Login failed"
-          };
-        }
-      },
-      loginAs(userId) {
-        setState((current) => ({ ...current, authSession: null, currentUserId: userId }));
-      },
-      async logout() {
-        if (state.authSession?.accessToken) {
-          await logoutClient();
-        }
-        setRemoteAdminUserPage(null);
-        setState((current) => ({ ...current, authSession: null, currentUserId: null }));
-      },
-      async loadPostsPage(input) {
-        try {
-          const page = await fetchRemotePostsPage(input);
-          setRemoteContent((current) => ({
-            ...current,
-            posts: mergeById(current.posts, page.items)
-          }));
-          return page;
-        } catch {
-          return makeLocalContentPage(
-            content.posts.filter(isPublishedContent),
-            input,
-            (post) => `${post.title} ${post.excerpt} ${post.body} ${post.category} ${post.tags.join(" ")}`
-          );
-        }
-      },
-      async loadAlbumsPage(input) {
-        try {
-          const page = await fetchRemoteAlbumsPage(input);
-          setRemoteContent((current) => ({
-            ...current,
-            albums: mergeById(current.albums, page.items)
-          }));
-          return page;
-        } catch {
-          return makeLocalContentPage(
-            content.albums.filter(isPublishedContent),
-            input,
-            (album) => `${album.title} ${album.description} ${album.category} ${album.tags.join(" ")}`
-          );
-        }
-      },
-      async loadVideosPage(input) {
-        try {
-          const page = await fetchRemoteVideosPage(input);
-          setRemoteContent((current) => ({
-            ...current,
-            videoCollections: mergeById(current.videoCollections, page.items.map((item) => item.collection)),
-            videos: mergeById(current.videos, page.items.map((item) => item.video))
-          }));
-          return page;
-        } catch {
-          const page = makeLocalContentPage(
-            content.videoCollections.filter(isPublishedContent),
-            input,
-            (collection) => `${collection.title} ${collection.description} ${collection.category} ${collection.tags.join(" ")}`
-          );
-          const items = page.items
-            .map((collection) => ({
-              collection,
-              video: content.videos.find((video) => video.collectionId === collection.id) ?? {
-                collectionId: collection.id,
-                description: collection.description,
-                id: `${collection.id}-empty`,
-                mediaAssetId: "",
-                playbackUrl: "",
-                processingState: "ready" as const,
-                sortOrder: 1,
-                thumbnailUrl: collection.coverImage,
-                title: collection.title,
-                visibilityOverride: null
-              }
-            }));
-          return {
-            items,
-            page: page.page,
-            size: page.size,
-            total: page.total,
-            totalPages: page.totalPages
-          };
-        }
-      },
+      registerWithInvite,
+      registerWithPassword,
+      loginWithPassword,
+      loginAs,
+      logout,
+      loadPostsPage,
+      loadAlbumsPage,
+      loadVideosPage,
       async loadAdminUsersPage(input) {
         const page = input.page ?? 0;
         const size = input.size ?? adminUserPage.size;
@@ -953,9 +1034,13 @@ export function AppStateProvider({
           });
         }
       },
-      async generateInvite(level) {
+      async generateInvite(level, expiresAt) {
         if (state.authSession?.accessToken) {
-          const invite = await createRemoteInvite(state.authSession.accessToken, level as InviteTargetLevel);
+          const invite = await createRemoteInvite(
+            state.authSession.accessToken,
+            level as InviteTargetLevel,
+            expiresAt
+          );
           setState((current) => ({ ...current, invites: [invite, ...current.invites] }));
           return invite.code;
         }
@@ -964,6 +1049,7 @@ export function AppStateProvider({
         const invite: InviteCode = {
           id: `invite-${Date.now()}`,
           code,
+          expiresAt: expiresAt ?? null,
           targetLevel: level,
           usedByUserId: null,
           note: "local demo"
@@ -1350,13 +1436,109 @@ export function AppStateProvider({
     };
   }, [authReady, remoteContent, state]);
 
-  return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
+  const currentUser = state.users.find((user) => user.id === state.currentUserId) ?? null;
+  const authState = useMemo<AppAuthState>(
+    () => ({
+      authReady,
+      authSession: state.authSession,
+      currentUser,
+      currentUserId: state.currentUserId,
+      loginAs,
+      loginWithPassword,
+      logout,
+      registerWithInvite,
+      registerWithPassword,
+      viewer: toViewer(currentUser)
+    }),
+    [
+      authReady,
+      currentUser,
+      loginAs,
+      loginWithPassword,
+      logout,
+      registerWithInvite,
+      registerWithPassword,
+      state.authSession,
+      state.currentUserId
+    ]
+  );
+  const contentState = useMemo<AppContentState>(
+    () => {
+      const content = hasRemoteContent(remoteContent)
+        ? remoteContent
+        : {
+            albums: state.albums,
+            photos: state.photos,
+            posts: state.posts,
+            videoCollections: state.videoCollections,
+            videos: state.videos
+          };
+
+      return {
+        ...content,
+        loadAlbumsPage,
+        loadPostsPage,
+        loadVideosPage
+      };
+    },
+    [
+      loadAlbumsPage,
+      loadPostsPage,
+      loadVideosPage,
+      remoteContent,
+      state.albums,
+      state.photos,
+      state.posts,
+      state.videoCollections,
+      state.videos
+    ]
+  );
+  const siteState = useMemo<AppSiteState>(
+    () => ({
+      siteSettings: normalizeSiteSettings(remoteSiteSettings ?? state.siteSettings)
+    }),
+    [remoteSiteSettings, state.siteSettings]
+  );
+
+  return (
+    <AppStateContext.Provider value={value}>
+      <AppAuthStateContext.Provider value={authState}>
+        <AppContentStateContext.Provider value={contentState}>
+          <AppSiteStateContext.Provider value={siteState}>{children}</AppSiteStateContext.Provider>
+        </AppContentStateContext.Provider>
+      </AppAuthStateContext.Provider>
+    </AppStateContext.Provider>
+  );
 }
 
 export function useAppState(): AppStateValue {
   const context = useContext(AppStateContext);
   if (!context) {
     throw new Error("useAppState must be used inside AppStateProvider");
+  }
+  return context;
+}
+
+export function useAppAuthState(): AppAuthState {
+  const context = useContext(AppAuthStateContext);
+  if (!context) {
+    throw new Error("useAppAuthState must be used inside AppStateProvider");
+  }
+  return context;
+}
+
+export function useAppContentState(): AppContentState {
+  const context = useContext(AppContentStateContext);
+  if (!context) {
+    throw new Error("useAppContentState must be used inside AppStateProvider");
+  }
+  return context;
+}
+
+export function useAppSiteState(): AppSiteState {
+  const context = useContext(AppSiteStateContext);
+  if (!context) {
+    throw new Error("useAppSiteState must be used inside AppStateProvider");
   }
   return context;
 }

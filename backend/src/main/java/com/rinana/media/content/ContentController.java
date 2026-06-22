@@ -115,8 +115,9 @@ public class ContentController {
   @Transactional(readOnly = true)
   PostResponse getPost(@PathVariable UUID id, HttpServletRequest request) {
     UserEntity viewer = currentViewerOrVisitor(request);
+    boolean canManage = canManageContent(viewer);
     return postRepository.findById(id)
-      .filter(post -> post.getStatus() == ContentStatus.PUBLISHED)
+      .filter(post -> canManage || post.getStatus() == ContentStatus.PUBLISHED)
       .filter(post -> visibleLevelsFor(viewer).contains(post.getVisibility()))
       .map(PostResponse::from)
       .orElseThrow(this::contentNotFound);
@@ -152,8 +153,9 @@ public class ContentController {
   @Transactional(readOnly = true)
   AlbumResponse getAlbum(@PathVariable UUID id, HttpServletRequest request) {
     UserEntity viewer = currentViewerOrVisitor(request);
+    boolean canManage = canManageContent(viewer);
     return albumRepository.findById(id)
-      .filter(album -> album.getStatus() == ContentStatus.PUBLISHED)
+      .filter(album -> canManage || album.getStatus() == ContentStatus.PUBLISHED)
       .filter(album -> visibleLevelsFor(viewer).contains(album.getVisibility()))
       .map(AlbumResponse::from)
       .orElseThrow(this::contentNotFound);
@@ -189,8 +191,9 @@ public class ContentController {
   @Transactional(readOnly = true)
   VideoResponse getVideo(@PathVariable UUID id, HttpServletRequest request) {
     UserEntity viewer = currentViewerOrVisitor(request);
+    boolean canManage = canManageContent(viewer);
     return videoRepository.findById(id)
-      .filter(video -> video.getStatus() == ContentStatus.PUBLISHED)
+      .filter(video -> canManage || video.getStatus() == ContentStatus.PUBLISHED)
       .filter(video -> visibleLevelsFor(viewer).contains(video.getVisibility()))
       .map(VideoResponse::from)
       .orElseThrow(this::contentNotFound);

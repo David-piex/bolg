@@ -100,6 +100,12 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
   if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
+  if (isUnsafeMethod(init.method) && !headers.has("X-XSRF-TOKEN")) {
+    const csrfToken = await ensureCsrfToken();
+    if (csrfToken) {
+      headers.set("X-XSRF-TOKEN", csrfToken);
+    }
+  }
 
   const response = await fetch(path, {
     ...init,
@@ -114,4 +120,47 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
   }
 
   return body as T;
+}
+
+function isUnsafeMethod(method: string | undefined): boolean {
+  const normalized = (method ?? "GET").toUpperCase();
+  return normalized !== "GET" && normalized !== "HEAD" && normalized !== "OPTIONS" && normalized !== "TRACE";
+}
+
+function readCookie(name: string): string | null {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  const prefix = `${encodeURIComponent(name)}=`;
+  for (const part of document.cookie.split(";")) {
+    const cookie = part.trim();
+    if (cookie.startsWith(prefix)) {
+      return decodeURIComponent(cookie.slice(prefix.length));
+    }
+  }
+
+  return null;
+}
+
+async function ensureCsrfToken(): Promise<string | null> {
+  const existingToken = readCookie("XSRF-TOKEN");
+  if (existingToken) {
+    return existingToken;
+  }
+
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
+    return null;
+  }
+
+  try {
+    await fetch("/api/auth/csrf", { credentials: "include", method: "GET" });
+  } catch {
+    return readCookie("XSRF-TOKEN");
+  }
+  return readCookie("XSRF-TOKEN");
 }

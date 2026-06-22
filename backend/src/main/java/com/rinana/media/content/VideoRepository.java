@@ -67,4 +67,30 @@ public interface VideoRepository extends JpaRepository<VideoEntity, UUID> {
     @Param("mediaAssetId") UUID mediaAssetId,
     @Param("status") ContentStatus status
   );
+
+  @Query("""
+    select case when count(video) > 0 then true else false end
+    from VideoEntity video
+    where video.status = :status
+      and video.visibility in :visibilities
+      and video.mediaAsset.id = :mediaAssetId
+    """)
+  boolean existsPublishedWithVisibleMediaAssetId(
+    @Param("mediaAssetId") UUID mediaAssetId,
+    @Param("status") ContentStatus status,
+    @Param("visibilities") Collection<ContentVisibility> visibilities
+  );
+
+  @Query("""
+    select case when count(video) > 0 then true else false end
+    from VideoEntity video
+    where video.status = :status
+      and video.visibility in :visibilities
+      and video.coverMedia.id = :mediaAssetId
+    """)
+  boolean existsPublishedWithVisibleCoverMediaId(
+    @Param("mediaAssetId") UUID mediaAssetId,
+    @Param("status") ContentStatus status,
+    @Param("visibilities") Collection<ContentVisibility> visibilities
+  );
 }

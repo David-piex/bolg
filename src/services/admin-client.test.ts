@@ -39,6 +39,7 @@ describe("admin client", () => {
         ok: true,
         json: async () => [{
           code: "GOLD-2026",
+          expiresAt: "2026-07-01T00:00:00Z",
           id: "invite-1",
           initialLevel: "GOLD",
           maxUses: 1,
@@ -50,7 +51,7 @@ describe("admin client", () => {
     vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
 
     await expect(fetchRemoteAdminDataset("admin-token")).resolves.toMatchObject({
-      invites: [{ code: "GOLD-2026" }],
+      invites: [{ code: "GOLD-2026", expiresAt: "2026-07-01T00:00:00Z" }],
       userPage: { page: 0, size: 10, total: 1, totalPages: 1 },
       users: [{ id: "admin-1", isAdmin: true, level: "diamond", name: "Admin" }]
     });
@@ -70,6 +71,7 @@ describe("admin client", () => {
       ok: true,
       json: async () => ({
         code: "DIAMOND-ABC123",
+        expiresAt: "2026-07-01T00:00:00Z",
         id: "invite-2",
         initialLevel: "DIAMOND",
         maxUses: 1,
@@ -79,16 +81,16 @@ describe("admin client", () => {
     }));
     vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
 
-    await expect(createRemoteInvite("admin-token", "diamond")).resolves.toMatchObject({
+    await expect(createRemoteInvite("admin-token", "diamond", "2026-07-01T00:00:00Z")).resolves.toMatchObject({
       code: "DIAMOND-ABC123",
+      expiresAt: "2026-07-01T00:00:00Z",
       targetLevel: "diamond"
     });
-    expect(fetchMock).toHaveBeenCalledWith("/api/admin/invites", {
-      body: expect.stringContaining("\"initialLevel\":\"DIAMOND\""),
+    expect(fetchMock).toHaveBeenCalledWith("/api/admin/invites", expect.objectContaining({
+      body: expect.stringContaining("\"expiresAt\":\"2026-07-01T00:00:00Z\""),
       credentials: "include",
-      headers: expect.any(Headers),
       method: "POST"
-    });
+    }));
   });
 
   it("updates users remotely", async () => {

@@ -5,7 +5,7 @@ import { EmptyContentState } from "@/components/EmptyContentState";
 import { getHomeFeed } from "@/data/repository";
 import type { getDictionary } from "@/i18n/dictionaries";
 import type { Locale } from "@/i18n/routing";
-import { useAppState } from "@/state/AppStateProvider";
+import { useAppAuthState, useAppContentState } from "@/state/AppStateProvider";
 
 type Dictionary = ReturnType<typeof getDictionary>;
 
@@ -16,7 +16,12 @@ function formatFeedKind(kind: "post" | "album" | "videoCollection", dictionary: 
 }
 
 function formatArchiveTitleLines(title: string) {
-  return title.includes("、") ? title.split("、") : [title];
+  const lines = title
+    .split(/[、，]/)
+    .map((line) => line.replace(/[。.!?]+$/u, "").trim())
+    .filter(Boolean);
+
+  return lines.length > 0 ? lines : [title];
 }
 
 function hrefForFeedItem(locale: Locale, kind: "post" | "album" | "videoCollection", id: string) {
@@ -26,7 +31,8 @@ function hrefForFeedItem(locale: Locale, kind: "post" | "album" | "videoCollecti
 }
 
 export function HomeView({ dictionary, locale }: { dictionary: Dictionary; locale: Locale }) {
-  const { viewer, currentUser, posts, albums, photos, videoCollections, videos } = useAppState();
+  const { viewer, currentUser } = useAppAuthState();
+  const { posts, albums, photos, videoCollections, videos } = useAppContentState();
   const feed = getHomeFeed(viewer, { posts, albums, photos, videoCollections, videos });
   const featured = feed[0];
   const secondary = feed.slice(1, 3);

@@ -74,4 +74,18 @@ public interface PostRepository extends JpaRepository<PostEntity, UUID> {
     @Param("mediaAssetId") UUID mediaAssetId,
     @Param("status") ContentStatus status
   );
+
+  @Query("""
+    select case when count(post) > 0 then true else false end
+    from PostEntity post
+    join post.mediaItems mediaItem
+    where post.status = :status
+      and post.visibility in :visibilities
+      and mediaItem.mediaAsset.id = :mediaAssetId
+    """)
+  boolean existsPublishedWithVisibleMediaAssetId(
+    @Param("mediaAssetId") UUID mediaAssetId,
+    @Param("status") ContentStatus status,
+    @Param("visibilities") Collection<ContentVisibility> visibilities
+  );
 }
