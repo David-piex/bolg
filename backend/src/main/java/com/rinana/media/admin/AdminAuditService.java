@@ -1,5 +1,6 @@
 package com.rinana.media.admin;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rinana.media.user.UserEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -7,14 +8,17 @@ import org.springframework.stereotype.Service;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
 public class AdminAuditService {
   private final JdbcTemplate jdbcTemplate;
+  private final ObjectMapper objectMapper;
 
-  public AdminAuditService(JdbcTemplate jdbcTemplate) {
+  public AdminAuditService(JdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
     this.jdbcTemplate = jdbcTemplate;
+    this.objectMapper = objectMapper;
   }
 
   public void record(UserEntity admin, String actionType, String targetType, UUID targetId, String detailJson) {
@@ -31,6 +35,16 @@ public class AdminAuditService {
       detailJson,
       Timestamp.from(Instant.now())
     );
+  }
+
+  public void record(UserEntity admin, String actionType, String targetType, UUID targetId, Map<String, Object> details) {
+    try {
+      String detailJson = objectMapper.writeValueAsString(details);
+      record(admin, actionType, targetType, targetId, detailJson);
+    } catch (Exception e) {
+      // Fallback to empty JSON if serialization fails
+      record(admin, actionType, targetType, targetId, "{}");
+    }
   }
 
   public AdminAuditLogPageResponse list(int page, int size) {

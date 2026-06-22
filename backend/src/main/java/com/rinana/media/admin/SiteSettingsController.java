@@ -72,7 +72,11 @@ public class SiteSettingsController {
       "UPDATE_SITE_SETTINGS",
       "SITE_SETTINGS",
       null,
-      "{\"siteName\":\"" + saved.getSiteName() + "\",\"logoText\":\"" + saved.getLogoText() + "\",\"logoMark\":\"" + saved.getLogoMark() + "\"}"
+      java.util.Map.of(
+        "siteName", saved.getSiteName(),
+        "logoText", saved.getLogoText(),
+        "logoMark", saved.getLogoMark()
+      )
     );
     return SiteSettingsResponse.from(saved);
   }

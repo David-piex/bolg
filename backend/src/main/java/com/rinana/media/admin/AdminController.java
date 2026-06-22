@@ -72,7 +72,10 @@ public class AdminController {
       "CREATE_INVITE",
       "INVITE_CODE",
       saved.getId(),
-      "{\"code\":\"" + saved.getCode() + "\",\"initialLevel\":\"" + saved.getInitialLevel() + "\"}"
+      java.util.Map.of(
+        "code", saved.getCode(),
+        "initialLevel", saved.getInitialLevel().toString()
+      )
     );
     return ResponseEntity.status(HttpStatus.CREATED).body(InviteResponse.from(saved));
   }
@@ -118,7 +121,13 @@ public class AdminController {
       .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "INVITE_NOT_FOUND", "邀请码不存在"));
     invite.setStatus(InviteCodeStatus.DISABLED);
     inviteCodeRepository.save(invite);
-    adminAuditService.record(admin, "DISABLE_INVITE", "INVITE_CODE", invite.getId(), "{\"code\":\"" + invite.getCode() + "\"}");
+    adminAuditService.record(
+      admin,
+      "DISABLE_INVITE",
+      "INVITE_CODE",
+      invite.getId(),
+      java.util.Map.of("code", invite.getCode())
+    );
     return ResponseEntity.noContent().build();
   }
 
@@ -144,7 +153,10 @@ public class AdminController {
       "UPDATE_USER",
       "USER",
       saved.getId(),
-      "{\"memberLevel\":\"" + saved.getMemberLevel() + "\",\"status\":\"" + saved.getStatus() + "\"}"
+      java.util.Map.of(
+        "memberLevel", saved.getMemberLevel().toString(),
+        "status", saved.getStatus().toString()
+      )
     );
     return AdminUserResponse.from(saved);
   }
