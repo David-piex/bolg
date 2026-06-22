@@ -206,6 +206,16 @@ class ContentControllerTest {
   }
 
   @Test
+  void contentListEndpointsRejectOverlongSearchQueries() throws Exception {
+    String query = "x".repeat(101);
+
+    mvc.perform(get("/api/content/posts")
+        .queryParam("q", query))
+      .andExpect(status().isBadRequest())
+      .andExpect(jsonPath("$.errorCode").value("QUERY_TOO_LONG"));
+  }
+
+  @Test
   void contentListEndpointsSupportTaxonomyFilters() throws Exception {
     Cookie adminCookie = login("admin", "admin123456");
     MediaAssetEntity image = createMediaAsset("images/taxonomy-cover.jpg", com.rinana.media.media.MediaType.IMAGE);

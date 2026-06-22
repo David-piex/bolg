@@ -30,6 +30,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @RestController
@@ -39,6 +40,8 @@ public class MediaController {
   private static final long VIDEO_MAX_BYTES = 95L * 1024 * 1024;
   private static final String MEDIA_ACCESS_CACHE_CONTROL = "private, max-age=300";
   private static final String MEDIA_ACCESS_VARY = "Cookie, Authorization";
+  private static final Set<String> IMAGE_MIME_TYPES = Set.of("image/gif", "image/jpeg", "image/png", "image/webp");
+  private static final Set<String> VIDEO_MIME_TYPES = Set.of("video/mp4", "video/quicktime", "video/webm");
 
   private final CurrentUserResolver currentUserResolver;
   private final MediaStorageService mediaStorageService;
@@ -84,11 +87,11 @@ public class MediaController {
     @Valid @RequestBody DirectUploadRequest uploadRequest,
     HttpServletRequest request
   ) {
-    requireAdmin(request);
+    UserEntity uploader = requireAdmin(request);
     requireUploadAccepted(uploadRequest.mediaType(), uploadRequest.mimeType(), uploadRequest.sizeBytes());
     MediaUploadUrl uploadUrl = mediaStorageService.createUploadUrl(
       uploadRequest.mediaType(),
-      objectPrefixFor(uploadRequest.mediaType()),
+      objectPrefixFor(uploadRequest.mediaType(), uploader.getId()),
       uploadRequest.originalName(),
       uploadRequest.mimeType()
     );
@@ -107,6 +110,7 @@ public class MediaController {
     requireUploadAccepted(uploadRequest.mediaType(), uploadRequest.mimeType(), uploadRequest.sizeBytes());
     requireManagedBucket(uploadRequest.bucketName());
     requireObjectKeyMatchesMediaType(uploadRequest.mediaType(), uploadRequest.objectKey());
+    requireObjectKeyBelongsToUploader(uploadRequest.objectKey(), uploader.getId());
 
     if (!mediaStorageService.objectExists(uploadRequest.bucketName(), uploadRequest.objectKey(), uploadRequest.sizeBytes())) {
       throw new ApiException(HttpStatus.BAD_REQUEST, "MEDIA_UPLOAD_NOT_FOUND", "媒体文件尚未上传完成");
@@ -221,15 +225,17 @@ public class MediaController {
   }
 
   private void requireUploadAccepted(MediaType mediaType, String contentType, long sizeBytes) {
-    requireMimePrefix(contentType, mediaType == MediaType.IMAGE ? "image/" : "video/");
+    requireMimeTypeAccepted(contentType, mediaType);
     long maxBytes = mediaType == MediaType.IMAGE ? IMAGE_MAX_BYTES : VIDEO_MAX_BYTES;
     if (sizeBytes <= 0 || sizeBytes > maxBytes) {
       throw new ApiException(HttpStatus.BAD_REQUEST, "MEDIA_TOO_LARGE", "媒体文件大小不符合限制");
     }
   }
 
-  private void requireMimePrefix(String contentType, String prefix) {
-    if (contentType == null || !contentType.startsWith(prefix)) {
+  private void requireMimeTypeAccepted(String contentType, MediaType mediaType) {
+    String normalizedContentType = contentType == null ? "" : contentType.trim().toLowerCase();
+    Set<String> allowedTypes = mediaType == MediaType.IMAGE ? IMAGE_MIME_TYPES : VIDEO_MIME_TYPES;
+    if (!allowedTypes.contains(normalizedContentType)) {
       throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_MEDIA_TYPE", "媒体类型不支持");
     }
   }
@@ -238,10 +244,21 @@ public class MediaController {
     return mediaType == MediaType.IMAGE ? "images" : "videos";
   }
 
+  private String objectPrefixFor(MediaType mediaType, UUID uploaderId) {
+    return objectPrefixFor(mediaType) + "/" + uploaderId;
+  }
+
   private void requireObjectKeyMatchesMediaType(MediaType mediaType, String objectKey) {
     String expectedPrefix = objectPrefixFor(mediaType) + "/";
     if (!objectKey.startsWith(expectedPrefix)) {
       throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_MEDIA_OBJECT", "媒体对象路径不符合类型");
+    }
+  }
+
+  private void requireObjectKeyBelongsToUploader(String objectKey, UUID uploaderId) {
+    String[] parts = objectKey.split("/", 3);
+    if (parts.length < 3 || !uploaderId.toString().equals(parts[1])) {
+      throw new ApiException(HttpStatus.FORBIDDEN, "MEDIA_UPLOAD_OWNER_MISMATCH", "Upload session does not match current user");
     }
   }
 

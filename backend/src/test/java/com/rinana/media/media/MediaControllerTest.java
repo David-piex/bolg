@@ -173,15 +173,18 @@ class MediaControllerTest {
   @Test
   void adminCanCreateAndCompleteDirectImageUpload() throws Exception {
     Cookie adminCookie = login("admin", "admin123456");
-    given(mediaStorageService.createUploadUrl(com.rinana.media.media.MediaType.IMAGE, "images", "cover.webp", "image/webp")).willReturn(
+    UserEntity admin = userRepository.findByUsername("admin").orElseThrow();
+    String objectPrefix = "images/" + admin.getId();
+    String objectKey = objectPrefix + "/direct-cover.webp";
+    given(mediaStorageService.createUploadUrl(com.rinana.media.media.MediaType.IMAGE, objectPrefix, "cover.webp", "image/webp")).willReturn(
       new MediaUploadUrl(
-        URI.create("http://minio.local/rinana-media/images/direct-cover.webp?X-Amz-Signature=test"),
+        URI.create("http://minio.local/rinana-media/" + objectKey + "?X-Amz-Signature=test"),
         "rinana-media",
-        "images/direct-cover.webp",
+        objectKey,
         Instant.parse("2026-01-01T00:10:00Z")
       )
     );
-    given(mediaStorageService.objectExists("rinana-media", "images/direct-cover.webp", 12)).willReturn(true);
+    given(mediaStorageService.objectExists("rinana-media", objectKey, 12)).willReturn(true);
 
     mvc.perform(post("/api/media/direct-uploads")
         .cookie(adminCookie)
@@ -193,9 +196,9 @@ class MediaControllerTest {
           "mediaType", "IMAGE"
         ))))
       .andExpect(status().isCreated())
-      .andExpect(jsonPath("$.uploadUrl").value("http://minio.local/rinana-media/images/direct-cover.webp?X-Amz-Signature=test"))
+      .andExpect(jsonPath("$.uploadUrl").value("http://minio.local/rinana-media/" + objectKey + "?X-Amz-Signature=test"))
       .andExpect(jsonPath("$.bucketName").value("rinana-media"))
-      .andExpect(jsonPath("$.objectKey").value("images/direct-cover.webp"))
+      .andExpect(jsonPath("$.objectKey").value(objectKey))
       .andExpect(jsonPath("$.mediaType").value("IMAGE"));
 
     String body = mvc.perform(post("/api/media/direct-uploads/complete")
@@ -203,7 +206,7 @@ class MediaControllerTest {
         .contentType(MediaType.APPLICATION_JSON)
         .content(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(Map.of(
           "bucketName", "rinana-media",
-          "objectKey", "images/direct-cover.webp",
+          "objectKey", objectKey,
           "originalName", "cover.webp",
           "mimeType", "image/webp",
           "sizeBytes", 12,
@@ -211,7 +214,7 @@ class MediaControllerTest {
         ))))
       .andExpect(status().isCreated())
       .andExpect(jsonPath("$.mediaType").value("IMAGE"))
-      .andExpect(jsonPath("$.objectKey").value("images/direct-cover.webp"))
+      .andExpect(jsonPath("$.objectKey").value(objectKey))
       .andExpect(jsonPath("$.originalName").value("cover.webp"))
       .andReturn()
       .getResponse()
@@ -241,14 +244,16 @@ class MediaControllerTest {
   @Test
   void directUploadCompleteRejectsMissingObject() throws Exception {
     Cookie adminCookie = login("admin", "admin123456");
-    given(mediaStorageService.objectExists("rinana-media", "videos/missing.mp4", 12)).willReturn(false);
+    UserEntity admin = userRepository.findByUsername("admin").orElseThrow();
+    String objectKey = "videos/" + admin.getId() + "/missing.mp4";
+    given(mediaStorageService.objectExists("rinana-media", objectKey, 12)).willReturn(false);
 
     mvc.perform(post("/api/media/direct-uploads/complete")
         .cookie(adminCookie)
         .contentType(MediaType.APPLICATION_JSON)
         .content(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(Map.of(
           "bucketName", "rinana-media",
-          "objectKey", "videos/missing.mp4",
+          "objectKey", objectKey,
           "originalName", "missing.mp4",
           "mimeType", "video/mp4",
           "sizeBytes", 12,
@@ -278,6 +283,26 @@ class MediaControllerTest {
   }
 
   @Test
+  void directUploadCompleteRejectsObjectKeysOwnedByAnotherUser() throws Exception {
+    Cookie adminCookie = login("admin", "admin123456");
+    String otherUserObjectKey = "images/" + java.util.UUID.randomUUID() + "/direct-cover.webp";
+
+    mvc.perform(post("/api/media/direct-uploads/complete")
+        .cookie(adminCookie)
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(Map.of(
+          "bucketName", "rinana-media",
+          "objectKey", otherUserObjectKey,
+          "originalName", "cover.webp",
+          "mimeType", "image/webp",
+          "sizeBytes", 12,
+          "mediaType", "IMAGE"
+        ))))
+      .andExpect(status().isForbidden())
+      .andExpect(jsonPath("$.errorCode").value("MEDIA_UPLOAD_OWNER_MISMATCH"));
+  }
+
+  @Test
   void normalUserCannotUploadMedia() throws Exception {
     Cookie userCookie = loginUser("normal-uploader");
     MockMultipartFile image = new MockMultipartFile("file", "test.png", "image/png", new byte[] {1});
@@ -293,6 +318,16 @@ class MediaControllerTest {
     MockMultipartFile image = new MockMultipartFile("file", "not-video.png", "image/png", new byte[] {1});
 
     mvc.perform(multipart("/api/media/videos").file(image).cookie(adminCookie))
+      .andExpect(status().isBadRequest())
+      .andExpect(jsonPath("$.errorCode").value("INVALID_MEDIA_TYPE"));
+  }
+
+  @Test
+  void imageUploadRejectsSvgMimeType() throws Exception {
+    Cookie adminCookie = login("admin", "admin123456");
+    MockMultipartFile svg = new MockMultipartFile("file", "xss.svg", "image/svg+xml", new byte[] {1});
+
+    mvc.perform(multipart("/api/media/images").file(svg).cookie(adminCookie))
       .andExpect(status().isBadRequest())
       .andExpect(jsonPath("$.errorCode").value("INVALID_MEDIA_TYPE"));
   }

@@ -239,6 +239,13 @@ class AdminControllerTest {
       .andExpect(jsonPath("$.errorCode").value("ADMIN_REQUIRED"));
   }
 
+  @Test
+  void anonymousUserCannotUseAdminEndpoints() throws Exception {
+    mvc.perform(get("/api/admin/invites"))
+      .andExpect(status().isUnauthorized())
+      .andExpect(jsonPath("$.errorCode").value("UNAUTHENTICATED"));
+  }
+
   private Cookie loginAdmin() throws Exception {
     return login("admin", "admin123456");
   }

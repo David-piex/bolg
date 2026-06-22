@@ -416,7 +416,14 @@ public class ContentController {
   }
 
   private String normalizedQuery(String query) {
-    return query == null ? "" : query.trim();
+    if (query == null) {
+      return "";
+    }
+    String trimmed = query.trim();
+    if (trimmed.length() > 100) {
+      throw new ApiException(HttpStatus.BAD_REQUEST, "QUERY_TOO_LONG", "Search query is too long");
+    }
+    return trimmed;
   }
 
   private String normalizedFilter(String value) {
