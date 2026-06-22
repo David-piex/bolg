@@ -7,7 +7,7 @@ import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { canManage } from "@/domain/membership";
 import type { getDictionary } from "@/i18n/dictionaries";
 import type { Locale } from "@/i18n/routing";
-import { useAppState } from "@/state/AppStateProvider";
+import { useAppAuthState, useAppSiteState } from "@/state/AppStateProvider";
 
 type Dictionary = ReturnType<typeof getDictionary>;
 
@@ -22,7 +22,8 @@ export function AppShell({
   locale: Locale;
   dictionary: Dictionary;
 }) {
-  const { currentUser, siteSettings } = useAppState();
+  const { currentUser } = useAppAuthState();
+  const { siteSettings } = useAppSiteState();
   const canOpenAdmin = canManage(
     currentUser
       ? {

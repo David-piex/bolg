@@ -28,6 +28,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -35,6 +37,8 @@ import java.util.UUID;
 public class MediaController {
   private static final long IMAGE_MAX_BYTES = 10L * 1024 * 1024;
   private static final long VIDEO_MAX_BYTES = 95L * 1024 * 1024;
+  private static final String MEDIA_ACCESS_CACHE_CONTROL = "private, max-age=300";
+  private static final String MEDIA_ACCESS_VARY = "Cookie, Authorization";
 
   private final CurrentUserResolver currentUserResolver;
   private final MediaStorageService mediaStorageService;
@@ -140,13 +144,16 @@ public class MediaController {
   }
 
   @GetMapping("/{id}/access")
-  MediaAccessResponse access(@PathVariable UUID id, HttpServletRequest request) {
+  ResponseEntity<MediaAccessResponse> access(@PathVariable UUID id, HttpServletRequest request) {
     UserEntity viewer = currentUserResolver.currentUser(request).orElse(null);
     MediaAssetEntity asset = mediaAssetRepository.findById(id)
       .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "MEDIA_NOT_FOUND", "媒体不存在"));
     requireLinkedContentVisible(asset, viewer);
     MediaAccessUrl accessUrl = mediaStorageService.createAccessUrl(asset.getBucketName(), asset.getObjectKey());
-    return new MediaAccessResponse(accessUrl.url().toString(), accessUrl.expiresAt());
+    return ResponseEntity.ok()
+      .header(HttpHeaders.CACHE_CONTROL, MEDIA_ACCESS_CACHE_CONTROL)
+      .header(HttpHeaders.VARY, MEDIA_ACCESS_VARY)
+      .body(new MediaAccessResponse(accessUrl.url().toString(), accessUrl.expiresAt()));
   }
 
   @GetMapping("/{id}/view")
@@ -158,6 +165,8 @@ public class MediaController {
     MediaAccessUrl accessUrl = mediaStorageService.createAccessUrl(asset.getBucketName(), asset.getObjectKey());
     return ResponseEntity.status(HttpStatus.FOUND)
       .header(HttpHeaders.LOCATION, accessUrl.url().toString())
+      .header(HttpHeaders.CACHE_CONTROL, MEDIA_ACCESS_CACHE_CONTROL)
+      .header(HttpHeaders.VARY, MEDIA_ACCESS_VARY)
       .build();
   }
 
@@ -189,44 +198,26 @@ public class MediaController {
       return;
     }
 
-    boolean linkedToPublishedContent = false;
+    var visibleLevels = visibleLevelsFor(viewer);
+    boolean visibleByLinkedContent =
+      videoRepository.existsPublishedWithVisibleMediaAssetId(asset.getId(), ContentStatus.PUBLISHED, visibleLevels)
+        || videoRepository.existsPublishedWithVisibleCoverMediaId(asset.getId(), ContentStatus.PUBLISHED, visibleLevels)
+        || albumRepository.existsPublishedWithVisibleCoverMediaId(asset.getId(), ContentStatus.PUBLISHED, visibleLevels)
+        || postRepository.existsPublishedWithVisibleMediaAssetId(asset.getId(), ContentStatus.PUBLISHED, visibleLevels);
 
-    var linkedVideo = videoRepository.findPublishedByMediaAssetId(asset.getId(), ContentStatus.PUBLISHED);
-    if (linkedVideo.isPresent()) {
-      linkedToPublishedContent = true;
-      if (viewerCanSee(viewer, linkedVideo.get().getVisibility())) {
-        return;
-      }
-    }
-
-    var linkedAlbum = albumRepository.findPublishedByCoverMediaId(asset.getId(), ContentStatus.PUBLISHED);
-    if (linkedAlbum.isPresent()) {
-      linkedToPublishedContent = true;
-      if (viewerCanSee(viewer, linkedAlbum.get().getVisibility())) {
-        return;
-      }
-    }
-
-    var linkedPost = postRepository.findPublishedByMediaAssetId(asset.getId(), ContentStatus.PUBLISHED);
-    if (linkedPost.isPresent()) {
-      linkedToPublishedContent = true;
-      if (viewerCanSee(viewer, linkedPost.get().getVisibility())) {
-        return;
-      }
-    }
-
-    if (!linkedToPublishedContent || viewer == null) {
+    if (!visibleByLinkedContent) {
       throw new ApiException(HttpStatus.FORBIDDEN, "CONTENT_NOT_VISIBLE", "内容对当前账号不可见");
     }
-
-    throw new ApiException(HttpStatus.FORBIDDEN, "CONTENT_NOT_VISIBLE", "内容对当前账号不可见");
   }
 
-  private boolean viewerCanSee(UserEntity viewer, ContentVisibility visibility) {
-    if (visibility == ContentVisibility.PUBLIC) {
-      return true;
+  private List<ContentVisibility> visibleLevelsFor(UserEntity viewer) {
+    if (viewer == null) {
+      return List.of(ContentVisibility.PUBLIC);
     }
-    return viewer != null && VisibilityPolicy.canView(viewer.getRole(), viewer.getMemberLevel(), visibility);
+
+    return Arrays.stream(ContentVisibility.values())
+      .filter(visibility -> VisibilityPolicy.canView(viewer.getRole(), viewer.getMemberLevel(), visibility))
+      .toList();
   }
 
   private void requireUploadAccepted(MediaType mediaType, String contentType, long sizeBytes) {

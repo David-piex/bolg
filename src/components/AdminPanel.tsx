@@ -35,7 +35,7 @@ import {
   type JavaMediaAsset,
   type JavaMediaType
 } from "@/services/java-api-client";
-import { useAppState } from "@/state/AppStateProvider";
+import { useAppAdminState } from "@/state/AppStateProvider";
 import type { ContentRecordStatus } from "@/data/mock-data";
 
 type Dictionary = ReturnType<typeof getDictionary>;
@@ -267,6 +267,15 @@ function formatScheduledPreview(value: string) {
   return date.toLocaleString();
 }
 
+function fromDateTimeLocalValue(value: string) {
+  if (!value.trim()) {
+    return null;
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
 export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictionary; locale?: Locale }) {
   const {
     siteSettings,
@@ -294,8 +303,9 @@ export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictiona
     updateAlbum,
     updateVideoCollection,
     deleteContent
-  } = useAppState();
+  } = useAppAdminState();
   const [newInviteLevel, setNewInviteLevel] = useState<EditableLevel>("normal");
+  const [newInviteExpiresAt, setNewInviteExpiresAt] = useState("");
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [brandDraft, setBrandDraft] = useState({
     logoMark: siteSettings.logoMark,
@@ -660,7 +670,7 @@ export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictiona
   }
 
   async function onGenerateInvite() {
-    setGeneratedCode(await generateInvite(newInviteLevel));
+    setGeneratedCode(await generateInvite(newInviteLevel, fromDateTimeLocalValue(newInviteExpiresAt)));
   }
 
   async function onLoadMemberPage(page: number) {
@@ -1798,6 +1808,16 @@ export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictiona
             {dictionary.admin.generateInvite}
           </button>
         </div>
+        <label className="invite-expiry-field">
+          <span>{dictionary.admin.inviteExpiresAt}</span>
+          <input
+            type="datetime-local"
+            value={newInviteExpiresAt}
+            onChange={(event) => setNewInviteExpiresAt(event.target.value)}
+            aria-label={dictionary.admin.inviteExpiresAt}
+          />
+          <small className="muted">{dictionary.admin.inviteExpiresAtHint}</small>
+        </label>
         {generatedCode ? <p className="muted">{generatedCode}</p> : null}
         <div className="invite-list">
           {unusedInvites.map((invite) => (
@@ -1805,6 +1825,9 @@ export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictiona
               <code>{invite.code}</code>
               <span className={`tier-badge tier-${invite.targetLevel}`}>
                 {dictionary.membership[invite.targetLevel]}
+              </span>
+              <span className="muted">
+                {invite.expiresAt ? new Date(invite.expiresAt).toLocaleString() : dictionary.admin.inviteNoExpiry}
               </span>
               <button type="button" onClick={() => deleteInvite(invite.id)} aria-label={`${dictionary.admin.deleteInvite}${dictionary.common.colon}${invite.code}`}>
                 <Trash2 size={16} />

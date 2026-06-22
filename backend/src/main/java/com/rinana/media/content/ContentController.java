@@ -36,6 +36,7 @@ import java.util.UUID;
 public class ContentController {
   private final CurrentUserResolver currentUserResolver;
   private final AlbumRepository albumRepository;
+  private final ContentFeedCache contentFeedCache;
   private final MediaAssetRepository mediaAssetRepository;
   private final PostRepository postRepository;
   private final VideoRepository videoRepository;
@@ -43,12 +44,14 @@ public class ContentController {
   public ContentController(
     CurrentUserResolver currentUserResolver,
     AlbumRepository albumRepository,
+    ContentFeedCache contentFeedCache,
     MediaAssetRepository mediaAssetRepository,
     PostRepository postRepository,
     VideoRepository videoRepository
   ) {
     this.currentUserResolver = currentUserResolver;
     this.albumRepository = albumRepository;
+    this.contentFeedCache = contentFeedCache;
     this.mediaAssetRepository = mediaAssetRepository;
     this.postRepository = postRepository;
     this.videoRepository = videoRepository;
@@ -58,6 +61,13 @@ public class ContentController {
   @Transactional(readOnly = true)
   ContentFeedResponse listContent(HttpServletRequest request) {
     UserEntity viewer = currentViewerOrVisitor(request);
+    String cacheKey = contentFeedCache.keyFor(viewer);
+    var cachedFeed = contentFeedCache.get(cacheKey);
+    if (cachedFeed.isPresent()) {
+      return cachedFeed.get();
+    }
+
+    ContentFeedResponse response;
     if (canManageContent(viewer)) {
       var posts = postRepository.findByStatusIn(List.of(ContentStatus.PUBLISHED, ContentStatus.DRAFT, ContentStatus.SCHEDULED), postSort("latest")).stream()
         .map(PostResponse::from)
@@ -68,7 +78,9 @@ public class ContentController {
       var videos = videoRepository.findByStatusIn(List.of(ContentStatus.PUBLISHED, ContentStatus.DRAFT, ContentStatus.SCHEDULED), contentSort("latest")).stream()
         .map(VideoResponse::from)
         .toList();
-      return new ContentFeedResponse(posts, albums, videos);
+      response = new ContentFeedResponse(posts, albums, videos);
+      contentFeedCache.put(cacheKey, response);
+      return response;
     }
 
     List<ContentVisibility> visibleLevels = visibleLevelsFor(viewer);
@@ -82,7 +94,9 @@ public class ContentController {
     var videos = videoRepository.findByStatusAndVisibilityInOrderByPublishedAtDesc(ContentStatus.PUBLISHED, visibleLevels).stream()
       .map(VideoResponse::from)
       .toList();
-    return new ContentFeedResponse(posts, albums, videos);
+    response = new ContentFeedResponse(posts, albums, videos);
+    contentFeedCache.put(cacheKey, response);
+    return response;
   }
 
   @GetMapping("/posts")
@@ -115,8 +129,9 @@ public class ContentController {
   @Transactional(readOnly = true)
   PostResponse getPost(@PathVariable UUID id, HttpServletRequest request) {
     UserEntity viewer = currentViewerOrVisitor(request);
+    boolean canManage = canManageContent(viewer);
     return postRepository.findById(id)
-      .filter(post -> post.getStatus() == ContentStatus.PUBLISHED)
+      .filter(post -> canManage || post.getStatus() == ContentStatus.PUBLISHED)
       .filter(post -> visibleLevelsFor(viewer).contains(post.getVisibility()))
       .map(PostResponse::from)
       .orElseThrow(this::contentNotFound);
@@ -152,8 +167,9 @@ public class ContentController {
   @Transactional(readOnly = true)
   AlbumResponse getAlbum(@PathVariable UUID id, HttpServletRequest request) {
     UserEntity viewer = currentViewerOrVisitor(request);
+    boolean canManage = canManageContent(viewer);
     return albumRepository.findById(id)
-      .filter(album -> album.getStatus() == ContentStatus.PUBLISHED)
+      .filter(album -> canManage || album.getStatus() == ContentStatus.PUBLISHED)
       .filter(album -> visibleLevelsFor(viewer).contains(album.getVisibility()))
       .map(AlbumResponse::from)
       .orElseThrow(this::contentNotFound);
@@ -189,8 +205,9 @@ public class ContentController {
   @Transactional(readOnly = true)
   VideoResponse getVideo(@PathVariable UUID id, HttpServletRequest request) {
     UserEntity viewer = currentViewerOrVisitor(request);
+    boolean canManage = canManageContent(viewer);
     return videoRepository.findById(id)
-      .filter(video -> video.getStatus() == ContentStatus.PUBLISHED)
+      .filter(video -> canManage || video.getStatus() == ContentStatus.PUBLISHED)
       .filter(video -> visibleLevelsFor(viewer).contains(video.getVisibility()))
       .map(VideoResponse::from)
       .orElseThrow(this::contentNotFound);
@@ -213,7 +230,9 @@ public class ContentController {
     post.setCreatedAt(now);
     post.setUpdatedAt(now);
     replacePostMedia(post, request.mediaAssetIds());
-    return ResponseEntity.status(HttpStatus.CREATED).body(PostResponse.from(postRepository.save(post)));
+    PostResponse response = PostResponse.from(postRepository.save(post));
+    contentFeedCache.evictAllAfterCommit();
+    return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 
   @PostMapping("/albums")
@@ -235,7 +254,9 @@ public class ContentController {
     album.setAuthor(author);
     album.setCreatedAt(now);
     album.setUpdatedAt(now);
-    return ResponseEntity.status(HttpStatus.CREATED).body(AlbumResponse.from(albumRepository.save(album)));
+    AlbumResponse response = AlbumResponse.from(albumRepository.save(album));
+    contentFeedCache.evictAllAfterCommit();
+    return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 
   @PostMapping("/videos")
@@ -258,7 +279,9 @@ public class ContentController {
     video.setAuthor(author);
     video.setCreatedAt(now);
     video.setUpdatedAt(now);
-    return ResponseEntity.status(HttpStatus.CREATED).body(VideoResponse.from(videoRepository.save(video)));
+    VideoResponse response = VideoResponse.from(videoRepository.save(video));
+    contentFeedCache.evictAllAfterCommit();
+    return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 
   @PatchMapping("/posts/{id}")
@@ -282,7 +305,9 @@ public class ContentController {
     }
     replacePostMedia(post, request.mediaAssetIds());
     post.setUpdatedAt(Instant.now());
-    return PostResponse.from(postRepository.save(post));
+    PostResponse response = PostResponse.from(postRepository.save(post));
+    contentFeedCache.evictAllAfterCommit();
+    return response;
   }
 
   @PatchMapping("/albums/{id}")
@@ -303,7 +328,9 @@ public class ContentController {
     applyUpdateStatus(album, request.status(), request.scheduledAt(), Instant.now());
     album.setCoverMedia(request.coverMediaId() == null ? null : requireMedia(request.coverMediaId()));
     album.setUpdatedAt(Instant.now());
-    return AlbumResponse.from(albumRepository.save(album));
+    AlbumResponse response = AlbumResponse.from(albumRepository.save(album));
+    contentFeedCache.evictAllAfterCommit();
+    return response;
   }
 
   @PatchMapping("/videos/{id}")
@@ -327,7 +354,9 @@ public class ContentController {
     }
     video.setCoverMedia(request.coverMediaId() == null ? null : requireMedia(request.coverMediaId()));
     video.setUpdatedAt(Instant.now());
-    return VideoResponse.from(videoRepository.save(video));
+    VideoResponse response = VideoResponse.from(videoRepository.save(video));
+    contentFeedCache.evictAllAfterCommit();
+    return response;
   }
 
   @DeleteMapping("/posts/{id}")
@@ -339,6 +368,7 @@ public class ContentController {
     post.setStatus(ContentStatus.DELETED);
     post.setUpdatedAt(Instant.now());
     postRepository.save(post);
+    contentFeedCache.evictAllAfterCommit();
     return ResponseEntity.noContent().build();
   }
 
@@ -351,6 +381,7 @@ public class ContentController {
     album.setStatus(ContentStatus.DELETED);
     album.setUpdatedAt(Instant.now());
     albumRepository.save(album);
+    contentFeedCache.evictAllAfterCommit();
     return ResponseEntity.noContent().build();
   }
 
@@ -363,6 +394,7 @@ public class ContentController {
     video.setStatus(ContentStatus.DELETED);
     video.setUpdatedAt(Instant.now());
     videoRepository.save(video);
+    contentFeedCache.evictAllAfterCommit();
     return ResponseEntity.noContent().build();
   }
 

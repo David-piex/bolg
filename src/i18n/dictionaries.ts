@@ -172,6 +172,9 @@ type Dictionary = {
     publishFailed: string;
     videoUploadNeedsMemberLevel: string;
     generateInvite: string;
+    inviteExpiresAt: string;
+    inviteExpiresAtHint: string;
+    inviteNoExpiry: string;
     changeLevel: string;
     demoNotice: string;
     signedInAs: string;
@@ -476,6 +479,9 @@ export const dictionaries: Record<Locale, Dictionary> = {
       publishFailed: "发布失败，请检查服务配置后重试。",
       videoUploadNeedsMemberLevel: "视频文件上传请选择普通、黄金或钻石等级。",
       generateInvite: "生成邀请码",
+      inviteExpiresAt: "到期时间",
+      inviteExpiresAtHint: "留空表示不过期。",
+      inviteNoExpiry: "不过期",
       changeLevel: "调整等级",
       demoNotice: "管理端内容会同步到内容服务；生产环境默认不显示本地示例数据。",
       signedInAs: "当前管理员",
@@ -781,6 +787,9 @@ export const dictionaries: Record<Locale, Dictionary> = {
       publishFailed: "Publish failed. Check service configuration and try again.",
       videoUploadNeedsMemberLevel: "Choose Normal, Gold, or Diamond before uploading a video file.",
       generateInvite: "Generate invite",
+      inviteExpiresAt: "Expires at",
+      inviteExpiresAtHint: "Leave blank for no expiry.",
+      inviteNoExpiry: "Never expires",
       changeLevel: "Change level",
       demoNotice: "Management content syncs to the content service. Production hides local sample data by default.",
       signedInAs: "Signed in as",

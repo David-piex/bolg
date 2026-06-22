@@ -22,6 +22,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Map;
@@ -70,8 +71,10 @@ class AdminControllerTest {
   }
 
   @Test
+  @Transactional
   void superAdminCanCreateListAndDisableInviteCodes() throws Exception {
     Cookie adminCookie = loginAdmin();
+    Instant expiresAt = Instant.parse("2026-07-01T00:00:00Z");
 
     mvc.perform(post("/api/admin/invites")
         .cookie(adminCookie)
@@ -79,11 +82,13 @@ class AdminControllerTest {
         .content(json(Map.of(
           "code", "diamond-code",
           "initialLevel", "DIAMOND",
-          "maxUses", 2
+          "maxUses", 2,
+          "expiresAt", expiresAt.toString()
         ))))
       .andExpect(status().isCreated())
       .andExpect(jsonPath("$.code").value("diamond-code"))
-      .andExpect(jsonPath("$.initialLevel").value("DIAMOND"));
+      .andExpect(jsonPath("$.initialLevel").value("DIAMOND"))
+      .andExpect(jsonPath("$.expiresAt").value(expiresAt.toString()));
 
     mvc.perform(get("/api/admin/invites").cookie(adminCookie))
       .andExpect(status().isOk())

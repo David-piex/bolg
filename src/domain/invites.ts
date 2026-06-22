@@ -7,6 +7,7 @@ export type InviteCode = {
   code: string;
   targetLevel: InviteTargetLevel;
   usedByUserId: string | null;
+  expiresAt?: string | null;
   note?: string;
 };
 

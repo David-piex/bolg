@@ -5,14 +5,14 @@ import { KeyRound, LogIn, UserPlus } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import type { getDictionary } from "@/i18n/dictionaries";
 import { normalizeLocale } from "@/i18n/routing";
-import { useAppState } from "@/state/AppStateProvider";
+import { useAppAuthState } from "@/state/AppStateProvider";
 
 type Dictionary = ReturnType<typeof getDictionary>;
 
 export function LoginView({ dictionary }: { dictionary: Dictionary }) {
   const params = useParams<{ locale?: string }>();
   const router = useRouter();
-  const { currentUser, logout, loginWithPassword, registerWithPassword } = useAppState();
+  const { currentUser, loginWithPassword, logout, registerWithPassword } = useAppAuthState();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");

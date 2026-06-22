@@ -22,7 +22,17 @@ public class JwtService {
     @Value("${rinana.auth.jwt-secret}") String secret,
     @Value("${rinana.auth.access-token-minutes}") long accessTokenMinutes
   ) {
-    this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    String normalizedSecret = secret == null ? "" : secret.trim();
+    if (normalizedSecret.isEmpty()) {
+      throw new IllegalStateException("rinana.auth.jwt-secret must be configured");
+    }
+
+    byte[] secretBytes = normalizedSecret.getBytes(StandardCharsets.UTF_8);
+    if (secretBytes.length < 32) {
+      throw new IllegalStateException("rinana.auth.jwt-secret must be at least 32 bytes");
+    }
+
+    this.key = Keys.hmacShaKeyFor(secretBytes);
     this.accessTokenTtl = Duration.ofMinutes(accessTokenMinutes);
   }
 

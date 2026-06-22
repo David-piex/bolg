@@ -33,6 +33,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -89,6 +90,7 @@ class AccountControllerTest {
 
     mvc.perform(patch("/api/account/password")
         .cookie(login("password-user", "password123"))
+        .with(csrf())
         .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
         .content(json(Map.of(
           "oldPassword", "password123",
@@ -100,11 +102,13 @@ class AccountControllerTest {
 
     mvc.perform(post("/api/auth/login")
         .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+        .with(csrf())
         .content(json(Map.of("account", "password-user", "password", "password123"))))
       .andExpect(status().isUnauthorized());
 
     mvc.perform(post("/api/auth/login")
         .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+        .with(csrf())
         .content(json(Map.of("account", "password-user", "password", "new-password-123"))))
       .andExpect(status().isOk());
   }
@@ -115,6 +119,7 @@ class AccountControllerTest {
 
     mvc.perform(patch("/api/account/password")
         .cookie(login("password-mismatch", "password123"))
+        .with(csrf())
         .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
         .content(json(Map.of(
           "oldPassword", "password123",
@@ -131,6 +136,7 @@ class AccountControllerTest {
 
     mvc.perform(patch("/api/account/email")
         .cookie(login("email-user", "password123"))
+        .with(csrf())
         .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
         .content(json(Map.of(
           "oldPassword", "password123",
@@ -150,14 +156,27 @@ class AccountControllerTest {
 
     mvc.perform(patch("/api/account/email")
         .cookie(login("email-change", "password123"))
+        .with(csrf())
         .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
         .content(json(Map.of(
           "oldPassword", "password123",
           "newEmail", "taken@example.com",
           "confirmEmail", "taken@example.com"
-        ))))
+      ))))
       .andExpect(status().isBadRequest())
       .andExpect(jsonPath("$.errorCode").value("EMAIL_EXISTS"));
+  }
+
+  @Test
+  void disabledUsersCannotUseExistingAccessTokens() throws Exception {
+    UserEntity user = createUser("disabled-access", "disabled-access@example.com", "password123");
+    Cookie cookie = login("disabled-access", "password123");
+    user.setStatus(UserStatus.DISABLED);
+    userRepository.saveUser(user);
+
+    mvc.perform(get("/api/account/profile").cookie(cookie))
+      .andExpect(status().isForbidden())
+      .andExpect(jsonPath("$.errorCode").value("USER_DISABLED"));
   }
 
   @Test
@@ -177,7 +196,7 @@ class AccountControllerTest {
     );
     Cookie cookie = login("avatar-user", "password123");
 
-    mvc.perform(multipart("/api/account/avatar").file(avatar).cookie(cookie))
+    mvc.perform(multipart("/api/account/avatar").file(avatar).cookie(cookie).with(csrf()))
       .andExpect(status().isOk())
       .andExpect(jsonPath("$.avatarUrl").value("/api/account/avatar"));
 
@@ -196,7 +215,7 @@ class AccountControllerTest {
       new byte[(10 * 1024 * 1024) + 1]
     );
 
-    mvc.perform(multipart("/api/account/avatar").file(avatar).cookie(login("avatar-large", "password123")))
+    mvc.perform(multipart("/api/account/avatar").file(avatar).cookie(login("avatar-large", "password123")).with(csrf()))
       .andExpect(status().isBadRequest())
       .andExpect(jsonPath("$.errorCode").value("AVATAR_TOO_LARGE"));
   }

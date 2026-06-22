@@ -190,6 +190,68 @@ describe("admin upload client", () => {
     expect(progress).toContainEqual({ phase: "complete", percent: 100 });
   });
 
+  it("surfaces direct upload transfer failures instead of falling back", async () => {
+    const file = new File(["video-bytes"], "Trailer.mp4", { type: "video/mp4" });
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        bucketName: "rinana-media",
+        expiresAt: "2026-01-01T00:10:00Z",
+        mediaType: "VIDEO",
+        mimeType: "video/mp4",
+        objectKey: "videos/trailer.mp4",
+        uploadUrl: "http://minio.local/rinana-media/videos/trailer.mp4?signature=test"
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    vi.stubGlobal(
+      "XMLHttpRequest",
+      class {
+        onabort: (() => void) | null = null;
+        onerror: (() => void) | null = null;
+        onload: (() => void) | null = null;
+        status = 500;
+        upload = { onprogress: null as ((event: ProgressEvent) => void) | null };
+
+        open() {}
+        setRequestHeader() {}
+        send() {
+          this.onerror?.();
+        }
+      } as unknown as typeof XMLHttpRequest
+    );
+
+    await expect(
+      uploadVideoFile({
+        accessToken: "admin-access-token",
+        collectionId: "collection-1",
+        file,
+        visibility: "gold"
+      })
+    ).rejects.toThrow("DIRECT_UPLOAD_PUT_FAILED");
+  });
+
+  it("surfaces direct upload endpoint errors other than 404", async () => {
+    const file = new File(["video-bytes"], "Trailer.mp4", { type: "video/mp4" });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: false,
+        json: async () => ({ errorCode: "SERVER_ERROR", message: "temporary failure" }),
+        status: 500
+      })) as unknown as typeof fetch
+    );
+
+    await expect(
+      uploadVideoFile({
+        accessToken: "admin-access-token",
+        collectionId: "collection-1",
+        file,
+        visibility: "gold"
+      })
+    ).rejects.toThrow("temporary failure");
+  });
+
   it("rejects unsupported image file types before upload", () => {
     const file = new File(["image-bytes"], "photo.heic", { type: "image/heic" });
 

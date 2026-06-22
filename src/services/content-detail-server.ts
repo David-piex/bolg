@@ -1,19 +1,14 @@
 import "server-only";
 
 import { headers } from "next/headers";
-import type { ContentDataset } from "@/data/repository";
 import type { RemoteDetail } from "@/services/content-client";
 import {
-  albumFromJava,
   detailFromJavaAlbum,
   detailFromJavaPost,
   detailFromJavaVideo,
-  postFromJava,
-  videoCollectionFromJava,
-  videoFromJava,
   javaVideoIdFromCollectionId
 } from "@/services/content-client";
-import type { JavaAlbum, JavaContentFeed, JavaPost, JavaVideo } from "@/services/java-api-client";
+import type { JavaAlbum, JavaPost, JavaVideo } from "@/services/java-api-client";
 
 const apiProxyTarget = process.env.RINANA_API_PROXY_TARGET || "http://127.0.0.1:8080";
 
@@ -30,25 +25,6 @@ export async function fetchServerVideoDetail(id: string): Promise<RemoteDetail |
     `/api/content/videos/${encodeURIComponent(javaVideoIdFromCollectionId(id))}`,
     detailFromJavaVideo
   );
-}
-
-export async function fetchServerContentDataset(): Promise<ContentDataset | null> {
-  const response = await fetch(`${apiProxyTarget}/api/content`, {
-    next: { revalidate: 60 }
-  }).catch(() => null);
-
-  if (!response?.ok) {
-    return null;
-  }
-
-  const feed = (await response.json()) as JavaContentFeed;
-  return {
-    albums: feed.albums.map(albumFromJava),
-    photos: [],
-    posts: feed.posts.map(postFromJava),
-    videoCollections: feed.videos.map(videoCollectionFromJava),
-    videos: feed.videos.map(videoFromJava)
-  };
 }
 
 async function fetchServerDetail<TJava>(

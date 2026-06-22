@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { AppShell } from "@/components/AppShell";
 import { getDictionary } from "@/i18n/dictionaries";
 import { normalizeLocale, type Locale } from "@/i18n/routing";
-import { fetchServerContentDataset } from "@/services/content-detail-server";
 import { AppStateProvider } from "@/state/AppStateProvider";
 
 export default async function LocaleLayout({
@@ -11,14 +10,13 @@ export default async function LocaleLayout({
 }: {
   children: ReactNode;
   params: Promise<{ locale: string }>;
-}) {
+  }) {
   const { locale: localeParam } = await params;
   const locale = normalizeLocale(localeParam);
   const dictionary = getDictionary(locale);
-  const initialContent = await fetchServerContentDataset();
 
   return (
-    <AppStateProvider initialContent={initialContent ?? undefined}>
+    <AppStateProvider>
       <AppShell locale={locale} dictionary={dictionary}>
         {children}
       </AppShell>

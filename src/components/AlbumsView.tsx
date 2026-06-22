@@ -7,7 +7,7 @@ import { EmptyContentState } from "@/components/EmptyContentState";
 import { getAlbums } from "@/data/repository";
 import type { getDictionary } from "@/i18n/dictionaries";
 import type { Locale } from "@/i18n/routing";
-import { useAppState } from "@/state/AppStateProvider";
+import { useAppAuthState, useAppContentState } from "@/state/AppStateProvider";
 
 type Dictionary = ReturnType<typeof getDictionary>;
 const pageSize = 12;
@@ -34,7 +34,8 @@ function pageSummary(template: string, input: { page: number; total: number; tot
 }
 
 export function AlbumsView({ dictionary, locale }: { dictionary: Dictionary; locale: Locale }) {
-  const { loadAlbumsPage, viewer, albums: stateAlbums, photos } = useAppState();
+  const { viewer } = useAppAuthState();
+  const { loadAlbumsPage, albums: stateAlbums, photos } = useAppContentState();
   const visibleAlbums = getAlbums(viewer, { albums: stateAlbums, photos });
   const [page, setPage] = useState(0);
   const [pagedAlbums, setPagedAlbums] = useState(visibleAlbums.slice(0, pageSize));

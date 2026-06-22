@@ -72,6 +72,7 @@ export type ListAdminAuditLogsInput = {
 
 export type JavaInvite = {
   code: string;
+  expiresAt?: string | null;
   id: string;
   initialLevel: JavaMemberLevel;
   maxUses: number;
@@ -108,6 +109,14 @@ export type JavaMediaAccess = {
   expiresAt: string;
   url: string;
 };
+
+type CachedMediaAccess = {
+  access: JavaMediaAccess;
+  expiresAtMs: number;
+};
+
+const MEDIA_ACCESS_REFRESH_MARGIN_MS = 60_000;
+const mediaAccessCache = new Map<string, CachedMediaAccess>();
 
 export type JavaDirectUploadRequest = {
   mediaType: JavaMediaType;
@@ -215,6 +224,7 @@ export type RegisterInput = {
 
 export type CreateInviteInput = {
   code: string;
+  expiresAt?: string | null;
   initialLevel: JavaMemberLevel;
   maxUses: number;
 };
@@ -524,7 +534,22 @@ export async function listMedia(input: ListMediaInput = {}): Promise<JavaMediaAs
 }
 
 export async function getMediaAccess(mediaId: string): Promise<JavaMediaAccess> {
-  return request<JavaMediaAccess>(`/api/media/${encodeURIComponent(mediaId)}/access`, { method: "GET" });
+  const now = Date.now();
+  const cached = mediaAccessCache.get(mediaId);
+  if (cached && cached.expiresAtMs - MEDIA_ACCESS_REFRESH_MARGIN_MS > now) {
+    return cached.access;
+  }
+
+  const access = await request<JavaMediaAccess>(`/api/media/${encodeURIComponent(mediaId)}/access`, { method: "GET" });
+  const expiresAtMs = Date.parse(access.expiresAt);
+  if (Number.isFinite(expiresAtMs)) {
+    mediaAccessCache.set(mediaId, { access, expiresAtMs });
+  }
+  return access;
+}
+
+export function clearMediaAccessCache(): void {
+  mediaAccessCache.clear();
 }
 
 async function uploadMedia(path: string, file: File): Promise<JavaMediaAsset> {
@@ -565,6 +590,12 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
   if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
+  if (isUnsafeMethod(init.method) && !headers.has("X-XSRF-TOKEN")) {
+    const csrfToken = await ensureCsrfToken();
+    if (csrfToken) {
+      headers.set("X-XSRF-TOKEN", csrfToken);
+    }
+  }
 
   const response = await fetch(path, {
     ...init,
@@ -588,4 +619,47 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
   }
 
   return body as T;
+}
+
+function isUnsafeMethod(method: string | undefined): boolean {
+  const normalized = (method ?? "GET").toUpperCase();
+  return normalized !== "GET" && normalized !== "HEAD" && normalized !== "OPTIONS" && normalized !== "TRACE";
+}
+
+function readCookie(name: string): string | null {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  const prefix = `${encodeURIComponent(name)}=`;
+  for (const part of document.cookie.split(";")) {
+    const cookie = part.trim();
+    if (cookie.startsWith(prefix)) {
+      return decodeURIComponent(cookie.slice(prefix.length));
+    }
+  }
+
+  return null;
+}
+
+async function ensureCsrfToken(): Promise<string | null> {
+  const existingToken = readCookie("XSRF-TOKEN");
+  if (existingToken) {
+    return existingToken;
+  }
+
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
+    return null;
+  }
+
+  try {
+    await fetch("/api/auth/csrf", { credentials: "include", method: "GET" });
+  } catch {
+    return readCookie("XSRF-TOKEN");
+  }
+  return readCookie("XSRF-TOKEN");
 }

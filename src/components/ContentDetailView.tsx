@@ -1,15 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ArrowLeft, CalendarDays, Images, MessageSquareText, PlayCircle } from "lucide-react";
 import { MembershipBadge } from "@/components/MembershipBadge";
 import { getAlbums, getPosts, getVideoCollections } from "@/data/repository";
 import type { MembershipLevel } from "@/domain/membership";
 import type { getDictionary } from "@/i18n/dictionaries";
 import type { Locale } from "@/i18n/routing";
-import type { RemoteDetail } from "@/services/content-client";
-import { useAppState } from "@/state/AppStateProvider";
+import {
+  fetchRemoteAlbumDetail,
+  fetchRemotePostDetail,
+  fetchRemoteVideoDetail,
+  type RemoteDetail
+} from "@/services/content-client";
+import { useAppAuthState, useAppContentState } from "@/state/AppStateProvider";
 
 type Dictionary = ReturnType<typeof getDictionary>;
 type DetailKind = "post" | "album" | "video";
@@ -132,7 +137,8 @@ export function ContentDetailView({
   kind: DetailKind;
   locale: Locale;
 }) {
-  const { viewer, posts, albums, photos, videoCollections, videos } = useAppState();
+  const { viewer } = useAppAuthState();
+  const { posts, albums, photos, videoCollections, videos } = useAppContentState();
 
   const localDetail = useMemo<RemoteDetail | null>(() => {
     if (kind === "post") {
@@ -149,13 +155,59 @@ export function ContentDetailView({
     return collection ? { collection, kind: "video", videos: collection.videos } : null;
   }, [albums, id, kind, photos, posts, videoCollections, videos, viewer]);
 
-  const detail =
-    initialDetail?.kind === kind
-        ? initialDetail
-        : localDetail;
+  const [remoteDetail, setRemoteDetail] = useState<RemoteDetail | null>(initialDetail ?? null);
+  const [remoteDetailLoading, setRemoteDetailLoading] = useState(() => !initialDetail && !localDetail);
+
+  useEffect(() => {
+    if (initialDetail) {
+      setRemoteDetail(initialDetail);
+      setRemoteDetailLoading(false);
+      return;
+    }
+
+    if (localDetail) {
+      setRemoteDetail(null);
+      setRemoteDetailLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setRemoteDetail(null);
+    setRemoteDetailLoading(true);
+
+    const request =
+      kind === "post"
+        ? fetchRemotePostDetail(id)
+        : kind === "album"
+          ? fetchRemoteAlbumDetail(id)
+          : fetchRemoteVideoDetail(id);
+
+    void request
+      .then((detail) => {
+        if (!cancelled) {
+          setRemoteDetail(detail);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRemoteDetail(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setRemoteDetailLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, initialDetail, kind, localDetail]);
+
+  const detail = initialDetail?.kind === kind ? initialDetail : localDetail ?? remoteDetail;
 
   if (!detail) {
-    return <EmptyDetailState dictionary={dictionary} kind={kind} locale={locale} loading={false} />;
+    return <EmptyDetailState dictionary={dictionary} kind={kind} locale={locale} loading={remoteDetailLoading} />;
   }
 
   if (detail.kind === "post") {
