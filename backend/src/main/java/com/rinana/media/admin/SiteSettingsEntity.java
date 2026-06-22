@@ -1,5 +1,6 @@
 package com.rinana.media.admin;
 
+import com.rinana.media.media.MediaAssetEntity;
 import com.rinana.media.user.UserEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -25,6 +26,10 @@ public class SiteSettingsEntity {
 
   @Column(name = "logo_mark", nullable = false, length = 16)
   private String logoMark;
+
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "logo_image_id")
+  private MediaAssetEntity logoImage;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "updated_by")
@@ -63,6 +68,14 @@ public class SiteSettingsEntity {
 
   public void setLogoMark(String logoMark) {
     this.logoMark = logoMark;
+  }
+
+  public MediaAssetEntity getLogoImage() {
+    return logoImage;
+  }
+
+  public void setLogoImage(MediaAssetEntity logoImage) {
+    this.logoImage = logoImage;
   }
 
   public UserEntity getUpdatedBy() {

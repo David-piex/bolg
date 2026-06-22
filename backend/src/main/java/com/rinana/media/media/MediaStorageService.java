@@ -12,4 +12,6 @@ public interface MediaStorageService {
   MediaUploadUrl createUploadUrl(MediaType mediaType, String objectPrefix, String originalName, String mimeType);
 
   boolean objectExists(String bucketName, String objectKey, long expectedSizeBytes);
+
+  void deleteObject(String bucketName, String objectKey);
 }

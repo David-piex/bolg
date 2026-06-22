@@ -1,28 +1,30 @@
 :root {
   color-scheme: light;
-  --bg: #fff4f8;
-  --bg-soft: #ffe8f1;
-  --bg-deep: #3b172a;
-  --panel: #fffefd;
-  --panel-2: #fff3f8;
-  --panel-3: #f5d9e7;
-  --ink: #3f2332;
-  --ink-strong: #24101b;
-  --muted: #745c69;
-  --muted-dark: #f5cad9;
-  --line: rgba(105, 41, 72, 0.15);
-  --line-dark: rgba(255, 250, 253, 0.28);
-  --accent: #d83f7b;
-  --accent-soft: #ffe3ef;
-  --accent-2: #c89a37;
-  --accent-3: #8168c9;
+  --bg: #F7F5F1;
+  --bg-soft: #FFFFFF;
+  --bg-deep: #1E2227;
+  --panel: #FFFFFF;
+  --panel-2: #F7F5F1;
+  --panel-3: #E7E3DA;
+  --ink: #1E2227;
+  --ink-strong: #000000;
+  --muted: #6B7077;
+  --muted-dark: #E7E3DA;
+  --line: #E7E3DA;
+  --line-dark: rgba(231, 227, 218, 0.8);
+  --accent: #3C5A78;
+  --accent-hover: #2E4760;
+  --accent-soft: #E8EEF3;
+  --accent-2: #8168c9;
+  --accent-3: #c89a37;
   --danger: #b8405f;
   --success: #33744e;
-  --shadow: 0 18px 42px rgba(92, 31, 61, 0.11);
-  --shadow-strong: 0 28px 66px rgba(74, 23, 48, 0.2);
+  --shadow: 0 2px 8px rgba(30, 34, 39, 0.06);
+  --shadow-strong: 0 4px 16px rgba(30, 34, 39, 0.12);
   --radius: 8px;
   --max-page: 1360px;
-  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-weight: 400;
 }
 
 * {
@@ -33,16 +35,15 @@ html,
 body {
   margin: 0;
   min-height: 100%;
-  background:
-    linear-gradient(135deg, rgba(216, 63, 123, 0.08) 0 1px, transparent 1px 30px),
-    linear-gradient(180deg, var(--bg) 0, var(--bg-soft) 360px, #fffafc 361px, #fffafc 100%);
+  background: var(--bg);
   color: var(--ink);
 }
 
 body {
   font-family: inherit;
-  line-height: 1.5;
-  text-rendering: geometricPrecision;
+  line-height: 1.6;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 a {
@@ -66,8 +67,8 @@ a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid rgba(215, 66, 125, 0.36);
-  outline-offset: 3px;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .site-shell {
@@ -89,11 +90,11 @@ textarea:focus-visible {
   width: min(calc(100% - 32px), var(--max-page));
   margin: 14px auto 0;
   padding: 12px 14px;
-  border: 1px solid var(--line-dark);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: rgba(59, 23, 42, 0.9);
-  color: var(--panel);
-  box-shadow: 0 16px 44px rgba(94, 31, 62, 0.18);
+  background: var(--bg-deep);
+  color: #FFFFFF;
+  box-shadow: var(--shadow-strong);
   backdrop-filter: blur(16px);
 }
 
@@ -114,13 +115,13 @@ textarea:focus-visible {
   flex: 0 0 38px;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(255, 250, 253, 0.42);
-  border-radius: 12px;
-  background: linear-gradient(135deg, #fffafd, #ffd3e5);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
   color: var(--accent);
   font-size: 0.96rem;
-  font-weight: 900;
-  box-shadow: inset 0 -8px 18px rgba(216, 63, 123, 0.12);
+  font-weight: 700;
+  box-shadow: var(--shadow);
 }
 
 .brand-copy {
@@ -146,9 +147,9 @@ textarea:focus-visible {
 }
 
 .brand-subtext {
-  color: rgba(255, 250, 253, 0.7);
+  color: rgba(255, 255, 255, 0.7);
   font-size: 0.78rem;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .nav-list {
@@ -170,7 +171,7 @@ textarea:focus-visible {
   border: 1px solid transparent;
   border-radius: 8px;
   background: transparent;
-  color: rgba(255, 250, 253, 0.92);
+  color: rgba(255, 255, 255, 0.9);
   transition:
     background 180ms ease,
     border-color 180ms ease,
@@ -179,16 +180,16 @@ textarea:focus-visible {
 
 .nav-link:hover,
 .language-switch:hover {
-  border-color: rgba(255, 250, 253, 0.28);
-  background: rgba(255, 250, 253, 0.12);
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.1);
   transform: translateY(-1px);
 }
 
 .language-switch {
   justify-self: end;
   min-width: 104px;
-  border-color: rgba(255, 250, 253, 0.22);
-  background: rgba(255, 250, 253, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 main {
@@ -1954,11 +1955,12 @@ main {
 .user-row button,
 .button-row {
   min-height: 44px;
-  border: 1px solid rgba(116, 45, 78, 0.2);
+  border: 1px solid var(--accent);
   border-radius: var(--radius);
   background: var(--accent);
-  color: var(--panel);
+  color: #FFFFFF;
   padding: 11px 14px;
+  font-weight: 500;
   transition:
     background 180ms ease,
     transform 180ms ease;
@@ -1967,7 +1969,7 @@ main {
 .form-actions button:hover,
 .user-row button:hover,
 .button-row:hover {
-  background: #bd2f6b;
+  background: var(--accent-hover);
   transform: translateY(-1px);
 }
 

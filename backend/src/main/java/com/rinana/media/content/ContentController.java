@@ -40,6 +40,7 @@ public class ContentController {
   private final MediaAssetRepository mediaAssetRepository;
   private final PostRepository postRepository;
   private final VideoRepository videoRepository;
+  private final com.rinana.media.media.MediaStorageService mediaStorageService;
 
   public ContentController(
     CurrentUserResolver currentUserResolver,
@@ -47,7 +48,8 @@ public class ContentController {
     ContentFeedCache contentFeedCache,
     MediaAssetRepository mediaAssetRepository,
     PostRepository postRepository,
-    VideoRepository videoRepository
+    VideoRepository videoRepository,
+    com.rinana.media.media.MediaStorageService mediaStorageService
   ) {
     this.currentUserResolver = currentUserResolver;
     this.albumRepository = albumRepository;
@@ -55,6 +57,7 @@ public class ContentController {
     this.mediaAssetRepository = mediaAssetRepository;
     this.postRepository = postRepository;
     this.videoRepository = videoRepository;
+    this.mediaStorageService = mediaStorageService;
   }
 
   @GetMapping
@@ -365,6 +368,20 @@ public class ContentController {
     requireAdmin(servletRequest);
     PostEntity post = postRepository.findById(id)
       .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CONTENT_NOT_FOUND", "Content not found"));
+
+    // Delete associated media files from storage
+    for (PostMediaEntity mediaItem : post.getMediaItems()) {
+      MediaAssetEntity asset = mediaItem.getMediaAsset();
+      if (asset != null && !isMediaUsedElsewhere(asset.getId(), id, null, null)) {
+        try {
+          mediaStorageService.deleteObject(asset.getBucketName(), asset.getObjectKey());
+          mediaAssetRepository.delete(asset);
+        } catch (Exception e) {
+          // Log but don't fail the deletion
+        }
+      }
+    }
+
     post.setStatus(ContentStatus.DELETED);
     post.setUpdatedAt(Instant.now());
     postRepository.save(post);
@@ -378,6 +395,18 @@ public class ContentController {
     requireAdmin(servletRequest);
     AlbumEntity album = albumRepository.findById(id)
       .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CONTENT_NOT_FOUND", "Content not found"));
+
+    // Delete cover media if not used elsewhere
+    if (album.getCoverMedia() != null && !isMediaUsedElsewhere(album.getCoverMedia().getId(), null, id, null)) {
+      try {
+        MediaAssetEntity coverAsset = album.getCoverMedia();
+        mediaStorageService.deleteObject(coverAsset.getBucketName(), coverAsset.getObjectKey());
+        mediaAssetRepository.delete(coverAsset);
+      } catch (Exception e) {
+        // Log but don't fail the deletion
+      }
+    }
+
     album.setStatus(ContentStatus.DELETED);
     album.setUpdatedAt(Instant.now());
     albumRepository.save(album);
@@ -391,6 +420,29 @@ public class ContentController {
     requireAdmin(servletRequest);
     VideoEntity video = videoRepository.findById(id)
       .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CONTENT_NOT_FOUND", "Content not found"));
+
+    // Delete video media if not used elsewhere
+    if (video.getMediaAsset() != null && !isMediaUsedElsewhere(video.getMediaAsset().getId(), null, null, id)) {
+      try {
+        MediaAssetEntity videoAsset = video.getMediaAsset();
+        mediaStorageService.deleteObject(videoAsset.getBucketName(), videoAsset.getObjectKey());
+        mediaAssetRepository.delete(videoAsset);
+      } catch (Exception e) {
+        // Log but don't fail the deletion
+      }
+    }
+
+    // Delete cover media if not used elsewhere
+    if (video.getCoverMedia() != null && !isMediaUsedElsewhere(video.getCoverMedia().getId(), null, null, id)) {
+      try {
+        MediaAssetEntity coverAsset = video.getCoverMedia();
+        mediaStorageService.deleteObject(coverAsset.getBucketName(), coverAsset.getObjectKey());
+        mediaAssetRepository.delete(coverAsset);
+      } catch (Exception e) {
+        // Log but don't fail the deletion
+      }
+    }
+
     video.setStatus(ContentStatus.DELETED);
     video.setUpdatedAt(Instant.now());
     videoRepository.save(video);
@@ -601,5 +653,29 @@ public class ContentController {
 
   private boolean canManageContent(UserEntity user) {
     return user != null && (user.getRole() == Role.ADMIN || user.getRole() == Role.SUPER_ADMIN);
+  }
+
+  private boolean isMediaUsedElsewhere(UUID mediaAssetId, UUID excludePostId, UUID excludeAlbumId, UUID excludeVideoId) {
+    // Check if media is used in other posts
+    long postUsageCount = postRepository.countByMediaAssetIdExcludingPost(mediaAssetId, excludePostId);
+    if (postUsageCount > 0) {
+      return true;
+    }
+
+    // Check if media is used as cover in other albums
+    long albumCoverCount = albumRepository.countByCoverMediaIdExcludingAlbum(mediaAssetId, excludeAlbumId);
+    if (albumCoverCount > 0) {
+      return true;
+    }
+
+    // Check if media is used in other videos
+    long videoMediaCount = videoRepository.countByMediaAssetIdExcludingVideo(mediaAssetId, excludeVideoId);
+    if (videoMediaCount > 0) {
+      return true;
+    }
+
+    // Check if media is used as cover in other videos
+    long videoCoverCount = videoRepository.countByCoverMediaIdExcludingVideo(mediaAssetId, excludeVideoId);
+    return videoCoverCount > 0;
   }
 }

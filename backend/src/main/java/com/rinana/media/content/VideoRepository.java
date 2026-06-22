@@ -93,4 +93,28 @@ public interface VideoRepository extends JpaRepository<VideoEntity, UUID> {
     @Param("status") ContentStatus status,
     @Param("visibilities") Collection<ContentVisibility> visibilities
   );
+
+  @Query("""
+    select count(video)
+    from VideoEntity video
+    where video.mediaAsset.id = :mediaAssetId
+      and video.status != 'DELETED'
+      and (:excludeVideoId is null or video.id != :excludeVideoId)
+    """)
+  long countByMediaAssetIdExcludingVideo(
+    @Param("mediaAssetId") UUID mediaAssetId,
+    @Param("excludeVideoId") UUID excludeVideoId
+  );
+
+  @Query("""
+    select count(video)
+    from VideoEntity video
+    where video.coverMedia.id = :mediaAssetId
+      and video.status != 'DELETED'
+      and (:excludeVideoId is null or video.id != :excludeVideoId)
+    """)
+  long countByCoverMediaIdExcludingVideo(
+    @Param("mediaAssetId") UUID mediaAssetId,
+    @Param("excludeVideoId") UUID excludeVideoId
+  );
 }

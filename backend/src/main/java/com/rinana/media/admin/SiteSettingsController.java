@@ -3,6 +3,8 @@ package com.rinana.media.admin;
 import com.rinana.media.auth.ApiException;
 import com.rinana.media.auth.CurrentUserResolver;
 import com.rinana.media.common.Role;
+import com.rinana.media.media.MediaAssetEntity;
+import com.rinana.media.media.MediaAssetRepository;
 import com.rinana.media.user.UserEntity;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -22,15 +24,18 @@ public class SiteSettingsController {
   private final CurrentUserResolver currentUserResolver;
   private final SiteSettingsRepository siteSettingsRepository;
   private final AdminAuditService adminAuditService;
+  private final MediaAssetRepository mediaAssetRepository;
 
   public SiteSettingsController(
     CurrentUserResolver currentUserResolver,
     SiteSettingsRepository siteSettingsRepository,
-    AdminAuditService adminAuditService
+    AdminAuditService adminAuditService,
+    MediaAssetRepository mediaAssetRepository
   ) {
     this.currentUserResolver = currentUserResolver;
     this.siteSettingsRepository = siteSettingsRepository;
     this.adminAuditService = adminAuditService;
+    this.mediaAssetRepository = mediaAssetRepository;
   }
 
   @GetMapping
@@ -50,6 +55,15 @@ public class SiteSettingsController {
     settings.setSiteName(request.siteName().trim());
     settings.setLogoText(request.logoText().trim());
     settings.setLogoMark(request.logoMark().trim());
+
+    if (request.logoImageId() != null) {
+      MediaAssetEntity logoImage = mediaAssetRepository.findById(request.logoImageId())
+        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "MEDIA_NOT_FOUND", "Logo image not found"));
+      settings.setLogoImage(logoImage);
+    } else {
+      settings.setLogoImage(null);
+    }
+
     settings.setUpdatedBy(admin);
     settings.setUpdatedAt(Instant.now());
     SiteSettingsEntity saved = siteSettingsRepository.save(settings);

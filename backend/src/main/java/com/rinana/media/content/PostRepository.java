@@ -88,4 +88,17 @@ public interface PostRepository extends JpaRepository<PostEntity, UUID> {
     @Param("status") ContentStatus status,
     @Param("visibilities") Collection<ContentVisibility> visibilities
   );
+
+  @Query("""
+    select count(post)
+    from PostEntity post
+    join post.mediaItems mediaItem
+    where mediaItem.mediaAsset.id = :mediaAssetId
+      and post.status != 'DELETED'
+      and (:excludePostId is null or post.id != :excludePostId)
+    """)
+  long countByMediaAssetIdExcludingPost(
+    @Param("mediaAssetId") UUID mediaAssetId,
+    @Param("excludePostId") UUID excludePostId
+  );
 }

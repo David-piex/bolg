@@ -80,4 +80,16 @@ public interface AlbumRepository extends JpaRepository<AlbumEntity, UUID> {
     @Param("status") ContentStatus status,
     @Param("visibilities") Collection<ContentVisibility> visibilities
   );
+
+  @Query("""
+    select count(album)
+    from AlbumEntity album
+    where album.coverMedia.id = :mediaAssetId
+      and album.status != 'DELETED'
+      and (:excludeAlbumId is null or album.id != :excludeAlbumId)
+    """)
+  long countByCoverMediaIdExcludingAlbum(
+    @Param("mediaAssetId") UUID mediaAssetId,
+    @Param("excludeAlbumId") UUID excludeAlbumId
+  );
 }

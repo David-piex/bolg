@@ -5,6 +5,7 @@ import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
+import io.minio.RemoveObjectArgs;
 import io.minio.StatObjectArgs;
 import io.minio.http.Method;
 import org.springframework.stereotype.Service;
@@ -123,6 +124,19 @@ public class MinioMediaStorageService implements MediaStorageService {
       return expectedSizeBytes <= 0 || objectSize == expectedSizeBytes;
     } catch (Exception exception) {
       return false;
+    }
+  }
+
+  @Override
+  public void deleteObject(String bucketName, String objectKey) {
+    try {
+      storageClient.removeObject(RemoveObjectArgs.builder()
+        .bucket(bucketName)
+        .object(objectKey)
+        .build());
+      accessUrlCache.remove(bucketName + "\n" + objectKey);
+    } catch (Exception exception) {
+      throw new IllegalStateException("Media deletion failed", exception);
     }
   }
 
