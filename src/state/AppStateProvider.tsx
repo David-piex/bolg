@@ -221,6 +221,51 @@ type AppSiteState = {
   siteSettings: JavaSiteSettings;
 };
 
+type AppAdminState = {
+  adminUserPage: AdminUserPage;
+  albums: AlbumRecord[];
+  authReady: boolean;
+  authSession: AuthSession | null;
+  createAlbumWithPhoto: AppStateValue["createAlbumWithPhoto"];
+  createVideoCollectionWithVideo: AppStateValue["createVideoCollectionWithVideo"];
+  currentUser: UserProfile | null;
+  deleteContent: AppStateValue["deleteContent"];
+  deleteInvite: AppStateValue["deleteInvite"];
+  generateInvite: AppStateValue["generateInvite"];
+  invites: InviteCode[];
+  loadAdminUsersPage: AppStateValue["loadAdminUsersPage"];
+  photos: PhotoRecord[];
+  posts: PostRecord[];
+  publishPost: AppStateValue["publishPost"];
+  siteSettings: JavaSiteSettings;
+  toggleUserDisabled: AppStateValue["toggleUserDisabled"];
+  updateAlbum: AppStateValue["updateAlbum"];
+  updatePost: AppStateValue["updatePost"];
+  updateSiteSettings: AppStateValue["updateSiteSettings"];
+  updateUserLevel: AppStateValue["updateUserLevel"];
+  updateVideoCollection: AppStateValue["updateVideoCollection"];
+  users: UserProfile[];
+  videoCollections: VideoCollectionRecord[];
+  videos: VideoRecord[];
+};
+
+type AppAdminActions = Pick<
+  AppAdminState,
+  | "createAlbumWithPhoto"
+  | "createVideoCollectionWithVideo"
+  | "deleteContent"
+  | "deleteInvite"
+  | "generateInvite"
+  | "loadAdminUsersPage"
+  | "publishPost"
+  | "toggleUserDisabled"
+  | "updateAlbum"
+  | "updatePost"
+  | "updateSiteSettings"
+  | "updateUserLevel"
+  | "updateVideoCollection"
+>;
+
 const storageKey = "media-gate-state-v1";
 const defaultSiteSettings: JavaSiteSettings = {
   logoMark: "绫",
@@ -231,6 +276,7 @@ const defaultSiteSettings: JavaSiteSettings = {
 
 const AppStateContext = createContext<AppStateValue | null>(null);
 const AppAuthStateContext = createContext<AppAuthState | null>(null);
+const AppAdminStateContext = createContext<AppAdminState | null>(null);
 const AppContentStateContext = createContext<AppContentState | null>(null);
 const AppSiteStateContext = createContext<AppSiteState | null>(null);
 
@@ -1499,13 +1545,80 @@ export function AppStateProvider({
     }),
     [remoteSiteSettings, state.siteSettings]
   );
+  const appValueRef = useRef(value);
+  appValueRef.current = value;
+  const adminActions = useMemo<AppAdminActions>(() => {
+    const currentValue = () => appValueRef.current;
+
+    return {
+      createAlbumWithPhoto: (input) => currentValue().createAlbumWithPhoto(input),
+      createVideoCollectionWithVideo: (input) => currentValue().createVideoCollectionWithVideo(input),
+      deleteContent: (input) => currentValue().deleteContent(input),
+      deleteInvite: (inviteId) => currentValue().deleteInvite(inviteId),
+      generateInvite: (level, expiresAt) => currentValue().generateInvite(level, expiresAt),
+      loadAdminUsersPage: (input) => currentValue().loadAdminUsersPage(input),
+      publishPost: (input) => currentValue().publishPost(input),
+      toggleUserDisabled: (userId) => currentValue().toggleUserDisabled(userId),
+      updateAlbum: (input) => currentValue().updateAlbum(input),
+      updatePost: (input) => currentValue().updatePost(input),
+      updateSiteSettings: (input) => currentValue().updateSiteSettings(input),
+      updateUserLevel: (userId, level) => currentValue().updateUserLevel(userId, level),
+      updateVideoCollection: (input) => currentValue().updateVideoCollection(input)
+    };
+  }, []);
+  const adminState = useMemo<AppAdminState>(
+    () => ({
+      adminUserPage: value.adminUserPage,
+      albums: value.albums,
+      authReady: value.authReady,
+      authSession: value.authSession,
+      createAlbumWithPhoto: adminActions.createAlbumWithPhoto,
+      createVideoCollectionWithVideo: adminActions.createVideoCollectionWithVideo,
+      currentUser: value.currentUser,
+      deleteContent: adminActions.deleteContent,
+      deleteInvite: adminActions.deleteInvite,
+      generateInvite: adminActions.generateInvite,
+      invites: value.invites,
+      loadAdminUsersPage: adminActions.loadAdminUsersPage,
+      photos: value.photos,
+      posts: value.posts,
+      publishPost: adminActions.publishPost,
+      siteSettings: value.siteSettings,
+      toggleUserDisabled: adminActions.toggleUserDisabled,
+      updateAlbum: adminActions.updateAlbum,
+      updatePost: adminActions.updatePost,
+      updateSiteSettings: adminActions.updateSiteSettings,
+      updateUserLevel: adminActions.updateUserLevel,
+      updateVideoCollection: adminActions.updateVideoCollection,
+      users: value.users,
+      videoCollections: value.videoCollections,
+      videos: value.videos
+    }),
+    [
+      adminActions,
+      value.adminUserPage,
+      value.albums,
+      value.authReady,
+      value.authSession,
+      value.currentUser,
+      value.invites,
+      value.photos,
+      value.posts,
+      value.siteSettings,
+      value.users,
+      value.videoCollections,
+      value.videos
+    ]
+  );
 
   return (
     <AppStateContext.Provider value={value}>
       <AppAuthStateContext.Provider value={authState}>
-        <AppContentStateContext.Provider value={contentState}>
-          <AppSiteStateContext.Provider value={siteState}>{children}</AppSiteStateContext.Provider>
-        </AppContentStateContext.Provider>
+        <AppAdminStateContext.Provider value={adminState}>
+          <AppContentStateContext.Provider value={contentState}>
+            <AppSiteStateContext.Provider value={siteState}>{children}</AppSiteStateContext.Provider>
+          </AppContentStateContext.Provider>
+        </AppAdminStateContext.Provider>
       </AppAuthStateContext.Provider>
     </AppStateContext.Provider>
   );
@@ -1523,6 +1636,14 @@ export function useAppAuthState(): AppAuthState {
   const context = useContext(AppAuthStateContext);
   if (!context) {
     throw new Error("useAppAuthState must be used inside AppStateProvider");
+  }
+  return context;
+}
+
+export function useAppAdminState(): AppAdminState {
+  const context = useContext(AppAdminStateContext);
+  if (!context) {
+    throw new Error("useAppAdminState must be used inside AppStateProvider");
   }
   return context;
 }

@@ -35,7 +35,7 @@ import {
   type JavaMediaAsset,
   type JavaMediaType
 } from "@/services/java-api-client";
-import { useAppState } from "@/state/AppStateProvider";
+import { useAppAdminState } from "@/state/AppStateProvider";
 import type { ContentRecordStatus } from "@/data/mock-data";
 
 type Dictionary = ReturnType<typeof getDictionary>;
@@ -303,7 +303,7 @@ export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictiona
     updateAlbum,
     updateVideoCollection,
     deleteContent
-  } = useAppState();
+  } = useAppAdminState();
   const [newInviteLevel, setNewInviteLevel] = useState<EditableLevel>("normal");
   const [newInviteExpiresAt, setNewInviteExpiresAt] = useState("");
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);

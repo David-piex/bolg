@@ -107,11 +107,15 @@ class MediaControllerTest {
 
     mvc.perform(get("/api/media/" + mediaId + "/access").cookie(adminCookie))
       .andExpect(status().isOk())
+      .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control", "private, max-age=300"))
+      .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Vary", "Cookie, Authorization"))
       .andExpect(jsonPath("$.url").value("http://minio.local/images/test-image.png"))
       .andExpect(jsonPath("$.expiresAt").value("2026-01-01T00:15:00Z"));
 
     mvc.perform(get("/api/media/" + mediaId + "/view").cookie(adminCookie))
       .andExpect(status().isFound())
+      .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control", "private, max-age=300"))
+      .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Vary", "Cookie, Authorization"))
       .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Location", "http://minio.local/images/test-image.png"));
   }
 
