@@ -579,6 +579,23 @@ class ContentControllerTest {
       .andExpect(jsonPath("$.posts", hasSize(0)));
   }
 
+  @Test
+  void adminCanDeleteAlbumWithCoverMediaAndDeletedAlbumStaysHidden() throws Exception {
+    Cookie adminCookie = login("admin", "admin123456");
+    MediaAssetEntity cover = createMediaAsset("images/delete-album-cover.jpg", com.rinana.media.media.MediaType.IMAGE);
+    String albumId = createAlbumAndReturnId(adminCookie, "delete album", "PUBLIC", cover.getId());
+
+    mvc.perform(delete("/api/content/albums/" + albumId).cookie(adminCookie))
+      .andExpect(status().isNoContent());
+
+    mvc.perform(get("/api/content").cookie(adminCookie))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.albums", hasSize(0)));
+
+    mvc.perform(get("/api/content/albums/" + albumId).cookie(adminCookie))
+      .andExpect(status().isNotFound());
+  }
+
   private void createPost(Cookie adminCookie, String title, String visibility) throws Exception {
     createPost(adminCookie, title, visibility, "body");
   }

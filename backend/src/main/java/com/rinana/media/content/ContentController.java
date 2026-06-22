@@ -40,7 +40,6 @@ public class ContentController {
   private final MediaAssetRepository mediaAssetRepository;
   private final PostRepository postRepository;
   private final VideoRepository videoRepository;
-  private final com.rinana.media.media.MediaStorageService mediaStorageService;
 
   public ContentController(
     CurrentUserResolver currentUserResolver,
@@ -48,8 +47,7 @@ public class ContentController {
     ContentFeedCache contentFeedCache,
     MediaAssetRepository mediaAssetRepository,
     PostRepository postRepository,
-    VideoRepository videoRepository,
-    com.rinana.media.media.MediaStorageService mediaStorageService
+    VideoRepository videoRepository
   ) {
     this.currentUserResolver = currentUserResolver;
     this.albumRepository = albumRepository;
@@ -57,7 +55,6 @@ public class ContentController {
     this.mediaAssetRepository = mediaAssetRepository;
     this.postRepository = postRepository;
     this.videoRepository = videoRepository;
-    this.mediaStorageService = mediaStorageService;
   }
 
   @GetMapping
@@ -134,7 +131,7 @@ public class ContentController {
     UserEntity viewer = currentViewerOrVisitor(request);
     boolean canManage = canManageContent(viewer);
     return postRepository.findById(id)
-      .filter(post -> canManage || post.getStatus() == ContentStatus.PUBLISHED)
+      .filter(post -> canViewContentStatus(post.getStatus(), canManage))
       .filter(post -> visibleLevelsFor(viewer).contains(post.getVisibility()))
       .map(PostResponse::from)
       .orElseThrow(this::contentNotFound);
@@ -172,7 +169,7 @@ public class ContentController {
     UserEntity viewer = currentViewerOrVisitor(request);
     boolean canManage = canManageContent(viewer);
     return albumRepository.findById(id)
-      .filter(album -> canManage || album.getStatus() == ContentStatus.PUBLISHED)
+      .filter(album -> canViewContentStatus(album.getStatus(), canManage))
       .filter(album -> visibleLevelsFor(viewer).contains(album.getVisibility()))
       .map(AlbumResponse::from)
       .orElseThrow(this::contentNotFound);
@@ -210,7 +207,7 @@ public class ContentController {
     UserEntity viewer = currentViewerOrVisitor(request);
     boolean canManage = canManageContent(viewer);
     return videoRepository.findById(id)
-      .filter(video -> canManage || video.getStatus() == ContentStatus.PUBLISHED)
+      .filter(video -> canViewContentStatus(video.getStatus(), canManage))
       .filter(video -> visibleLevelsFor(viewer).contains(video.getVisibility()))
       .map(VideoResponse::from)
       .orElseThrow(this::contentNotFound);
@@ -369,19 +366,6 @@ public class ContentController {
     PostEntity post = postRepository.findById(id)
       .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CONTENT_NOT_FOUND", "Content not found"));
 
-    // Delete associated media files from storage
-    for (PostMediaEntity mediaItem : post.getMediaItems()) {
-      MediaAssetEntity asset = mediaItem.getMediaAsset();
-      if (asset != null && !isMediaUsedElsewhere(asset.getId(), id, null, null)) {
-        try {
-          mediaStorageService.deleteObject(asset.getBucketName(), asset.getObjectKey());
-          mediaAssetRepository.delete(asset);
-        } catch (Exception e) {
-          // Log but don't fail the deletion
-        }
-      }
-    }
-
     post.setStatus(ContentStatus.DELETED);
     post.setUpdatedAt(Instant.now());
     postRepository.save(post);
@@ -395,17 +379,6 @@ public class ContentController {
     requireAdmin(servletRequest);
     AlbumEntity album = albumRepository.findById(id)
       .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CONTENT_NOT_FOUND", "Content not found"));
-
-    // Delete cover media if not used elsewhere
-    if (album.getCoverMedia() != null && !isMediaUsedElsewhere(album.getCoverMedia().getId(), null, id, null)) {
-      try {
-        MediaAssetEntity coverAsset = album.getCoverMedia();
-        mediaStorageService.deleteObject(coverAsset.getBucketName(), coverAsset.getObjectKey());
-        mediaAssetRepository.delete(coverAsset);
-      } catch (Exception e) {
-        // Log but don't fail the deletion
-      }
-    }
 
     album.setStatus(ContentStatus.DELETED);
     album.setUpdatedAt(Instant.now());
@@ -421,28 +394,6 @@ public class ContentController {
     VideoEntity video = videoRepository.findById(id)
       .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CONTENT_NOT_FOUND", "Content not found"));
 
-    // Delete video media if not used elsewhere
-    if (video.getMediaAsset() != null && !isMediaUsedElsewhere(video.getMediaAsset().getId(), null, null, id)) {
-      try {
-        MediaAssetEntity videoAsset = video.getMediaAsset();
-        mediaStorageService.deleteObject(videoAsset.getBucketName(), videoAsset.getObjectKey());
-        mediaAssetRepository.delete(videoAsset);
-      } catch (Exception e) {
-        // Log but don't fail the deletion
-      }
-    }
-
-    // Delete cover media if not used elsewhere
-    if (video.getCoverMedia() != null && !isMediaUsedElsewhere(video.getCoverMedia().getId(), null, null, id)) {
-      try {
-        MediaAssetEntity coverAsset = video.getCoverMedia();
-        mediaStorageService.deleteObject(coverAsset.getBucketName(), coverAsset.getObjectKey());
-        mediaAssetRepository.delete(coverAsset);
-      } catch (Exception e) {
-        // Log but don't fail the deletion
-      }
-    }
-
     video.setStatus(ContentStatus.DELETED);
     video.setUpdatedAt(Instant.now());
     videoRepository.save(video);
@@ -457,6 +408,10 @@ public class ContentController {
       .filter(visibility -> visibility == ContentVisibility.PUBLIC
         || viewer != null && VisibilityPolicy.canView(role, memberLevel, visibility))
       .toList();
+  }
+
+  private boolean canViewContentStatus(ContentStatus status, boolean canManage) {
+    return status != ContentStatus.DELETED && (canManage || status == ContentStatus.PUBLISHED);
   }
 
   private int safePage(int page) {
@@ -655,27 +610,4 @@ public class ContentController {
     return user != null && (user.getRole() == Role.ADMIN || user.getRole() == Role.SUPER_ADMIN);
   }
 
-  private boolean isMediaUsedElsewhere(UUID mediaAssetId, UUID excludePostId, UUID excludeAlbumId, UUID excludeVideoId) {
-    // Check if media is used in other posts
-    long postUsageCount = postRepository.countByMediaAssetIdExcludingPost(mediaAssetId, excludePostId);
-    if (postUsageCount > 0) {
-      return true;
-    }
-
-    // Check if media is used as cover in other albums
-    long albumCoverCount = albumRepository.countByCoverMediaIdExcludingAlbum(mediaAssetId, excludeAlbumId);
-    if (albumCoverCount > 0) {
-      return true;
-    }
-
-    // Check if media is used in other videos
-    long videoMediaCount = videoRepository.countByMediaAssetIdExcludingVideo(mediaAssetId, excludeVideoId);
-    if (videoMediaCount > 0) {
-      return true;
-    }
-
-    // Check if media is used as cover in other videos
-    long videoCoverCount = videoRepository.countByCoverMediaIdExcludingVideo(mediaAssetId, excludeVideoId);
-    return videoCoverCount > 0;
-  }
 }
