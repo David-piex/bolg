@@ -26,8 +26,6 @@ const nextConfig = {
   // 启用Gzip压缩
   compress: true,
 
-  // 减少构建内存占用
-  // SWC优化
   async rewrites() {
     return [
       {
