@@ -421,6 +421,21 @@ class MediaControllerTest {
       .andExpect(jsonPath("$.url").value("http://minio.local/images/draft-only.jpg"));
   }
 
+  @Test
+  void malformedAccessCookieDoesNotBreakPublicMediaAccess() throws Exception {
+    Cookie malformedCookie = new Cookie("rinana_access_token", "not-a-jwt");
+    UserEntity admin = userRepository.findByUsername("admin").orElseThrow();
+    MediaAssetEntity asset = createMediaAsset(admin, "images/public-cookie-test.jpg", com.rinana.media.media.MediaType.IMAGE);
+    createPublishedVideo(admin, asset, ContentVisibility.PUBLIC);
+    given(mediaStorageService.createAccessUrl("rinana-media", "images/public-cookie-test.jpg")).willReturn(
+      new MediaAccessUrl(URI.create("http://minio.local/images/public-cookie-test.jpg"), Instant.parse("2026-01-01T00:15:00Z"))
+    );
+
+    mvc.perform(get("/api/media/" + asset.getId() + "/access").cookie(malformedCookie))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.url").value("http://minio.local/images/public-cookie-test.jpg"));
+  }
+
   private Cookie loginUser(String username) throws Exception {
     UserEntity user = new UserEntity();
     user.setUsername(username);

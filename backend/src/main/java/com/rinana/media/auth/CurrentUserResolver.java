@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.UUID;
 
 @Component
 public class CurrentUserResolver {
@@ -36,6 +37,21 @@ public class CurrentUserResolver {
     if (token == null || token.isBlank()) {
       return Optional.empty();
     }
-    return Optional.of(authService.requireUser(jwtService.parseUserId(token)));
+
+    UUID userId;
+    try {
+      userId = jwtService.parseUserId(token);
+    } catch (RuntimeException exception) {
+      return Optional.empty();
+    }
+
+    try {
+      return Optional.of(authService.requireUser(userId));
+    } catch (ApiException exception) {
+      if (exception.getStatus() == HttpStatus.UNAUTHORIZED) {
+        return Optional.empty();
+      }
+      throw exception;
+    }
   }
 }
