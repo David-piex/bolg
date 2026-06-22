@@ -110,6 +110,14 @@ export type JavaMediaAccess = {
   url: string;
 };
 
+type CachedMediaAccess = {
+  access: JavaMediaAccess;
+  expiresAtMs: number;
+};
+
+const MEDIA_ACCESS_REFRESH_MARGIN_MS = 60_000;
+const mediaAccessCache = new Map<string, CachedMediaAccess>();
+
 export type JavaDirectUploadRequest = {
   mediaType: JavaMediaType;
   mimeType: string;
@@ -526,7 +534,22 @@ export async function listMedia(input: ListMediaInput = {}): Promise<JavaMediaAs
 }
 
 export async function getMediaAccess(mediaId: string): Promise<JavaMediaAccess> {
-  return request<JavaMediaAccess>(`/api/media/${encodeURIComponent(mediaId)}/access`, { method: "GET" });
+  const now = Date.now();
+  const cached = mediaAccessCache.get(mediaId);
+  if (cached && cached.expiresAtMs - MEDIA_ACCESS_REFRESH_MARGIN_MS > now) {
+    return cached.access;
+  }
+
+  const access = await request<JavaMediaAccess>(`/api/media/${encodeURIComponent(mediaId)}/access`, { method: "GET" });
+  const expiresAtMs = Date.parse(access.expiresAt);
+  if (Number.isFinite(expiresAtMs)) {
+    mediaAccessCache.set(mediaId, { access, expiresAtMs });
+  }
+  return access;
+}
+
+export function clearMediaAccessCache(): void {
+  mediaAccessCache.clear();
 }
 
 async function uploadMedia(path: string, file: File): Promise<JavaMediaAsset> {

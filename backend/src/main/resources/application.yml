@@ -5,6 +5,12 @@ spring:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/rinana}
     username: ${DATABASE_USERNAME:rinana}
     password: ${DATABASE_PASSWORD:rinana}
+    hikari:
+      maximum-pool-size: ${DATABASE_MAX_POOL_SIZE:12}
+      minimum-idle: ${DATABASE_MIN_IDLE:2}
+      connection-timeout: ${DATABASE_CONNECTION_TIMEOUT_MS:10000}
+      idle-timeout: ${DATABASE_IDLE_TIMEOUT_MS:300000}
+      max-lifetime: ${DATABASE_MAX_LIFETIME_MS:1800000}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -25,6 +31,8 @@ rinana:
     jwt-secret: ${JWT_SECRET:}
     access-token-minutes: 15
     refresh-token-days: 14
+  content:
+    feed-cache-ttl-ms: ${CONTENT_FEED_CACHE_TTL_MS:300000}
   super-admin:
     username: ${SUPER_ADMIN_USERNAME:admin}
     email: ${SUPER_ADMIN_EMAIL:admin@example.com}

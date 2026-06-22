@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   JavaApiError,
+  clearMediaAccessCache,
   completeDirectUpload,
   createDirectUpload,
   createAlbum,
@@ -10,6 +11,7 @@ import {
   createVideo,
   getAlbum,
   getMe,
+  getMediaAccess,
   getPost,
   getVideo,
   listMedia,
@@ -25,7 +27,9 @@ import {
 
 describe("java api client", () => {
   afterEach(() => {
+    clearMediaAccessCache();
     vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   it("uses same-origin auth endpoints with cookies", async () => {
@@ -173,6 +177,40 @@ describe("java api client", () => {
       method: "POST"
     }));
     expect(fetchMock).toHaveBeenNthCalledWith(5, "/api/media?mediaType=IMAGE&page=1&size=8&q=cover", expect.objectContaining({
+      credentials: "include",
+      method: "GET"
+    }));
+  });
+
+  it("caches media access URLs until they are close to expiry", async () => {
+    vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse({
+        expiresAt: "2026-01-01T00:10:00Z",
+        url: "https://media.example.com/signed-1"
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        expiresAt: "2026-01-01T00:20:00Z",
+        url: "https://media.example.com/signed-2"
+      }));
+
+    await expect(getMediaAccess("media/1")).resolves.toMatchObject({
+      url: "https://media.example.com/signed-1"
+    });
+    await expect(getMediaAccess("media/1")).resolves.toMatchObject({
+      url: "https://media.example.com/signed-1"
+    });
+
+    vi.setSystemTime(new Date("2026-01-01T00:09:01Z"));
+    await expect(getMediaAccess("media/1")).resolves.toMatchObject({
+      url: "https://media.example.com/signed-2"
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/media/media%2F1/access", expect.objectContaining({
+      credentials: "include",
+      method: "GET"
+    }));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/media/media%2F1/access", expect.objectContaining({
       credentials: "include",
       method: "GET"
     }));
