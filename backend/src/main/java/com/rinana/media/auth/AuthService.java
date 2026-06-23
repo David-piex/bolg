@@ -59,7 +59,18 @@ public class AuthService {
 
     invite.setUsedCount(invite.getUsedCount() + 1);
     inviteCodeRepository.save(invite);
-    return userRepository.saveUser(user);
+
+    try {
+      return userRepository.saveUser(user);
+    } catch (org.springframework.dao.DataIntegrityViolationException exception) {
+      if (userRepository.existsByUsername(request.username())) {
+        throw new ApiException(HttpStatus.BAD_REQUEST, "USERNAME_EXISTS", "用户名已存在");
+      }
+      if (userRepository.existsByEmail(normalizedEmail)) {
+        throw new ApiException(HttpStatus.BAD_REQUEST, "EMAIL_EXISTS", "邮箱已存在");
+      }
+      throw new ApiException(HttpStatus.BAD_REQUEST, "REGISTRATION_FAILED", "注册失败，该用户名或邮箱已被使用");
+    }
   }
 
   public UserEntity login(LoginRequest request) {

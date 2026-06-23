@@ -31,6 +31,7 @@ public class ContentFeedCache {
   private final StringRedisTemplate redisTemplate;
   private final ObjectMapper objectMapper;
   private final Duration ttl;
+  private volatile boolean lastEvictionFailed = false;
 
   public ContentFeedCache(
     StringRedisTemplate redisTemplate,
@@ -54,6 +55,13 @@ public class ContentFeedCache {
   }
 
   public Optional<ContentFeedResponse> get(String audienceKey) {
+    if (lastEvictionFailed) {
+      try {
+        evictAll();
+      } catch (Exception exception) {
+        return Optional.empty();
+      }
+    }
     try {
       String cachedJson = redisTemplate.opsForValue().get(redisKey(audienceKey));
       if (cachedJson == null || cachedJson.isBlank()) {
@@ -76,14 +84,22 @@ public class ContentFeedCache {
 
   public void evictAllAfterCommit() {
     if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-      evictAll();
+      try {
+        evictAll();
+      } catch (Exception e) {
+        log.warn("Direct cache eviction failed: {}", e.getMessage());
+      }
       return;
     }
 
     TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
       @Override
       public void afterCommit() {
-        evictAll();
+        try {
+          evictAll();
+        } catch (Exception e) {
+          log.warn("Post-commit cache eviction failed: {}", e.getMessage());
+        }
       }
     });
   }
@@ -93,8 +109,11 @@ public class ContentFeedCache {
       redisTemplate.delete(AUDIENCE_KEYS.stream()
         .map(this::redisKey)
         .toList());
+      lastEvictionFailed = false;
     } catch (Exception exception) {
+      lastEvictionFailed = true;
       log.debug("Content feed cache eviction failed", exception);
+      throw exception;
     }
   }
 

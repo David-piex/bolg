@@ -382,7 +382,7 @@ function hydrateState(saved: Partial<PersistedState>): PersistedState {
     videos: saved.videos ?? initial.videos,
     siteSettings: saved.siteSettings ?? initial.siteSettings,
     currentUserId: saved.currentUserId ?? initial.currentUserId,
-    authSession: saved.authSession ?? initial.authSession
+    authSession: null
   };
 }
 
@@ -679,7 +679,11 @@ export function AppStateProvider({
     }
 
     const timer = window.setTimeout(() => {
-      const serialized = JSON.stringify(state);
+      const stateToPersist = {
+        ...state,
+        authSession: null
+      };
+      const serialized = JSON.stringify(stateToPersist);
       if (serialized === lastPersistedStateRef.current) {
         return;
       }

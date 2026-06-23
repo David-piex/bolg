@@ -21,7 +21,40 @@ export function LoginView({ dictionary }: { dictionary: Dictionary }) {
   const [message, setMessage] = useState<string | null>(null);
 
   async function onRegister() {
-    const result = await registerWithPassword({ name, email, inviteCode, password });
+    setMessage(null);
+    const isZh = dictionary.nav.home === "首页";
+    
+    const trimmedInvite = inviteCode.trim();
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+    
+    if (!trimmedInvite) {
+      setMessage(isZh ? "请输入邀请码" : "Please enter the invite code");
+      return;
+    }
+    if (!trimmedName) {
+      setMessage(isZh ? "请输入昵称" : "Please enter your name");
+      return;
+    }
+    if (!trimmedEmail) {
+      setMessage(isZh ? "请输入邮箱" : "Please enter your email");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setMessage(isZh ? "邮箱格式不正确" : "Invalid email address format");
+      return;
+    }
+    if (!password) {
+      setMessage(isZh ? "请输入密码" : "Please enter a password");
+      return;
+    }
+    if (password.length < 8) {
+      setMessage(isZh ? "密码长度至少为 8 位" : "Password must be at least 8 characters long");
+      return;
+    }
+
+    const result = await registerWithPassword({ name: trimmedName, email: trimmedEmail, inviteCode: trimmedInvite, password });
     if (result.ok) {
       setMessage(dictionary.auth.registered);
       setMode("login");
@@ -36,7 +69,25 @@ export function LoginView({ dictionary }: { dictionary: Dictionary }) {
   }
 
   async function onLogin() {
-    const result = await loginWithPassword({ email, password });
+    setMessage(null);
+    const isZh = dictionary.nav.home === "首页";
+    
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setMessage(isZh ? "请输入邮箱" : "Please enter your email");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setMessage(isZh ? "邮箱格式不正确" : "Invalid email address format");
+      return;
+    }
+    if (!password) {
+      setMessage(isZh ? "请输入密码" : "Please enter your password");
+      return;
+    }
+
+    const result = await loginWithPassword({ email: trimmedEmail, password });
     if (result.ok) {
       setMessage(dictionary.auth.loggedIn);
       setPassword("");

@@ -1,6 +1,21 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { Plus_Jakarta_Sans, Comfortaa } from "next/font/google";
 import "@/app/globals.css";
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  weight: ["300", "400", "500", "600", "700", "800"],
+  display: "swap",
+});
+
+const comfortaa = Comfortaa({
+  subsets: ["latin"],
+  variable: "--font-comfortaa",
+  weight: ["500", "700"],
+  display: "swap",
+});
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
@@ -12,7 +27,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="zh">
+    <html lang="zh" className={`${plusJakartaSans.variable} ${comfortaa.variable}`}>
       <body>{children}</body>
     </html>
   );

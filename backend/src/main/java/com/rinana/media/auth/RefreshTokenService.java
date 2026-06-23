@@ -35,6 +35,9 @@ public class RefreshTokenService {
   }
 
   public String create(UserEntity user) {
+    if (fallbackTokens.size() > 100) {
+      fallbackTokens.entrySet().removeIf(entry -> entry.getValue().isExpired());
+    }
     String token = UUID.randomUUID() + "." + UUID.randomUUID();
     try {
       redisTemplate.opsForValue().set(keyFor(token), user.getId().toString(), refreshTtl);

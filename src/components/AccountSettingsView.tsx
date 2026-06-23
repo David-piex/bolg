@@ -75,6 +75,24 @@ export function AccountSettingsView({ dictionary }: { dictionary: Dictionary }) 
 
   async function onChangePassword() {
     setMessage(null);
+    const isZh = dictionary.nav.home === "首页";
+
+    if (!oldPassword) {
+      setMessage({ kind: "error", text: isZh ? "请输入原密码" : "Please enter your old password" });
+      return;
+    }
+    if (!newPassword) {
+      setMessage({ kind: "error", text: isZh ? "请输入新密码" : "Please enter a new password" });
+      return;
+    }
+    if (newPassword.length < 8) {
+      setMessage({ kind: "error", text: isZh ? "新密码长度至少为 8 位" : "New password must be at least 8 characters long" });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setMessage({ kind: "error", text: isZh ? "两次输入的密码不一致" : "New password and confirmation password do not match" });
+      return;
+    }
 
     try {
       const nextProfile = await changeAccountPassword({
@@ -94,11 +112,31 @@ export function AccountSettingsView({ dictionary }: { dictionary: Dictionary }) 
 
   async function onChangeEmail() {
     setMessage(null);
+    const isZh = dictionary.nav.home === "首页";
+
+    if (!emailPassword) {
+      setMessage({ kind: "error", text: isZh ? "请输入密码以验证身份" : "Please enter your password for verification" });
+      return;
+    }
+    const trimmedEmail = newEmail.trim();
+    if (!trimmedEmail) {
+      setMessage({ kind: "error", text: isZh ? "请输入新邮箱" : "Please enter your new email" });
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setMessage({ kind: "error", text: isZh ? "新邮箱格式不正确" : "Invalid email address format" });
+      return;
+    }
+    if (trimmedEmail !== confirmEmail.trim()) {
+      setMessage({ kind: "error", text: isZh ? "两次输入的邮箱不一致" : "New email and confirmation email do not match" });
+      return;
+    }
 
     try {
       const nextProfile = await changeAccountEmail({
-        confirmEmail,
-        newEmail,
+        confirmEmail: confirmEmail.trim(),
+        newEmail: trimmedEmail,
         oldPassword: emailPassword
       });
       setProfile(nextProfile);
