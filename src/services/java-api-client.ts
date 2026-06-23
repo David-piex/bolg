@@ -587,6 +587,12 @@ function contentPagePath(path: string, input: ListContentPageInput): string {
   return `${path}${query ? `?${query}` : ""}`;
 }
 
+let onUnauthenticated: (() => void) | null = null;
+
+export function registerUnauthenticatedListener(listener: () => void): void {
+  onUnauthenticated = listener;
+}
+
 async function request<T>(path: string, init: RequestInit, retryAuth = true): Promise<T> {
   const headers = new Headers(init.headers);
   if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
@@ -605,10 +611,15 @@ async function request<T>(path: string, init: RequestInit, retryAuth = true): Pr
     headers
   });
 
-  if (response.status === 401 && retryAuth && shouldRefreshAuthentication(path)) {
-    const refreshed = await refreshAuthentication();
-    if (refreshed) {
-      return request<T>(path, init, false);
+  if (response.status === 401) {
+    if (retryAuth && shouldRefreshAuthentication(path)) {
+      const refreshed = await refreshAuthentication();
+      if (refreshed) {
+        return request<T>(path, init, false);
+      }
+    }
+    if (onUnauthenticated) {
+      onUnauthenticated();
     }
   }
 

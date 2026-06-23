@@ -47,13 +47,22 @@ html,
 body {
   margin: 0;
   min-height: 100%;
+  color: var(--ink);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
   background:
     radial-gradient(circle at 10% 10%, rgba(255, 192, 203, 0.4) 0%, transparent 40%),
     radial-gradient(circle at 90% 80%, rgba(230, 200, 250, 0.4) 0%, transparent 40%),
     radial-gradient(circle at 50% 50%, rgba(255, 240, 245, 0.8) 0%, transparent 70%),
     linear-gradient(135deg, #FFF9FB 0%, #FFF0F6 50%, #FAF5FF 100%);
-  background-attachment: fixed;
-  color: var(--ink);
+  pointer-events: none;
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 body {
