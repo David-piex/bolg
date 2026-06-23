@@ -39,7 +39,7 @@ import {
   logoutClient,
   type ClientLoginSession
 } from "@/services/auth-client";
-import { getSiteSettings, updateSiteSettings as updateRemoteSiteSettings, registerUnauthenticatedListener, type JavaSiteSettings } from "@/services/java-api-client";
+import { getSiteSettings, updateSiteSettings as updateRemoteSiteSettings, type JavaSiteSettings } from "@/services/java-api-client";
 import type { ContentDataset } from "@/data/repository";
 import {
   albums as seedAlbums,
@@ -617,20 +617,6 @@ export function AppStateProvider({
       setState(hydrateState(JSON.parse(saved) as Partial<PersistedState>));
     }
     setHydrated(true);
-
-    registerUnauthenticatedListener(() => {
-      setState((current) => {
-        if (current.authSession || current.currentUserId) {
-          return {
-            ...current,
-            authSession: null,
-            currentUserId: null
-          };
-        }
-        return current;
-      });
-      setRemoteAdminUserPage(null);
-    });
   }, []);
 
   useEffect(() => {
