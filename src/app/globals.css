@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&family=Noto+Serif+SC:wght@600;800;900&display=swap');
+
 :root {
   color-scheme: light;
   --bg: #fff5fa;
@@ -29,7 +31,7 @@
   --max-page: 1200px;
 
   /* Fonts */
-  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
   font-weight: 400;
 
   /* Transitions */
@@ -149,7 +151,7 @@ textarea:focus-visible {
   border-radius: 14px;
   background: linear-gradient(135deg, #FF75B3 0%, #FF3388 100%);
   color: #FFFFFF;
-  font-family: var(--font-comfortaa), cursive, sans-serif;
+  font-family: 'Comfortaa', cursive, sans-serif;
   font-size: 1.25rem;
   font-weight: 700;
   box-shadow:
@@ -169,7 +171,7 @@ textarea:focus-visible {
 }
 
 .brand-text {
-  font-family: var(--font-comfortaa), cursive, sans-serif;
+  font-family: 'Comfortaa', cursive, sans-serif;
   font-size: 1.2rem;
   font-weight: 700;
   line-height: 1.1;
