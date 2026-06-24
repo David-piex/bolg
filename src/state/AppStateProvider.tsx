@@ -39,7 +39,7 @@ import {
   logoutClient,
   type ClientLoginSession
 } from "@/services/auth-client";
-import { getSiteSettings, updateSiteSettings as updateRemoteSiteSettings, type JavaSiteSettings } from "@/services/java-api-client";
+import { getSiteSettings, updateSiteSettings as updateRemoteSiteSettings, JavaApiError, type JavaSiteSettings } from "@/services/java-api-client";
 import type { ContentDataset } from "@/data/repository";
 import {
   albums as seedAlbums,
@@ -1015,17 +1015,29 @@ export function AppStateProvider({
         const query = input.q?.trim().toLowerCase() ?? "";
 
         if (state.authSession?.accessToken) {
-          const nextPage = await fetchRemoteAdminUsers(state.authSession.accessToken, {
-            page,
-            q: input.q,
-            size
-          });
-          setRemoteAdminUserPage(nextPage);
-          setState((current) => ({
-            ...current,
-            users: mergeRemoteUsers(current.users, nextPage.users)
-          }));
-          return;
+          try {
+            const nextPage = await fetchRemoteAdminUsers(state.authSession.accessToken, {
+              page,
+              q: input.q,
+              size
+            });
+            setRemoteAdminUserPage(nextPage);
+            setState((current) => ({
+              ...current,
+              users: mergeRemoteUsers(current.users, nextPage.users)
+            }));
+            return;
+          } catch (error) {
+            if (error instanceof JavaApiError && error.status === 401) {
+              setState((current) => ({
+                ...current,
+                authSession: null,
+                currentUserId: null
+              }));
+              setRemoteAdminUserPage(null);
+            }
+            throw error;
+          }
         }
 
         const filteredUsers = query

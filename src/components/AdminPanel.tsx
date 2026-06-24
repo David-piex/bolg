@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -571,7 +571,7 @@ export function AdminPanel({ dictionary, locale = "zh" }: { dictionary: Dictiona
   }
 
   useEffect(() => {
-    if (!authReady) {
+    if (!authReady || !authSession?.accessToken) {
       return;
     }
 
